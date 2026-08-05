@@ -348,6 +348,39 @@ semantics (dedupe rules? overwrite vs. merge? validation on bad rows?)
 that are easy to get wrong and hard to undo once someone's uploaded a
 file. Confirm with the user before building either.
 
+## Update: CSV import, and the answer on data isolation (eighth session)
+
+The user clarified the intended model directly: user accounts stay
+shared across every event, but everything else should be "almost fully
+separate" per event, with the ability to copy data from one event into
+another when needed. That's what's actually built as of the seventh
+session (`householdsForEvent` already scopes strictly to one event) —
+nothing needed to change there. What was missing was the "copy when
+needed" half, now closed:
+
+- `packages/database/src/scoped/households.ts` gained
+  `importHouseholdsForEvent(session, input)` — bulk-creates/updates
+  Households + a Subscription + a SubscriptionEvent from a CSV, using the
+  **same column contract as the export route** (Name, Email, Phone,
+  Address, Placement note, Access notes, Amount, Status, Skipped), so
+  export → edit → import round-trips, and exporting event A + importing
+  into event B is literally how "copy from another event" works — no
+  separate clone feature needed.
+- Dedup rule: an Email that matches an existing Household in the org
+  (case-insensitive) updates that household in place; otherwise a new
+  one is created. No address-based fuzzy matching — deliberately, since
+  a wrong fuzzy match silently merges two different households.
+- A bad row (missing Name/Address) is skipped and reported by row
+  number, not aborted — one bad row shouldn't block the rest of a real
+  import. Errors are shown back in the UI, not swallowed.
+- Only available on events that have a `seasonId` — events created via
+  "Create a custom event" (fundraiser, flyer delivery, etc.) don't use
+  the Household/Subscription model at all yet, so import is hidden for
+  those with an explanation rather than silently failing.
+- Staff-gated independently inside `importHouseholdsForEvent` itself
+  (not just in the calling server action) — a write like this shouldn't
+  rely on every future caller remembering to check first.
+
 ## What's still not built (the rest of Phase 1)
 
 - **Stripe Checkout, webhook, confirmation email.** No Stripe keys exist
@@ -357,11 +390,13 @@ file. Confirm with the user before building either.
 - **Invite-key redemption** (SPEC.md Phase 5). `/welcome`'s volunteer
   path is a stated interest, not a grant — an Owner/Admin still assigns
   the role by hand in `/admin/users`.
-- **CSV/JSON import**, per-event. See above — deliberately not guessed.
-- **Household de-duplication.** Every submission creates a new
-  `Household` row, even for a repeat signup from the same address —
-  matching/merging logic isn't built (would matter more once renewals
-  and Phase 2's stop generation exist).
+- **Import for non-season events.** A fundraiser/flyer-delivery event
+  has no Household/Subscription data model yet — that's Phase 2+'s
+  Stop/Signup/Visit models, not built.
+- **Household de-duplication beyond exact-email matching.** A repeat
+  signup with no email, or a different email, still creates a new
+  `Household` row — real fuzzy matching isn't built (would matter more
+  once renewals and Phase 2's stop generation exist).
 - **Editing or deleting a season/event.** The admin screen only creates;
   fixing a typo in a generated event currently means going to the
   database directly.

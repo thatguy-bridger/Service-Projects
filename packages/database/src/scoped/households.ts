@@ -1,4 +1,4 @@
-import { Prisma } from "@prisma/client";
+import { Prisma, type SubStatus } from "@prisma/client";
 import { prisma } from "../client";
 import { isStaff, resolveMembership, type SessionLike } from "./membership";
 
@@ -71,6 +71,185 @@ export async function householdsForEvent(
       accessNotes: se.subscription.household.accessNotes,
     },
   }));
+}
+
+// Minimal RFC-4180-ish CSV parser (quoted fields, escaped "" quotes,
+// \r\n or \n line endings) — hand-written rather than a dependency,
+// consistent with the rest of this app's low-dependency approach. Not a
+// general-purpose CSV library: good enough for the fixed column set
+// this app's own export produces.
+function parseCsvTable(text: string): string[][] {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let field = "";
+  let inQuotes = false;
+
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inQuotes) {
+      if (c === '"') {
+        if (text[i + 1] === '"') {
+          field += '"';
+          i++;
+        } else {
+          inQuotes = false;
+        }
+      } else {
+        field += c;
+      }
+    } else if (c === '"') {
+      inQuotes = true;
+    } else if (c === ",") {
+      row.push(field);
+      field = "";
+    } else if (c === "\n" || c === "\r") {
+      if (c === "\r" && text[i + 1] === "\n") i++;
+      row.push(field);
+      field = "";
+      if (row.some((cell) => cell !== "")) rows.push(row);
+      row = [];
+    } else {
+      field += c;
+    }
+  }
+  if (field !== "" || row.length > 0) {
+    row.push(field);
+    if (row.some((cell) => cell !== "")) rows.push(row);
+  }
+  return rows;
+}
+
+function parseCsvRows(text: string): Record<string, string>[] {
+  const table = parseCsvTable(text);
+  if (table.length === 0) return [];
+  const header = table[0];
+  return table.slice(1).map((cells) => {
+    const obj: Record<string, string> = {};
+    header.forEach((name, idx) => {
+      obj[name] = cells[idx] ?? "";
+    });
+    return obj;
+  });
+}
+
+const VALID_SUB_STATUSES: SubStatus[] = ["DRAFT", "PENDING_PAYMENT", "ACTIVE", "LAPSED", "CANCELLED"];
+
+export interface ImportError {
+  row: number; // 1-indexed, counting the header row, so it matches what a spreadsheet shows
+  reason: string;
+}
+
+export interface ImportResult {
+  imported: number;
+  errors: ImportError[];
+}
+
+/**
+ * Bulk-adds households to one event from a CSV — same column contract as
+ * the export route (Name, Email, Phone, Address, Placement note, Access
+ * notes, Amount, Status, Skipped), so export → edit → import round-trips,
+ * and exporting one event and importing into another is how "copy data
+ * from another event" works without a separate clone feature.
+ *
+ * Dedup rule: if Email is given and matches an existing Household in
+ * this org (case-insensitive), that household is updated in place;
+ * otherwise a new Household is created. No address-based fuzzy matching
+ * — too easy to silently merge two different households that happen to
+ * type their address similarly.
+ *
+ * A row with a validation problem is skipped and recorded in
+ * ImportResult.errors, not aborted — one bad row (or a spreadsheet's
+ * blank trailing rows) shouldn't block the rest of a real import.
+ */
+export async function importHouseholdsForEvent(
+  session: SessionLike | null | undefined,
+  input: {
+    orgId: string;
+    seasonId: string;
+    eventId: string;
+    csvText: string;
+  }
+): Promise<ImportResult> {
+  // Unlike submitSignup, this is a write nobody outside staff should
+  // ever reach — checked here too, not just in the calling server
+  // action, so this function is safe to call from anywhere later.
+  const membership = await resolveMembership(session, input.eventId);
+  if (!membership || !isStaff(membership.role)) {
+    return { imported: 0, errors: [{ row: 0, reason: "Forbidden" }] };
+  }
+
+  const rows = parseCsvRows(input.csvText);
+  const errors: ImportError[] = [];
+  let imported = 0;
+
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i];
+    const rowNumber = i + 2; // +1 for header, +1 for 1-indexing
+    const name = (r["Name"] ?? "").trim();
+    const address = (r["Address"] ?? "").trim();
+    if (!name || !address) {
+      errors.push({ row: rowNumber, reason: "Missing Name or Address" });
+      continue;
+    }
+
+    const email = (r["Email"] ?? "").trim() || undefined;
+    const phone = (r["Phone"] ?? "").trim() || undefined;
+    const placementNote = (r["Placement note"] ?? "").trim() || undefined;
+    const accessNotes = (r["Access notes"] ?? "").trim() || undefined;
+
+    const amountDollars = Number(r["Amount"] ?? "0");
+    const amountCents = Number.isFinite(amountDollars) ? Math.round(amountDollars * 100) : 0;
+
+    const statusRaw = (r["Status"] ?? "").trim().toUpperCase() as SubStatus;
+    const status: SubStatus = VALID_SUB_STATUSES.includes(statusRaw) ? statusRaw : "PENDING_PAYMENT";
+    const skipped = (r["Skipped"] ?? "").trim().toLowerCase() === "yes";
+
+    const existing = email
+      ? await prisma.household.findFirst({
+          where: { orgId: input.orgId, contactEmail: { equals: email, mode: "insensitive" } },
+        })
+      : null;
+
+    const household = existing
+      ? await prisma.household.update({
+          where: { id: existing.id },
+          data: {
+            contactName: name,
+            contactPhone: phone ?? existing.contactPhone,
+            addressInput: address,
+            placementNote: placementNote ?? existing.placementNote,
+            accessNotes: accessNotes ?? existing.accessNotes,
+          },
+        })
+      : await prisma.household.create({
+          data: {
+            orgId: input.orgId,
+            contactName: name,
+            contactEmail: email,
+            contactPhone: phone,
+            addressInput: address,
+            address: { raw: address, source: "csv-import" } as Prisma.InputJsonValue,
+            placementNote,
+            accessNotes,
+          },
+        });
+
+    const subscription = await prisma.subscription.upsert({
+      where: { householdId_seasonId: { householdId: household.id, seasonId: input.seasonId } },
+      update: { status, amountCents },
+      create: { householdId: household.id, seasonId: input.seasonId, status, amountCents },
+    });
+
+    await prisma.subscriptionEvent.upsert({
+      where: { subscriptionId_eventId: { subscriptionId: subscription.id, eventId: input.eventId } },
+      update: { skipped },
+      create: { subscriptionId: subscription.id, eventId: input.eventId, skipped },
+    });
+
+    imported++;
+  }
+
+  return { imported, errors };
 }
 
 export interface SignupSubmission {

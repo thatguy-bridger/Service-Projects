@@ -165,6 +165,15 @@ export const en = {
   "admin.eventDetail.list.status": "Status",
   "admin.eventDetail.list.skipped": "Skipped",
 
+  "admin.eventDetail.import.title": "Import CSV",
+  "admin.eventDetail.import.subtitle": "Bulk-add households to this event, or copy a CSV exported from another event.",
+  "admin.eventDetail.import.label": "CSV file",
+  "admin.eventDetail.import.submit": "Import",
+  "admin.eventDetail.import.submitting": "Importing…",
+  "admin.eventDetail.import.success": "Imported {{count}} household(s).",
+  "admin.eventDetail.import.errorCount": "{{count}} row(s) had a problem and were skipped:",
+  "admin.eventDetail.import.errorRow": "Row {{row}}:",
+
   "admin.tabs.nav": "Admin sections",
   "admin.tabs.events": "Events",
   "admin.tabs.users": "Users",

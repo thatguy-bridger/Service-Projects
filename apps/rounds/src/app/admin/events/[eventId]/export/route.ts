@@ -22,7 +22,10 @@ export async function GET(_request: Request, { params }: { params: { eventId: st
 
   const rows = await householdsForEvent(session, org.id, params.eventId);
 
-  const header = ["Name", "Email", "Phone", "Address", "Placement note", "Access notes", "Status", "Skipped"];
+  // Column names/order are the import contract too (see ../import) — an
+  // exported CSV can be edited and re-imported, or imported into a
+  // different event, unchanged.
+  const header = ["Name", "Email", "Phone", "Address", "Placement note", "Access notes", "Amount", "Status", "Skipped"];
   const body = rows.map((r) =>
     [
       r.household.contactName,
@@ -31,6 +34,7 @@ export async function GET(_request: Request, { params }: { params: { eventId: st
       r.household.addressInput,
       r.household.placementNote ?? "",
       r.household.accessNotes ?? "",
+      (r.amountCents / 100).toFixed(2),
       r.subscriptionStatus,
       r.skipped ? "yes" : "no",
     ]

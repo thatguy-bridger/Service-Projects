@@ -5,6 +5,7 @@ import { defaultOrganization, eventForSession, householdsForEvent } from "@servi
 import { Card, Badge, Button } from "@service-projects/ui";
 import { t } from "@/copy";
 import { formatCentsFull, formatHolidayDate } from "@/lib/format";
+import { ImportCsvForm } from "./ImportCsvForm";
 
 // This is the point of the whole admin flow: click an event, land on
 // *that event's* dataset — households/signups scoped to just this one
@@ -68,6 +69,16 @@ export default async function AdminEventDetailPage({ params }: { params: { event
           </p>
         </Card>
       </div>
+
+      {event.seasonId && (
+        <Card style={{ marginBottom: "var(--space-6)" }}>
+          <h2 style={{ margin: "0 0 4px", fontSize: "var(--text-lg)", fontWeight: "var(--weight-medium)" }}>
+            {t("admin.eventDetail.import.title")}
+          </h2>
+          <p style={{ color: "var(--text-secondary)" }}>{t("admin.eventDetail.import.subtitle")}</p>
+          <ImportCsvForm eventId={event.id} />
+        </Card>
+      )}
 
       <Card>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "var(--space-3)", marginBottom: "var(--space-3)" }}>
