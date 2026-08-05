@@ -316,6 +316,38 @@ at in an actual browser at actual phone/tablet/desktop widths — same
 sandbox constraint noted in every UI session in this doc. Worth an actual
 look on a phone before calling this done.
 
+## Update: per-event data drill-down + CSV export (seventh session)
+
+The point of the admin flow, restated by the user mid-session: an event
+*is* its own dataset — click into one, see only that event's signups,
+not the whole org's. Built:
+
+- `packages/database/src/scoped/households.ts` gained
+  `householdsForEvent(session, orgId, eventId)` — everyone signed up for
+  one specific event (joins `SubscriptionEvent` → `Subscription` →
+  `Household`, staff-gated same as the rest of this file).
+- New `apps/rounds/src/app/admin/events/[eventId]/page.tsx`: that
+  event's name/date/status, three stat cards (signups, skipped, total
+  amount), and a table of households with contact/address/status. Linked
+  from each row in the `/admin/events` list.
+- New `apps/rounds/src/app/admin/events/[eventId]/export/route.ts`: CSV
+  download of that event's households. A Route Handler, not a page, so
+  it needs its own `requireRole` call — it isn't wrapped by
+  `admin/layout.tsx`'s gate the way pages under `admin/` are.
+
+Both real security-gated via `eventForSession`'s membership check (an
+Owner/Admin always passes; SPEC.md §3.3's event-scoped Coordinator role
+would too, once actually assigned via Membership).
+
+**Not built this round, on purpose — asked, not guessed:** CSV *import*
+(bulk-adding/updating households from an uploaded file) and JSON
+export/import for full per-event backup/restore. The user was asked to
+choose scope and the question was interrupted; proceeded with the
+minimum useful slice (read + CSV export) rather than guessing at import
+semantics (dedupe rules? overwrite vs. merge? validation on bad rows?)
+that are easy to get wrong and hard to undo once someone's uploaded a
+file. Confirm with the user before building either.
+
 ## What's still not built (the rest of Phase 1)
 
 - **Stripe Checkout, webhook, confirmation email.** No Stripe keys exist
@@ -325,6 +357,7 @@ look on a phone before calling this done.
 - **Invite-key redemption** (SPEC.md Phase 5). `/welcome`'s volunteer
   path is a stated interest, not a grant — an Owner/Admin still assigns
   the role by hand in `/admin/users`.
+- **CSV/JSON import**, per-event. See above — deliberately not guessed.
 - **Household de-duplication.** Every submission creates a new
   `Household` row, even for a repeat signup from the same address —
   matching/merging logic isn't built (would matter more once renewals

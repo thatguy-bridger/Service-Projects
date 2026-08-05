@@ -21,6 +21,58 @@ export async function householdForSession(
   return prisma.household.findFirst({ where: { id: householdId, orgId, deletedAt: null } });
 }
 
+export interface HouseholdForEvent {
+  subscriptionEventId: string;
+  skipped: boolean;
+  subscriptionId: string;
+  subscriptionStatus: string;
+  amountCents: number;
+  household: {
+    id: string;
+    contactName: string;
+    contactEmail: string | null;
+    contactPhone: string | null;
+    addressInput: string;
+    placementNote: string | null;
+    accessNotes: string | null;
+  };
+}
+
+// Everyone signed up for one event — the data an admin actually wants
+// when they click into an event (SPEC.md's event-as-its-own-dataset
+// shape). Staff-only, same as householdsForSession above.
+export async function householdsForEvent(
+  session: SessionLike | null | undefined,
+  orgId: string,
+  eventId: string
+): Promise<HouseholdForEvent[]> {
+  const membership = await resolveMembership(session, eventId);
+  if (!membership || !isStaff(membership.role)) return [];
+
+  const subEvents = await prisma.subscriptionEvent.findMany({
+    where: { eventId, subscription: { household: { orgId } } },
+    include: { subscription: { include: { household: true } } },
+    orderBy: { subscription: { createdAt: "desc" } },
+  });
+
+  return subEvents.map((se) => ({
+    subscriptionEventId: se.id,
+    skipped: se.skipped,
+    subscriptionId: se.subscription.id,
+    subscriptionStatus: se.subscription.status,
+    amountCents: se.subscription.amountCents,
+    household: {
+      id: se.subscription.household.id,
+      contactName: se.subscription.household.contactName,
+      contactEmail: se.subscription.household.contactEmail,
+      contactPhone: se.subscription.household.contactPhone,
+      addressInput: se.subscription.household.addressInput,
+      placementNote: se.subscription.household.placementNote,
+      accessNotes: se.subscription.household.accessNotes,
+    },
+  }));
+}
+
 export interface SignupSubmission {
   orgId: string;
   seasonId: string;

@@ -62,7 +62,11 @@ export default async function AdminEventsPage() {
               <tbody>
                 {season.events.map((ev) => (
                   <tr key={ev.id} style={{ borderTop: "1px solid var(--border-default)" }}>
-                    <td style={tdStyle}>{ev.name}</td>
+                    <td style={tdStyle}>
+                      <a href={`/admin/events/${ev.id}`} style={{ color: "var(--color-accent-600)", fontWeight: "var(--weight-medium)" as unknown as number }}>
+                        {ev.name}
+                      </a>
+                    </td>
                     <td style={tdStyle}>{formatHolidayDate(ev.serviceStartsAt)}</td>
                     <td style={tdStyle}>
                       <Badge tone="success">{ev.status}</Badge>
