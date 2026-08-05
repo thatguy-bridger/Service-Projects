@@ -18,6 +18,7 @@ packages/
 
 docs/                   Architecture and onboarding docs
   design-language.md    Design system: color, type, spacing, components — read before styling anything
+  deployment.md          How each app deploys to its own bridgerjones.com subdomain
 ```
 
 ## Design language
@@ -36,6 +37,8 @@ components rather than styling one-off — see that doc for the full rules.
    in its `package.json` to reuse login and the shared data model.
 3. Extend `packages/database/prisma/schema.prisma` with any project-specific
    tables, related back to `User`/`ServiceRecord` as needed.
+4. Deploy it to its own subdomain — see
+   [`docs/deployment.md`](./docs/deployment.md).
 
 ## Access model
 
