@@ -1,0 +1,11 @@
+@import "@service-projects/ui/src/tokens.css";
+@import "@service-projects/ui/src/components.css";
+
+body {
+  background: var(--surface-page);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
+  margin: 0;
+}

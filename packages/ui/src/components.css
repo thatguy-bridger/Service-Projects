@@ -1,0 +1,87 @@
+/*
+ * Base component styles built on tokens.css. Import both once at the app
+ * root, tokens first:
+ *   @import "@service-projects/ui/src/tokens.css";
+ *   @import "@service-projects/ui/src/components.css";
+ * Never hardcode colors/spacing here — reference var(--token) only, so
+ * every app and both themes stay in sync automatically.
+ */
+
+.btn {
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  line-height: var(--leading-tight);
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background-color var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard);
+}
+.btn:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: var(--color-accent-500);
+  color: var(--text-on-accent);
+}
+.btn-primary:hover:not(:disabled) {
+  background: var(--color-accent-600);
+}
+
+.btn-secondary {
+  background: var(--surface-raised);
+  color: var(--text-primary);
+  border-color: var(--border-default);
+}
+.btn-secondary:hover:not(:disabled) {
+  border-color: var(--border-strong);
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--text-primary);
+}
+.btn-ghost:hover:not(:disabled) {
+  background: var(--surface-sunken);
+}
+
+.btn-danger {
+  background: var(--color-danger-500);
+  color: #fff;
+}
+.btn-danger:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.card {
+  background: var(--surface-raised);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: var(--space-6);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-full);
+  line-height: var(--leading-tight);
+}
+.badge-neutral { background: var(--surface-sunken); color: var(--text-secondary); }
+.badge-accent { background: var(--color-accent-100); color: var(--color-accent-700); }
+.badge-success { background: color-mix(in srgb, var(--color-success-500) 16%, transparent); color: var(--color-success-500); }
+.badge-warning { background: color-mix(in srgb, var(--color-warning-500) 16%, transparent); color: var(--color-warning-500); }
+.badge-danger { background: color-mix(in srgb, var(--color-danger-500) 16%, transparent); color: var(--color-danger-500); }
+.badge-info { background: color-mix(in srgb, var(--color-info-500) 16%, transparent); color: var(--color-info-500); }

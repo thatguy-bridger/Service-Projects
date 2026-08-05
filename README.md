@@ -17,7 +17,16 @@ packages/
   config/                Shared tsconfig/lint base config
 
 docs/                   Architecture and onboarding docs
+  design-language.md    Design system: color, type, spacing, components — read before styling anything
 ```
+
+## Design language
+
+Every app shares one visual language, defined in
+[`docs/design-language.md`](./docs/design-language.md) and implemented as
+real code in `packages/ui` (`tokens.css`, `tokens.ts`, `components.css`,
+and base components `Button`/`Card`/`Badge`). Import the tokens and base
+components rather than styling one-off — see that doc for the full rules.
 
 ## Adding a new project
 
