@@ -1,6 +1,10 @@
 import { prisma } from "@service-projects/database";
 import { Card, Badge } from "@service-projects/ui";
 
+// Always fresh: this reads live admin-created data, so it can't be
+// statically prerendered at build time.
+export const dynamic = "force-dynamic";
+
 // Regular users land here to view/interact with admin-created records.
 export default async function DashboardPage() {
   const records = await prisma.serviceRecord.findMany({

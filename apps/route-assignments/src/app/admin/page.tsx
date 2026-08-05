@@ -2,6 +2,9 @@ import { getServerSession } from "next-auth";
 import { authOptions, requireRole } from "@service-projects/core-auth";
 import { prisma } from "@service-projects/database";
 
+// Always fresh: reads live data and depends on the request's session.
+export const dynamic = "force-dynamic";
+
 // Admin-only screen for creating the data end users will view/interact with.
 export default async function AdminPage() {
   const session = await getServerSession(authOptions);
