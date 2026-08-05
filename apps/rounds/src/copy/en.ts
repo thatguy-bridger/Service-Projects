@@ -78,6 +78,12 @@ export const en = {
   "landing.howItWorks.step2.body": "Pick your options, and you're on the list — no account required to browse.",
   "landing.howItWorks.step3.title": "A volunteer handles the rest",
   "landing.howItWorks.step3.body": "Someone from the organizing team takes care of it, and you'll get updates along the way.",
+
+  "preview.label": "View as",
+  "preview.real": "Yourself",
+  "preview.banner": "Previewing as {{role}} — this doesn't change your real permissions. Any admin actions here still use your real account.",
+  "preview.forbidden.title": "Not visible to {{role}}",
+  "preview.forbidden.body": "This page is admin-only. A {{role}} account would land somewhere else entirely — this is what that looks like.",
 } as const;
 
 export type CopyKey = keyof typeof en;

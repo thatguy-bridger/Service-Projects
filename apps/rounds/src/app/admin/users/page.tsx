@@ -1,30 +1,72 @@
+import { cookies } from "next/headers";
 import { getServerSession } from "next-auth";
-import { authOptions, requireRole, ROLES } from "@service-projects/core-auth";
+import { authOptions, requireRole, can, ROLES } from "@service-projects/core-auth";
 import { prisma } from "@service-projects/database";
 import { Card, Badge, Button } from "@service-projects/ui";
 import { t } from "@/copy";
 import { setUserRole } from "./actions";
 import { AccountControls } from "../../AccountControls";
+import { PreviewRoleSwitcher } from "../../PreviewRoleSwitcher";
+import { getEffectiveRole, PREVIEW_COOKIE } from "@/lib/previewRole";
 
 // Always fresh: role changes here must show up immediately.
 export const dynamic = "force-dynamic";
 
 export default async function AdminUsersPage() {
   const session = await getServerSession(authOptions);
+  // Real security gate — always the real session, never the preview.
   await requireRole(session, ["OWNER", "ADMIN"]);
 
+  const realRole = session!.user.role;
+  const role = getEffectiveRole(session) ?? realRole;
+  const currentPreview = cookies().get(PREVIEW_COOKIE)?.value ?? "REAL";
+  const isPreviewing = role !== realRole;
+
+  const previewControls = (
+    <header className="rounds-topbar" style={{ justifyContent: "space-between" }}>
+      <span style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
+        <span className="rounds-brand">{t("brand.name")}</span>
+        <Badge tone="accent">{role}</Badge>
+      </span>
+      <span style={{ display: "flex", alignItems: "center", gap: "var(--space-4)" }}>
+        <PreviewRoleSwitcher currentPreview={currentPreview} />
+        <AccountControls />
+      </span>
+    </header>
+  );
+
+  // Previewing as a role that couldn't actually see this page — show
+  // what that experience looks like instead of the real admin content.
+  // The real requireRole check above already ran, so this is purely
+  // cosmetic, not a security boundary.
+  if (!can(role, "users.manageRoles")) {
+    return (
+      <main className="rounds-shell">
+        {previewControls}
+        <Card>
+          <h1 style={{ margin: "0 0 4px", fontSize: "var(--text-xl)", fontWeight: "var(--weight-semibold)" }}>
+            {t("preview.forbidden.title", { role })}
+          </h1>
+          <p style={{ color: "var(--text-secondary)" }}>{t("preview.forbidden.body", { role })}</p>
+        </Card>
+      </main>
+    );
+  }
+
   const users = await prisma.user.findMany({ orderBy: { updatedAt: "desc" } });
-  const canGrantOwner = session?.user.role === "OWNER";
+  const canGrantOwner = realRole === "OWNER";
 
   return (
     <main className="rounds-shell">
-      <header className="rounds-topbar" style={{ justifyContent: "space-between" }}>
-        <span style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
-          <span className="rounds-brand">{t("brand.name")}</span>
-          <Badge tone="accent">{session?.user.role}</Badge>
-        </span>
-        <AccountControls />
-      </header>
+      {previewControls}
+
+      {isPreviewing && (
+        <Card style={{ marginBottom: "var(--space-6)", background: "var(--color-accent-100)" }}>
+          <p style={{ margin: 0, color: "var(--color-accent-700)", fontSize: "var(--text-sm)" }}>
+            {t("preview.banner", { role })}
+          </p>
+        </Card>
+      )}
 
       <Card>
         <h1 style={{ margin: "0 0 4px", fontSize: "var(--text-xl)", fontWeight: "var(--weight-semibold)" }}>

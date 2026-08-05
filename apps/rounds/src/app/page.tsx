@@ -1,8 +1,11 @@
+import { cookies } from "next/headers";
 import { getServerSession } from "next-auth";
 import { authOptions, can } from "@service-projects/core-auth";
 import { Button, Card, Badge, BrandMark, ImagePlaceholder } from "@service-projects/ui";
 import { t } from "@/copy";
 import { AccountControls } from "./AccountControls";
+import { PreviewRoleSwitcher } from "./PreviewRoleSwitcher";
+import { getEffectiveRole, PREVIEW_COOKIE } from "@/lib/previewRole";
 
 // Always fresh: reads the request's session.
 export const dynamic = "force-dynamic";
@@ -78,8 +81,12 @@ export default async function HomePage() {
     );
   }
 
-  const role = session.user.role;
+  const realRole = session.user.role;
+  const canPreview = realRole === "OWNER" || realRole === "ADMIN";
+  const role = getEffectiveRole(session) ?? realRole;
+  const isPreviewing = canPreview && role !== realRole;
   const isOwnerOrAdmin = can(role, "users.manageRoles");
+  const currentPreview = cookies().get(PREVIEW_COOKIE)?.value ?? "REAL";
 
   return (
     <main className="rounds-shell">
@@ -89,8 +96,19 @@ export default async function HomePage() {
           <span className="rounds-brand">{t("brand.name")}</span>
           <Badge tone="accent">{isOwnerOrAdmin ? role : t("role.previewer.badge")}</Badge>
         </span>
-        <AccountControls />
+        <span style={{ display: "flex", alignItems: "center", gap: "var(--space-4)" }}>
+          {canPreview && <PreviewRoleSwitcher currentPreview={currentPreview} />}
+          <AccountControls />
+        </span>
       </header>
+
+      {isPreviewing && (
+        <Card style={{ marginBottom: "var(--space-6)", background: "var(--color-accent-100)" }}>
+          <p style={{ margin: 0, color: "var(--color-accent-700)", fontSize: "var(--text-sm)" }}>
+            {t("preview.banner", { role })}
+          </p>
+        </Card>
+      )}
 
       {isOwnerOrAdmin && (
         <Card style={{ marginBottom: "var(--space-6)" }}>
