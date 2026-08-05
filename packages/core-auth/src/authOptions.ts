@@ -15,6 +15,12 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      // Lets an OWNER/ADMIN pre-create a User row for someone's email
+      // (see apps/rounds/.../admin/users) and have that person's first
+      // Google sign-in attach to it, instead of NextAuth creating a
+      // second, unlinked PREVIEWER account for the same address. Safe
+      // here because Google verifies the email it hands back.
+      allowDangerousEmailAccountLinking: true,
     })
   );
 }

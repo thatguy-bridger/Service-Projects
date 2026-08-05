@@ -65,6 +65,12 @@ export const PERMISSIONS: Capability[] = [
   { id: "data.export", label: "Export data", roles: ["OWNER", "ADMIN"] },
   { id: "audit.view", label: "View audit log", roles: ["OWNER", "ADMIN"] },
   {
+    id: "users.manageRoles",
+    label: "Add / change a user's role",
+    roles: ["OWNER", "ADMIN"],
+    conditional: { ADMIN: "Cannot grant the Owner role — only an existing Owner can." },
+  },
+  {
     id: "public.browseAndRedeem",
     label: "Browse public events · redeem a key",
     roles: ["OWNER", "ADMIN", "COORDINATOR", "VOLUNTEER", "PREVIEWER"],

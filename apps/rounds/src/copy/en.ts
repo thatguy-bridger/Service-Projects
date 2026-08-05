@@ -36,6 +36,23 @@ export const en = {
   "signup.holidays.continue": "Continue",
   "signup.notFound.title": "Signups aren't open right now",
   "signup.notFound.body": "Check back soon, or ask your organizer for the current signup link.",
+
+  "dashboard.greeting": "You're signed in as {{role}}.",
+  "dashboard.manageUsers.title": "Manage user roles",
+  "dashboard.manageUsers.body": "Add someone's email and set their role — it applies the next time they sign in.",
+  "dashboard.manageUsers.cta": "Manage users",
+
+  "admin.users.title": "Users",
+  "admin.users.subtitle": "Set a role for an email address. If they haven't signed in yet, their first Google sign-in will pick it up.",
+  "admin.users.form.email": "Email",
+  "admin.users.form.role": "Role",
+  "admin.users.form.submit": "Save role",
+  "admin.users.form.ownerRestricted": "Only an Owner can grant the Owner role.",
+  "admin.users.table.email": "Email",
+  "admin.users.table.name": "Name",
+  "admin.users.table.role": "Role",
+  "admin.users.table.updated": "Last updated",
+  "admin.users.empty": "No users yet.",
 } as const;
 
 export type CopyKey = keyof typeof en;

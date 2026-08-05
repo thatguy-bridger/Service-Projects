@@ -1,5 +1,5 @@
 import { getServerSession } from "next-auth";
-import { authOptions } from "@service-projects/core-auth";
+import { authOptions, can } from "@service-projects/core-auth";
 import { Button, Card, Badge } from "@service-projects/ui";
 import { t } from "@/copy";
 
@@ -27,12 +27,31 @@ export default async function HomePage() {
     );
   }
 
+  const role = session.user.role;
+  const isOwnerOrAdmin = can(role, "users.manageRoles");
+
   return (
     <main className="rounds-shell">
       <header className="rounds-topbar">
         <span className="rounds-brand">{t("brand.name")}</span>
-        <Badge tone="accent">{t("role.previewer.badge")}</Badge>
+        <Badge tone="accent">{isOwnerOrAdmin ? role : t("role.previewer.badge")}</Badge>
       </header>
+
+      {isOwnerOrAdmin && (
+        <Card style={{ marginBottom: "var(--space-6)" }}>
+          <p style={{ color: "var(--text-secondary)", marginTop: 0 }}>
+            {t("dashboard.greeting", { role })}
+          </p>
+          <h2 style={{ margin: "0 0 8px", fontSize: "var(--text-lg)", fontWeight: "var(--weight-medium)" }}>
+            {t("dashboard.manageUsers.title")}
+          </h2>
+          <p style={{ color: "var(--text-secondary)" }}>{t("dashboard.manageUsers.body")}</p>
+          <a href="/admin/users">
+            <Button variant="secondary">{t("dashboard.manageUsers.cta")}</Button>
+          </a>
+        </Card>
+      )}
+
       <Card>
         <h2 style={{ margin: "0 0 8px", fontSize: "var(--text-lg)", fontWeight: "var(--weight-medium)" }}>
           {t("previewer.emptyState.title")}
