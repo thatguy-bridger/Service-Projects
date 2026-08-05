@@ -61,6 +61,14 @@ enum StopStatus {
   ISSUE
 }
 
+enum SubStatus {
+  DRAFT
+  PENDING_PAYMENT
+  ACTIVE
+  LAPSED
+  CANCELLED
+}
+
 model User {
   id            String    @id @default(cuid())
   email         String    @unique
@@ -141,13 +149,10 @@ model Interaction {
 }
 
 // =========================================================================
-// Rounds (apps/rounds) — Phase 0
-// New models below this line. See SPEC.md §5. Phase 1+ models (Season,
-// Subscription, SubscriptionEvent, Signup, FormSchema, Territory, Route,
+// Rounds (apps/rounds) — Phase 0 + Phase 1 (flag subscription model)
+// See SPEC.md §5. Still not added: Signup, FormSchema, Territory, Route,
 // RouteAssignment, Visit, VolunteerAvailability, InviteKey, KeyRedemption,
-// Notification) are deliberately not added yet — kept out of this
-// migration to keep the Role-enum change (the risky, non-additive part)
-// isolated. They land with the phases that need them.
+// Notification — they land with the phases that need them.
 // =========================================================================
 
 model Organization {
@@ -160,9 +165,28 @@ model Organization {
   memberships Membership[]
   events      Event[]
   households  Household[]
+  seasons     Season[]
 
   createdAt DateTime  @default(now())
   deletedAt DateTime?
+}
+
+model Season {
+  id             String       @id @default(cuid())
+  orgId          String
+  organization   Organization @relation(fields: [orgId], references: [id])
+  year           Int
+  name           String // "2027 Flag Season"
+  priceCents     Int // per selected holiday, or flat — see pricingMode
+  pricingMode    String // "per_holiday" | "flat"
+  renewalOpensAt DateTime?
+
+  events        Event[]
+  subscriptions Subscription[]
+
+  createdAt DateTime @default(now())
+
+  @@unique([orgId, year])
 }
 
 model Membership {
@@ -187,7 +211,8 @@ model Event {
   id              String       @id @default(cuid())
   orgId           String
   organization    Organization @relation(fields: [orgId], references: [id])
-  seasonId        String? // Season model ships in Phase 1; plain id for now
+  seasonId        String?
+  season          Season?      @relation(fields: [seasonId], references: [id])
   kind            EventKind
   name            String
   slug            String
@@ -210,8 +235,9 @@ model Event {
   createdAt       DateTime     @default(now())
   deletedAt       DateTime?
 
-  stops       Stop[]
-  memberships Membership[]
+  stops              Stop[]
+  memberships        Membership[]
+  subscriptionEvents SubscriptionEvent[]
 
   @@unique([orgId, slug])
 }
@@ -235,12 +261,50 @@ model Household {
   language             String       @default("en")
   selfServiceTokenHash String?
 
-  stops Stop[]
+  stops         Stop[]
+  subscriptions Subscription[]
 
   createdAt DateTime  @default(now())
   deletedAt DateTime?
 
   @@index([orgId, lat, lng])
+}
+
+model Subscription {
+  id                      String       @id @default(cuid())
+  householdId             String
+  household               Household    @relation(fields: [householdId], references: [id])
+  seasonId                String
+  season                  Season       @relation(fields: [seasonId], references: [id])
+  status                  SubStatus    @default(DRAFT)
+  amountCents             Int
+  stripeCheckoutSessionId String?
+  stripePaymentIntentId   String?
+  paidAt                  DateTime?
+  renewedFromId           String? // last year's subscription
+  cancelledAt             DateTime?
+
+  events SubscriptionEvent[]
+
+  createdAt DateTime @default(now())
+
+  @@unique([householdId, seasonId])
+}
+
+// The join between a Subscription and one of the season's holiday Events —
+// this is where `skipped` lives (SPEC.md §4.1): a household skipping one
+// holiday without cancelling is a flag on this row, not a deleted record.
+model SubscriptionEvent {
+  id             String       @id @default(cuid())
+  subscriptionId String
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id])
+  eventId        String
+  event          Event        @relation(fields: [eventId], references: [id])
+  skipped        Boolean      @default(false)
+  skippedReason  String?
+  stopId         String? // set when "generate stops" runs (Phase 2)
+
+  @@unique([subscriptionId, eventId])
 }
 
 model Stop {

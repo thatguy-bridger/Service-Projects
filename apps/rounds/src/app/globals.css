@@ -46,3 +46,222 @@ body {
   margin: 0 0 var(--space-6);
   max-width: 34em;
 }
+
+/* Flag signup — SPEC.md §14.1, mocked in Rounds Screens 1a. Public,
+ * mobile-first (volunteer/public screens are designed at 390x844 first
+ * per SPEC.md's master prompt); centered rather than stretched on a
+ * wider viewport, same rule §16.1 gives the volunteer route screen. */
+.signup-shell {
+  max-width: 480px;
+  margin: 0 auto;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface-page);
+}
+
+.signup-header {
+  padding: var(--space-8) var(--space-5) var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.signup-brandRow {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.signup-brandMark {
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-sm);
+  background: var(--color-accent-500);
+  color: var(--text-on-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: var(--weight-bold);
+  font-size: 13px;
+  flex: none;
+}
+
+.signup-brandName {
+  font-weight: var(--weight-semibold);
+  font-size: 13px;
+  color: var(--color-gray-700);
+}
+
+.signup-stepperTrack {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.signup-stepperFill {
+  flex: 1;
+  height: 4px;
+  border-radius: var(--radius-full);
+  background: var(--color-gray-200);
+}
+
+.signup-stepperFill--active {
+  background: var(--color-accent-500);
+}
+
+.signup-stepperLabels {
+  display: flex;
+  justify-content: space-between;
+  font-weight: var(--weight-medium);
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.signup-stepperLabel--active {
+  color: var(--color-accent-500);
+}
+
+.signup-intro {
+  padding: var(--space-2) var(--space-5) 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.signup-intro h1 {
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-semibold);
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+
+.signup-intro p {
+  font-size: var(--text-base);
+  color: var(--text-secondary);
+  margin: 0 0 var(--space-1);
+}
+
+.signup-list {
+  flex: 1;
+  padding: var(--space-4) var(--space-5) var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.signup-holidayCard {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  background: var(--surface-raised);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  padding: 15px 16px;
+  box-shadow: var(--shadow-sm);
+  font-family: var(--font-sans);
+  text-align: left;
+  cursor: pointer;
+  width: 100%;
+}
+
+.signup-holidayCard--selected {
+  background: var(--color-accent-50);
+  border: 2px solid var(--color-accent-500);
+  padding: 14px 15px;
+}
+
+.signup-checkbox {
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-sm);
+  border: 2px solid var(--color-gray-300);
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.signup-checkbox--selected {
+  border: none;
+  background: var(--color-accent-500);
+}
+
+.signup-holidayText {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.signup-holidayNameRow {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.signup-holidayName {
+  font-size: var(--text-base);
+  font-weight: var(--weight-medium);
+}
+
+.signup-holidayCard--selected .signup-holidayName {
+  font-weight: var(--weight-semibold);
+}
+
+.signup-holidayDate {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.signup-holidayCard--selected .signup-holidayDate {
+  color: var(--color-accent-600);
+}
+
+.signup-holidayPrice {
+  font-size: 14px;
+  font-weight: var(--weight-medium);
+  color: var(--text-secondary);
+  flex: none;
+}
+
+.signup-holidayCard--selected .signup-holidayPrice {
+  font-weight: var(--weight-semibold);
+  color: var(--color-accent-700);
+}
+
+.signup-footer {
+  border-top: 1px solid var(--border-default);
+  background: var(--surface-raised);
+  padding: var(--space-4) var(--space-5) var(--space-8);
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  position: sticky;
+  bottom: 0;
+}
+
+.signup-footerTotals {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.signup-footerPrice {
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+}
+
+.signup-footerCount {
+  font-size: 12.5px;
+  color: var(--text-secondary);
+}
+
+.signup-notFound {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: var(--space-16) var(--space-5);
+  text-align: center;
+}

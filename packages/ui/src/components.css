@@ -28,6 +28,13 @@
   cursor: not-allowed;
 }
 
+/* Every button a volunteer taps outdoors — SPEC.md §12.2. */
+.btn-lg {
+  min-height: 48px;
+  padding: 0 var(--space-6);
+  font-size: var(--text-base);
+}
+
 .btn-primary {
   background: var(--color-accent-500);
   color: var(--text-on-accent);

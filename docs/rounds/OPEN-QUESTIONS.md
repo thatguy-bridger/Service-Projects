@@ -34,6 +34,29 @@ sign-in, real geocoding — not a rebuild of what's already there.
    sync architecture, not just a UI detail. Flagging this as the one item
    on this list that's a real design decision, not a "fill in a number."
 
+## UGRC verification (SPEC.md §9.1 asked for this explicitly)
+
+Attempted for real during Phase 1, not skipped: `gis.utah.gov` and
+`api.mapserv.utah.gov` (docs pages and the raw OpenAPI JSON) return HTTP
+403 to this environment's fetch tool on every path tried — looks like bot
+protection. A web search surfaced a real, sourced example URL from a UGRC
+blog post confirming the single-address geocode endpoint's shape
+(`/api/v1/geocode/{street}/{zone}?spatialReference=4326&apiKey=...` —
+path segments, not one query param — and that the match score is
+documented 0–100). `packages/geo/src/ugrc.ts`'s `geocode()` is built
+against that; its exact response field names are best-effort
+(AGRC/ArcGIS convention), not confirmed live. `reverseGeocode`,
+`autocomplete`, and `addressPointsInPolygon` are deliberately left
+unimplemented (clear thrown errors, not guesses) rather than building
+against three more unverified shapes.
+
+**If you can get a UGRC developer key** (register at
+developer.mapserv.utah.gov — free), the fastest way to unblock the rest
+of Phase 1/6 is confirming these four endpoint shapes at
+api.mapserv.utah.gov/docs/ (or just trying them with a real key) and
+updating `packages/geo/src/ugrc.ts` accordingly. Everything else in the
+address-field and territory-fill work is ready to build on top of it.
+
 ## Credentials this environment doesn't have
 
 Nothing below blocked Phase 0 — every integration point is wired and
