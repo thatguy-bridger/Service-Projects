@@ -8,7 +8,7 @@ and interact with it.
 
 ```
 apps/                  Independently deployable projects (each a Next.js app)
-  example-app/          Reference app: /admin (admin-only) and /dashboard (users)
+  route-assignments/      Reference app: /admin (admin-only) and /dashboard (users)
 
 packages/
   core-auth/            Shared NextAuth config, session/role helpers (requireRole)
@@ -31,7 +31,7 @@ components rather than styling one-off — see that doc for the full rules.
 
 ## Adding a new project
 
-1. Copy `apps/example-app` to `apps/<your-project>` (or `npx create-next-app`
+1. Copy `apps/route-assignments` to `apps/<your-project>` (or `npx create-next-app`
    inside `apps/` and wire up the shared packages).
 2. Depend on `@service-projects/core-auth` and `@service-projects/database`
    in its `package.json` to reuse login and the shared data model.
