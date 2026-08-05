@@ -265,3 +265,78 @@ body {
   padding: var(--space-16) var(--space-5);
   text-align: center;
 }
+
+.signup-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-bottom: var(--space-3);
+}
+
+.signup-fieldLabel {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--text-secondary);
+}
+
+.signup-input {
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-default);
+  background: var(--surface-sunken);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+}
+
+.signup-hint {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  margin: 0 0 var(--space-3);
+}
+
+.signup-error {
+  font-size: var(--text-sm);
+  color: var(--color-danger-500);
+  margin: 0 0 var(--space-3);
+}
+
+.signup-reviewBox {
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  margin: var(--space-4) 0;
+  background: var(--surface-raised);
+}
+
+.signup-reviewTitle {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  margin: 0 0 var(--space-3);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.signup-reviewRow {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+  border-top: 1px solid var(--border-default);
+  font-size: var(--text-sm);
+}
+
+.signup-reviewRow:first-of-type {
+  border-top: none;
+}
+
+.signup-reviewLabel {
+  color: var(--text-secondary);
+}
+
+.signup-reviewValue {
+  color: var(--text-primary);
+  text-align: right;
+  font-weight: var(--weight-medium);
+}

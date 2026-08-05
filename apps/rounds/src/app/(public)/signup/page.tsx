@@ -1,10 +1,12 @@
 import { defaultOrganization, currentSeasonForOrg } from "@service-projects/database";
 import { t } from "@/copy";
-import { HolidayPicker } from "./HolidayPicker";
+import { SignupFlow } from "./SignupFlow";
 
-// Public, no account — SPEC.md §14.1's "Flag signup" screen, step 1
-// (holiday picker) of the stepper: holidays -> address -> pay. Address
-// and pay are follow-up work; see docs/rounds/PHASE-1.md.
+// Public, no account — SPEC.md §14.1's "Flag signup" screen: holidays ->
+// address -> contact/review. Stripe Checkout is follow-up work (needs
+// real test keys, none exist in this environment) — see
+// docs/rounds/PHASE-1.md. Submitting here creates a real
+// Household/Subscription, left PENDING_PAYMENT rather than ACTIVE.
 export const dynamic = "force-dynamic";
 
 export default async function SignupPage() {
@@ -21,6 +23,7 @@ export default async function SignupPage() {
   }
 
   const holidays = season.events.map((ev) => ({
+    id: ev.id,
     key: ev.slug.replace(`-${season.year}`, ""),
     name: ev.name.replace(` ${season.year} — Flag Set-Out`, ""),
     date: ev.serviceStartsAt.toISOString(),
@@ -28,5 +31,5 @@ export default async function SignupPage() {
     mostPopular: ev.slug.startsWith("pioneer_day"),
   }));
 
-  return <HolidayPicker orgName={org.name} holidays={holidays} />;
+  return <SignupFlow orgId={org.id} orgName={org.name} seasonId={season.id} holidays={holidays} />;
 }

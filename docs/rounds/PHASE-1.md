@@ -142,23 +142,50 @@ height, `--text-base`, "every button a volunteer taps outdoors." Used for
 the signup page's Continue button rather than a one-off styled button —
 "extend it; do not fork it," same rule Phase 0 followed.
 
-## What's not built (the rest of Phase 1)
+## Update: address entry, contact/review, and the write path (second session)
 
-- **Address entry** (step 2 of the stepper — autocomplete against UGRC,
-  pin-drop fallback per SPEC.md §7.3). Blocked on the same UGRC
-  verification gap above for autocomplete specifically; the "drop a pin"
-  fallback doesn't depend on UGRC and could be built next regardless.
-- **Contact + placement note, and review** (rest of the stepper).
+Built in a later session, continuing this same phase:
+
+- **Address entry** (stepper step 2): a text field that calls
+  `geocodeAddress` (new `apps/rounds/src/app/(public)/signup/actions.ts`)
+  on change, showing the returned approximate lat/lng with editable
+  number inputs the visitor can nudge — the "drop a pin" fallback SPEC.md
+  §7.3 calls for, built without a map widget since there's no mapping
+  API key in this environment either. Goes through `getGeoProvider()`
+  exactly as `packages/geo` already intended, so it starts returning real
+  UGRC results the moment `UGRC_API_KEY` is set — no app code changes
+  needed.
+- **Contact + placement note, and review** (stepper step 3): name,
+  email, phone, placement note, access notes, plus a review card
+  (holidays, address, total) before submitting.
+- **The `Household`/`Subscription`/`SubscriptionEvent` write path**:
+  `submitSignup` in `packages/database/src/scoped/households.ts` (public,
+  unauthenticated — same reasoning as `currentSeasonForOrg`) creates a
+  real `Household` and a `Subscription` with one `SubscriptionEvent` per
+  selected holiday. Submitting now creates real rows, not a no-op button.
+
+**Still honest about what this isn't:** the created `Subscription` is
+left in `PENDING_PAYMENT`, not `ACTIVE` — there's no Stripe integration,
+so nothing has actually been paid. The signup's copy says as much
+(`signup.contact.paymentNote`) rather than implying payment happened.
+
+## What's still not built (the rest of Phase 1)
+
 - **Stripe Checkout, webhook, confirmation email.** No Stripe keys exist
   in this environment; the integration shape is well-documented in
   SPEC.md §10 and wasn't started, to avoid writing untested payment code.
-- **The `Household`/`Subscription`/`SubscriptionEvent` write path** —
-  the schema exists and is seeded with holiday `Event`s, but nothing yet
-  turns a signup submission into real rows. The Continue button is
-  correctly disabled-until-selection but is otherwise inert (no
-  handler) — an honest stopping point, not a broken one.
+  This is the reason `Subscription.status` stops at `PENDING_PAYMENT`.
+- **Real UGRC geocoding.** `geocodeAddress` is wired correctly but has no
+  `UGRC_API_KEY` to call against, so every address currently resolves via
+  `MockProvider`'s deterministic jitter around Sandy, UT — not a real
+  location. Address autocomplete (as opposed to geocode-on-blur) also
+  still depends on the same missing key.
 - **Admin-side event/season creation UI.** Seasons and holiday events
   exist only via the seed script; there's no admin screen yet.
+- **Household de-duplication.** Every submission creates a new
+  `Household` row, even for a repeat signup from the same address —
+  matching/merging logic isn't built (would matter more once renewals
+  and Phase 2's stop generation exist).
 
 ## Verification performed
 
@@ -182,7 +209,21 @@ the signup page's Continue button rather than a one-off styled button —
    selected-holidays interaction state, both checked against
    `Rounds Screens.dc.html` mockup 1a.
 
-## Files touched (on top of Phase 0)
+**Second session (address/contact/write-path) verification — narrower,
+noted honestly:** this session's sandbox has no route to raw Postgres
+(port 5432 is blocked; only outbound HTTPS/443 is reachable), so a live
+`next start` against the real Neon database — and therefore Playwright
+verification against real rendered data — wasn't possible here. What was
+actually run: `check:copy` (91 keys, all with defaults), `tsc --noEmit`
+clean, `next build`/`next lint` clean via Turborepo, and a manual read of
+the generated route output confirming `/signup` still builds as an SSR
+route. The multi-step flow's actual on-screen behavior (address
+geocoding round-trip, review step, submit) has **not** been eyeballed in
+a live browser this session — treat it as "builds and type-checks clean"
+confidence, not "confirmed working in a browser" confidence, until
+someone with real DB access loads `/signup` and clicks through it.
+
+## Files touched (on top of Phase 0, and on top of the first Phase 1 session)
 
 ```
 packages/database/
@@ -204,9 +245,14 @@ packages/ui/
 apps/rounds/
   src/lib/eventKinds.ts, holidays.ts, format.ts            (new)
   src/app/layout.tsx                                       (+ Inter webfont — was missing repo-wide)
-  src/app/globals.css                                      (+ .signup-* classes)
-  src/app/(public)/signup/page.tsx, HolidayPicker.tsx       (new)
+  src/app/globals.css                                      (+ .signup-* classes, incl. field/review/hint/error)
+  src/app/(public)/signup/page.tsx                          (+ orgId/seasonId/event.id passed through)
+  src/app/(public)/signup/SignupFlow.tsx                    (new — replaces HolidayPicker.tsx, adds address/contact/review steps)
+  src/app/(public)/signup/actions.ts                        (new — geocodeAddress, submitSignup)
   src/copy/en.ts                                            (+ signup.* keys)
+
+packages/database/
+  src/scoped/households.ts                                  (+ SignupSubmission, submitSignup)
 ```
 
 ## Next
