@@ -21,6 +21,73 @@ export async function householdForSession(
   return prisma.household.findFirst({ where: { id: householdId, orgId, deletedAt: null } });
 }
 
+// The org-wide "data library" — search across every household ever
+// created for this org (not scoped to one event), so an admin can find
+// and reuse a household without re-typing it or round-tripping a CSV.
+// Capped at 50 results: this is a search box, not a full listing — an
+// empty/unbounded query would dump the entire org.
+export async function searchHouseholds(session: SessionLike | null | undefined, orgId: string, query: string) {
+  const membership = await resolveMembership(session);
+  if (!membership || !isStaff(membership.role)) return [];
+  const q = query.trim();
+  if (!q) return [];
+
+  return prisma.household.findMany({
+    where: {
+      orgId,
+      deletedAt: null,
+      OR: [
+        { contactName: { contains: q, mode: "insensitive" } },
+        { contactEmail: { contains: q, mode: "insensitive" } },
+        { contactPhone: { contains: q, mode: "insensitive" } },
+        { addressInput: { contains: q, mode: "insensitive" } },
+      ],
+    },
+    orderBy: { contactName: "asc" },
+    take: 50,
+  });
+}
+
+export interface CopyToEventResult {
+  copied: number;
+  error?: string;
+}
+
+// The other half of the library: copy already-known households straight
+// into an event — no CSV in the middle. Same underlying write as
+// importHouseholdsForEvent (upsert Subscription + SubscriptionEvent),
+// just addressed by existing Household id instead of parsed CSV rows.
+export async function copyHouseholdsToEvent(
+  session: SessionLike | null | undefined,
+  input: { orgId: string; eventId: string; seasonId: string; amountCents: number; householdIds: string[] }
+): Promise<CopyToEventResult> {
+  const membership = await resolveMembership(session, input.eventId);
+  if (!membership || !isStaff(membership.role)) return { copied: 0, error: "Forbidden" };
+  if (input.householdIds.length === 0) return { copied: 0, error: "No households selected." };
+
+  let copied = 0;
+  for (const householdId of input.householdIds) {
+    const household = await prisma.household.findFirst({ where: { id: householdId, orgId: input.orgId } });
+    if (!household) continue; // skip anything that doesn't belong to this org
+
+    const subscription = await prisma.subscription.upsert({
+      where: { householdId_seasonId: { householdId, seasonId: input.seasonId } },
+      update: {},
+      create: { householdId, seasonId: input.seasonId, status: "PENDING_PAYMENT", amountCents: input.amountCents },
+    });
+
+    await prisma.subscriptionEvent.upsert({
+      where: { subscriptionId_eventId: { subscriptionId: subscription.id, eventId: input.eventId } },
+      update: {},
+      create: { subscriptionId: subscription.id, eventId: input.eventId },
+    });
+
+    copied++;
+  }
+
+  return { copied };
+}
+
 export interface HouseholdForEvent {
   subscriptionEventId: string;
   skipped: boolean;

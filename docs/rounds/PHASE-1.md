@@ -424,10 +424,34 @@ round trip. Real scope (browsing all org households, a picker UI,
 copy-selected-into-event) big enough to be its own piece of work, not
 squeezed into this session.
 
+## Update: the household data library (tenth session)
+
+Closes the gap flagged at the end of the last session. New
+`/admin/library` tab (added to `AdminTabs.tsx`):
+
+- **Search** — `searchHouseholds(session, orgId, query)` in
+  `packages/database/src/scoped/households.ts`, matching name/email/
+  phone/address (case-insensitive `contains`), capped at 50 results. A
+  plain `GET ?q=` form, so it works with no client JS; only the
+  results/copy step below it needs any.
+- **Copy** — check the households you want, pick an event from a
+  dropdown (only events that have a season, same constraint as CSV
+  import), submit. `copyHouseholdsToEvent` upserts a
+  `Subscription` + `SubscriptionEvent` per selected household directly —
+  no CSV round trip. Amount defaults to that event's season price
+  (`per_holiday` pricing) or 0 otherwise; same `PENDING_PAYMENT` honesty
+  as every other write path here, since there's still no Stripe
+  integration.
+- Both are staff-gated inside the scoped functions themselves, same
+  pattern as `importHouseholdsForEvent`.
+
+This and CSV export/import are now two ways to do the same underlying
+thing ("get households from somewhere into this event") — CSV for
+editing/sharing outside the app, the library for reusing what's already
+here without leaving the browser.
+
 ## What's still not built (the rest of Phase 1)
 
-- **Org-wide household library + picker.** See above — asked for, not
-  yet built.
 - **Stripe Checkout, webhook, confirmation email.** No Stripe keys exist
   in this environment; the integration shape is well-documented in
   SPEC.md §10 and wasn't started, to avoid writing untested payment code.
