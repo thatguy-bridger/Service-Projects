@@ -12,9 +12,14 @@
     "lint": "turbo run lint",
     "test": "turbo run test",
     "db:generate": "npm run generate --workspace=packages/database",
-    "db:migrate": "npm run migrate --workspace=packages/database"
+    "db:migrate": "npm run migrate --workspace=packages/database",
+    "db:migrate:deploy": "npm run migrate:deploy --workspace=packages/database",
+    "check:copy": "npm run check:copy --workspace=apps/rounds",
+    "seed": "npm run seed --workspace=packages/database --"
   },
   "devDependencies": {
+    "eslint": "^8.57.0",
+    "eslint-config-next": "^14.2.0",
     "turbo": "^2.1.0",
     "typescript": "^5.5.0"
   },

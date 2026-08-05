@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 // Admin-only screen for creating the data end users will view/interact with.
 export default async function AdminPage() {
   const session = await getServerSession(authOptions);
-  requireRole(session, "ADMIN");
+  await requireRole(session, "ADMIN");
 
   const records = await prisma.serviceRecord.findMany({ orderBy: { createdAt: "desc" } });
 
