@@ -4,14 +4,14 @@ Reference: `docs/deployment.md`
 
 Each app in `apps/*` deploys as its own **Vercel project** (free Hobby
 tier), bound to its own subdomain of `bridgerjones.com` (e.g.
-`route-assignments.bridgerjones.com`). DNS is managed in Namecheap. Unlike static
+`rounds.bridgerjones.com`). DNS is managed in Namecheap. Unlike static
 hosting, Vercel runs the Next.js server, so API routes, NextAuth, and
 Prisma/database queries from `packages/core-auth` and `packages/database`
 all work in production — nothing about the app architecture has to change.
 
 ```
 Service-Projects (this repo, monorepo source)
-  apps/route-assignments/  ──▶  Vercel project "route-assignments"  ──▶  route-assignments.bridgerjones.com
+  apps/rounds/  ──▶  Vercel project "rounds"  ──▶  rounds.bridgerjones.com
   apps/next-app/      ──▶  Vercel project "next-app"      ──▶  next-app.bridgerjones.com
 ```
 
@@ -24,7 +24,7 @@ every push.
 
 1. **Create the app** under `apps/<app-name>` (see root `README.md`),
    with its own `package.json` and `vercel.json` (copy from
-   `apps/route-assignments` — an empty `vercel.json` is enough; Vercel
+   `apps/rounds` — an empty `vercel.json` is enough; Vercel
    auto-detects Next.js).
 2. **In the Vercel dashboard:** "Add New Project" → import
    `thatguy-bridger/Service-Projects` → set **Root Directory** to

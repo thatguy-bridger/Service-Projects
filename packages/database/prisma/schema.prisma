@@ -79,11 +79,6 @@ model User {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  // Records this user created (only meaningful for ADMIN users) — belongs
-  // to apps/route-assignments, untouched by Rounds.
-  createdRecords ServiceRecord[] @relation("RecordAuthor")
-  interactions   Interaction[]
-
   // Rounds: which orgs/events this user has a role in.
   memberships Membership[]
 
@@ -121,31 +116,6 @@ model VerificationToken {
   expires    DateTime
 
   @@unique([identifier, token])
-}
-
-// Example of "data created by service administrators" that end users view/interact with.
-// Each app under apps/* can extend this pattern with its own domain-specific tables.
-model ServiceRecord {
-  id        String   @id @default(cuid())
-  title     String
-  body      String
-  authorId  String
-  author    User     @relation("RecordAuthor", fields: [authorId], references: [id])
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  interactions Interaction[]
-}
-
-model Interaction {
-  id        String        @id @default(cuid())
-  userId    String
-  user      User          @relation(fields: [userId], references: [id])
-  recordId  String
-  record    ServiceRecord @relation(fields: [recordId], references: [id])
-  type      String // e.g. "comment", "request", "acknowledge"
-  content   String?
-  createdAt DateTime      @default(now())
 }
 
 // =========================================================================

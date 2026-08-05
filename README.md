@@ -8,17 +8,21 @@ and interact with it.
 
 ```
 apps/                  Independently deployable projects (each a Next.js app)
-  route-assignments/      Reference app: /admin (admin-only) and /dashboard (users)
+  rounds/                Flag/route service app — see SPEC.md and docs/rounds/
 
 packages/
-  core-auth/            Shared NextAuth config, session/role helpers (requireRole)
-  database/             Shared Prisma schema + client (User, ServiceRecord, Interaction)
+  core-auth/            Shared NextAuth config, session/role + permission helpers
+  database/             Shared Prisma schema + client, scoped query helpers
   ui/                    Shared React components
+  geo/                   Geocoding helpers (UGRC + mock)
   config/                Shared tsconfig/lint base config
 
 docs/                   Architecture and onboarding docs
   design-language.md    Design system: color, type, spacing, components — read before styling anything
   deployment.md          How each app deploys to its own bridgerjones.com subdomain
+  rounds/                 Phase-by-phase build notes for apps/rounds
+
+SPEC.md                 Full product spec for Rounds
 ```
 
 ## Design language
@@ -31,29 +35,30 @@ components rather than styling one-off — see that doc for the full rules.
 
 ## Adding a new project
 
-1. Copy `apps/route-assignments` to `apps/<your-project>` (or `npx create-next-app`
+1. Copy `apps/rounds` to `apps/<your-project>` (or `npx create-next-app`
    inside `apps/` and wire up the shared packages).
 2. Depend on `@service-projects/core-auth` and `@service-projects/database`
    in its `package.json` to reuse login and the shared data model.
 3. Extend `packages/database/prisma/schema.prisma` with any project-specific
-   tables, related back to `User`/`ServiceRecord` as needed.
+   tables.
 4. Deploy it to its own subdomain — see
    [`docs/deployment.md`](./docs/deployment.md).
 
 ## Access model
 
-- `User.role` is `ADMIN` or `USER`.
-- Admins create `ServiceRecord`s (or your domain equivalent).
-- Users view records and create `Interaction`s (comments, requests, etc.)
-  against them.
-- Use `requireRole(session, "ADMIN")` from `@service-projects/core-auth` in
-  server actions/route handlers to gate admin-only operations.
+- `User.role` is one of five values: `OWNER`, `ADMIN`, `COORDINATOR`,
+  `VOLUNTEER`, `PREVIEWER` — see `packages/database/prisma/schema.prisma`
+  and `packages/core-auth/src/permissions.ts`.
+- Roles can be org-wide or scoped to a single `Event` via `Membership`.
+- Use `requireRole(session, roles, { eventId })` from
+  `@service-projects/core-auth` in server actions/route handlers to gate
+  access.
 
 ## Getting started
 
 ```bash
 npm install
-cp .env.example .env      # set DATABASE_URL
+cp .env.example .env      # set DATABASE_URL, DATABASE_URL_UNPOOLED
 npm run db:migrate
-npm run dev
+npm run dev --workspace=apps/rounds
 ```
