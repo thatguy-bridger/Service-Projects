@@ -85,6 +85,37 @@ export async function browseHouseholds(
   return { households, total, page, pageSize };
 }
 
+export interface UpdateHouseholdInput {
+  contactName?: string;
+  contactEmail?: string | null;
+  contactPhone?: string | null;
+  addressInput?: string;
+  placementNote?: string | null;
+  accessNotes?: string | null;
+}
+
+export interface UpdateHouseholdResult {
+  ok: boolean;
+  error?: string;
+}
+
+export async function updateHousehold(
+  session: SessionLike | null | undefined,
+  orgId: string,
+  householdId: string,
+  input: UpdateHouseholdInput
+): Promise<UpdateHouseholdResult> {
+  const membership = await resolveMembership(session);
+  if (!membership || !isStaff(membership.role)) return { ok: false, error: "Forbidden" };
+
+  const result = await prisma.household.updateMany({
+    where: { id: householdId, orgId, deletedAt: null },
+    data: input,
+  });
+  if (result.count === 0) return { ok: false, error: "Household not found." };
+  return { ok: true };
+}
+
 export interface DeleteResult {
   deleted: number;
   errors: { id: string; reason: string }[];

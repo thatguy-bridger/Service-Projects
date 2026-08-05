@@ -143,6 +143,7 @@ export function LibraryResults({
                   }}
                 />
               </th>
+              <th style={thStyle}></th>
               {COLUMNS.filter((col) => !hiddenColumns.has(col.key)).map((col) => (
                 <th key={col.key} style={thStyle}>
                   {col.sortField ? (
@@ -161,6 +162,11 @@ export function LibraryResults({
               <tr key={h.id} style={{ borderTop: "1px solid var(--border-default)" }}>
                 <td style={tdStyle}>
                   <input type="checkbox" name="householdIds" value={h.id} />
+                </td>
+                <td style={tdStyle}>
+                  <a href={`/admin/library/${h.id}`} style={{ color: "var(--color-accent-600)" }}>
+                    {t("admin.household.edit")}
+                  </a>
                 </td>
                 {!hiddenColumns.has("contactName") && <td style={tdStyle}>{h.contactName}</td>}
                 {!hiddenColumns.has("contact") && (

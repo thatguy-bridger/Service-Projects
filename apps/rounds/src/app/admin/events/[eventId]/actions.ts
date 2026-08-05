@@ -13,9 +13,12 @@ import {
   removeEventMemberships,
   removeHouseholdsFromEvent,
   copyHouseholdsToEvent,
+  updateEvent,
   type ImportResult,
   type DeleteResult,
   type CopyToEventResult,
+  type UpdateEventResult,
+  type EventStatus,
   type Role,
 } from "@service-projects/database";
 
@@ -51,6 +54,32 @@ export async function addEventPerson(
   });
 
   revalidatePath(`/admin/events/${eventId}`);
+  return result;
+}
+
+export async function updateEventAction(
+  eventId: string,
+  _prevState: UpdateEventResult,
+  formData: FormData
+): Promise<UpdateEventResult> {
+  const session = await getServerSession(authOptions);
+  await requireRole(session, ["OWNER", "ADMIN"]);
+
+  const org = await defaultOrganization();
+  if (!org) return { ok: false, error: "No organization set up yet." };
+
+  const name = String(formData.get("name") ?? "").trim();
+  const status = String(formData.get("status") ?? "") as EventStatus;
+  const serviceStartsAt = new Date(String(formData.get("serviceStartsAt") ?? ""));
+  const serviceEndsAt = new Date(String(formData.get("serviceEndsAt") ?? ""));
+  if (!name) return { ok: false, error: "Name is required." };
+  if (Number.isNaN(serviceStartsAt.getTime()) || Number.isNaN(serviceEndsAt.getTime())) {
+    return { ok: false, error: "Enter valid start/end dates." };
+  }
+
+  const result = await updateEvent(session, org.id, eventId, { name, status, serviceStartsAt, serviceEndsAt });
+  revalidatePath(`/admin/events/${eventId}`);
+  revalidatePath("/admin/events");
   return result;
 }
 

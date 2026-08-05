@@ -68,6 +68,35 @@ export async function deleteEvents(
   return { deleted: result.count };
 }
 
+export interface UpdateEventInput {
+  name?: string;
+  status?: EventStatus;
+  serviceStartsAt?: Date;
+  serviceEndsAt?: Date;
+}
+
+export interface UpdateEventResult {
+  ok: boolean;
+  error?: string;
+}
+
+export async function updateEvent(
+  session: SessionLike | null | undefined,
+  orgId: string,
+  eventId: string,
+  input: UpdateEventInput
+): Promise<UpdateEventResult> {
+  const membership = await resolveMembership(session, eventId);
+  if (!membership || !isStaff(membership.role)) return { ok: false, error: "Forbidden" };
+
+  const result = await prisma.event.updateMany({
+    where: { id: eventId, orgId, deletedAt: null },
+    data: input,
+  });
+  if (result.count === 0) return { ok: false, error: "Event not found." };
+  return { ok: true };
+}
+
 // Write side of eventsForSession above. Gating who can call this is the
 // caller's job — see apps/rounds/.../admin/events/actions.ts.
 export async function createEvent(input: CreateEventInput) {

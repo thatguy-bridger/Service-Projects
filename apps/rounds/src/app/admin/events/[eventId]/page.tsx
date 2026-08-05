@@ -8,6 +8,7 @@ import { formatCentsFull, formatHolidayDate } from "@/lib/format";
 import { ImportCsvForm } from "./ImportCsvForm";
 import { PeopleForm } from "./PeopleForm";
 import { HouseholdsTable } from "./HouseholdsTable";
+import { EditEventForm } from "./EditEventForm";
 
 // This is the point of the whole admin flow: click an event, land on
 // *that event's* dataset — households/signups scoped to just this one
@@ -52,6 +53,13 @@ export default async function AdminEventDetailPage({ params }: { params: { event
           </div>
           <Badge tone="success">{event.status}</Badge>
         </div>
+        <EditEventForm
+          eventId={event.id}
+          name={event.name}
+          status={event.status}
+          serviceStartsAt={event.serviceStartsAt}
+          serviceEndsAt={event.serviceEndsAt}
+        />
       </Card>
 
       <div className="admin-columns" style={{ marginBottom: "var(--space-6)" }}>

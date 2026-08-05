@@ -39,3 +39,25 @@ export async function createSeason(input: {
 }) {
   return prisma.season.create({ data: input });
 }
+
+// Every season for the org, newest first — the admin "unlimited access"
+// view of a model that otherwise only ever gets read one row at a time
+// (currentSeasonForOrg, seasonForYear, seasonById above).
+export async function allSeasonsForOrg(orgId: string) {
+  return prisma.season.findMany({ where: { orgId }, orderBy: { year: "desc" } });
+}
+
+export interface UpdateSeasonResult {
+  ok: boolean;
+  error?: string;
+}
+
+export async function updateSeason(
+  orgId: string,
+  seasonId: string,
+  input: { name?: string; priceCents?: number; pricingMode?: string }
+): Promise<UpdateSeasonResult> {
+  const result = await prisma.season.updateMany({ where: { id: seasonId, orgId }, data: input });
+  if (result.count === 0) return { ok: false, error: "Season not found." };
+  return { ok: true };
+}

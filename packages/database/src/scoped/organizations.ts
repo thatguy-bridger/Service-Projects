@@ -20,6 +20,20 @@ export async function defaultOrganization() {
  * job (requireRole against the real session), same convention as
  * setUserRole in apps/rounds/.../admin/users/actions.ts.
  */
+export interface UpdateOrganizationResult {
+  ok: boolean;
+  error?: string;
+}
+
+export async function updateOrganization(
+  orgId: string,
+  input: { name?: string }
+): Promise<UpdateOrganizationResult> {
+  const result = await prisma.organization.updateMany({ where: { id: orgId, deletedAt: null }, data: input });
+  if (result.count === 0) return { ok: false, error: "Organization not found." };
+  return { ok: true };
+}
+
 export async function getOrCreateDefaultOrganization(name: string) {
   const existing = await defaultOrganization();
   if (existing) return existing;

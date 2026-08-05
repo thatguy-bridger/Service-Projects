@@ -576,7 +576,28 @@ then Stripe Checkout once test keys exist, then the webhook. See
 `docs/rounds/OPEN-QUESTIONS.md` for what's still genuinely blocking
 (pricing, legal entity, UGRC/Stripe credentials).
 
-Still not addressed: the request for a deeper admin "unlimited access"
-experience (inline field editing, richer per-record views) — needs
-scoping before building; flagged for a follow-up conversation with the
-user rather than guessed at.
+## Update — admin editing + new Settings section
+
+Follow-up to "unlimited access for admins": scoped via clarifying
+questions to (1) real field-level editing, not just create/delete, and
+(2) surfacing models that had no admin UI at all yet.
+
+- **Households**: each Library row now links to `/admin/library/[id]`,
+  a full edit page for every field (name/email/phone/address/placement
+  note/access notes) via new `updateHousehold()`.
+- **Events**: the event detail page gained an edit form (name/status/
+  start/end) via new `updateEvent()` — previously status could only be
+  set at creation.
+- **New "Settings" admin tab** (`admin/settings`): the first UI at all
+  for two models that only ever had internal read helpers —
+  **Organization** (rename) and **Seasons** (every season ever created,
+  editable name/price-per-household inline) via new `updateOrganization()`
+  and `updateSeason()`/`allSeasonsForOrg()`.
+
+Not done in this pass, deliberately deferred: editing Subscription/
+Membership rows directly (their state is derived from signups/CSV import
+and role changes respectively — editing them out-of-band risks
+desyncing status from the actions that are supposed to drive it) and a
+generic "edit any model" browser. If per-subscription status editing
+turns out to be wanted (e.g. manually marking one paid/skipped outside
+the normal flow), that's a scoped follow-up, not a guess to make here.
