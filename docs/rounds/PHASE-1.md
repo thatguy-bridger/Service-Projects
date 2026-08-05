@@ -169,23 +169,59 @@ left in `PENDING_PAYMENT`, not `ACTIVE` — there's no Stripe integration,
 so nothing has actually been paid. The signup's copy says as much
 (`signup.contact.paymentNote`) rather than implying payment happened.
 
+## Update: admin event/season creation UI (third session)
+
+Built `apps/rounds/src/app/admin/events/` (OWNER/ADMIN only, same
+`requireRole` + preview-role pattern as `/admin/users`):
+
+- **Generate this year's flag season** — one form (org name, year, price
+  per holiday), one submit. `generateFlagSeason` in
+  `apps/rounds/src/app/admin/events/actions.ts` creates the org if it
+  doesn't exist yet (`getOrCreateDefaultOrganization`, new in
+  `packages/database/src/scoped/organizations.ts`), a `Season`, and the 7
+  standard holiday `Event`s — real dates via the existing
+  `FLAG_HOLIDAYS`/`holidaysForYear` from Phase 1's first session, and the
+  exact same naming convention (`slug: ${key}-${year}`, `name: ${label}
+  ${year} — Flag Set-Out`) the seed script used by hand, so
+  `/signup` picks these up with zero changes. This is the direct fix for
+  "there's no signup yet" — that page was correctly showing its
+  not-found state because no `Organization`/`Season`/`Event` rows existed
+  outside the seed script, which only ever ran against a local dev
+  database, never this app's real Neon database.
+- **Create a custom event** — a second, simpler form (name, kind, start/
+  end) for anything outside the standard flag season (a fundraiser, a
+  flyer delivery), using `MODULE_DEFAULTS`/`OUTCOME_SETS` from
+  `eventKinds.ts` for whichever kind is picked. No per-field
+  module/outcome override UI yet — SPEC.md §2.1 allows one, not built.
+- A read-only table of the current season's events underneath both
+  forms.
+
+New write primitives, following the same "scoped/ owns the Prisma call,
+caller owns the auth gate" split as everything else here:
+`getOrCreateDefaultOrganization` (organizations.ts), `createSeason` +
+`seasonForYear` (seasons.ts), `createEvent` (events.ts).
+
 ## What's still not built (the rest of Phase 1)
 
 - **Stripe Checkout, webhook, confirmation email.** No Stripe keys exist
   in this environment; the integration shape is well-documented in
   SPEC.md §10 and wasn't started, to avoid writing untested payment code.
   This is the reason `Subscription.status` stops at `PENDING_PAYMENT`.
-- **Real UGRC geocoding.** `geocodeAddress` is wired correctly but has no
-  `UGRC_API_KEY` to call against, so every address currently resolves via
-  `MockProvider`'s deterministic jitter around Sandy, UT — not a real
-  location. Address autocomplete (as opposed to geocode-on-blur) also
-  still depends on the same missing key.
-- **Admin-side event/season creation UI.** Seasons and holiday events
-  exist only via the seed script; there's no admin screen yet.
+- **UGRC geocoding — key now added, still never called for real.** A
+  `UGRC_API_KEY` was added to the live Vercel project after this was
+  written, so `getGeoProvider()` should now return the real
+  `UgrcProvider` there instead of `MockProvider`. That provider's
+  response parsing was built by reading UGRC's documented shape, not
+  verified against a live call (no key existed anywhere until now) — the
+  first real `/signup` address entry on the deployed app is the actual
+  test of this, not anything run in this repo's sandbox.
 - **Household de-duplication.** Every submission creates a new
   `Household` row, even for a repeat signup from the same address —
   matching/merging logic isn't built (would matter more once renewals
   and Phase 2's stop generation exist).
+- **Editing or deleting a season/event.** The admin screen only creates;
+  fixing a typo in a generated event currently means going to the
+  database directly.
 
 ## Verification performed
 

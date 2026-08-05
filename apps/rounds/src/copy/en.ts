@@ -120,6 +120,39 @@ export const en = {
   "signup.done.title": "You're on the list",
   "signup.done.body": "We've saved your signup for {{count}} {count, plural, one {holiday} other {holidays}}. An organizer will reach out about payment and details.",
   "signup.done.backHome": "Back to home",
+
+  "dashboard.manageEvents.title": "Events and seasons",
+  "dashboard.manageEvents.body": "Generate this year's flag season, or create a one-off event.",
+  "dashboard.manageEvents.cta": "Manage events",
+
+  "admin.events.title": "Events",
+  "admin.events.currentOrg": "Organization: {{name}}",
+  "admin.events.noOrg": "No organization set up yet — creating a season below will create one.",
+
+  "admin.events.generate.title": "Generate this year's flag season",
+  "admin.events.generate.subtitle": "Creates the 7 standard holiday events with real calendar dates, matching the public signup page.",
+  "admin.events.generate.orgName": "Organization name",
+  "admin.events.generate.year": "Year",
+  "admin.events.generate.price": "Price per holiday ($)",
+  "admin.events.generate.submit": "Generate season",
+  "admin.events.generate.submitting": "Generating…",
+  "admin.events.generate.success": "Season created.",
+
+  "admin.events.custom.title": "Create a custom event",
+  "admin.events.custom.subtitle": "For anything outside the standard flag season — a fundraiser, a flyer delivery, etc.",
+  "admin.events.custom.name": "Event name",
+  "admin.events.custom.kind": "Kind",
+  "admin.events.custom.start": "Starts",
+  "admin.events.custom.end": "Ends",
+  "admin.events.custom.submit": "Create event",
+  "admin.events.custom.submitting": "Creating…",
+  "admin.events.custom.success": "Event created.",
+
+  "admin.events.list.title": "Current events",
+  "admin.events.list.empty": "No events yet.",
+  "admin.events.list.name": "Name",
+  "admin.events.list.date": "Date",
+  "admin.events.list.status": "Status",
 } as const;
 
 export type CopyKey = keyof typeof en;

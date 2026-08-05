@@ -115,13 +115,26 @@ export default async function HomePage() {
           <p style={{ color: "var(--text-secondary)", marginTop: 0 }}>
             {t("dashboard.greeting", { role })}
           </p>
-          <h2 style={{ margin: "0 0 8px", fontSize: "var(--text-lg)", fontWeight: "var(--weight-medium)" }}>
-            {t("dashboard.manageUsers.title")}
-          </h2>
-          <p style={{ color: "var(--text-secondary)" }}>{t("dashboard.manageUsers.body")}</p>
-          <a href="/admin/users">
-            <Button variant="secondary">{t("dashboard.manageUsers.cta")}</Button>
-          </a>
+          <div style={{ display: "flex", gap: "var(--space-4)", flexWrap: "wrap" }}>
+            <div>
+              <h2 style={{ margin: "0 0 8px", fontSize: "var(--text-lg)", fontWeight: "var(--weight-medium)" }}>
+                {t("dashboard.manageEvents.title")}
+              </h2>
+              <p style={{ color: "var(--text-secondary)" }}>{t("dashboard.manageEvents.body")}</p>
+              <a href="/admin/events">
+                <Button variant="secondary">{t("dashboard.manageEvents.cta")}</Button>
+              </a>
+            </div>
+            <div>
+              <h2 style={{ margin: "0 0 8px", fontSize: "var(--text-lg)", fontWeight: "var(--weight-medium)" }}>
+                {t("dashboard.manageUsers.title")}
+              </h2>
+              <p style={{ color: "var(--text-secondary)" }}>{t("dashboard.manageUsers.body")}</p>
+              <a href="/admin/users">
+                <Button variant="secondary">{t("dashboard.manageUsers.cta")}</Button>
+              </a>
+            </div>
+          </div>
         </Card>
       )}
 

@@ -12,3 +12,20 @@ import { prisma } from "../client";
 export async function defaultOrganization() {
   return prisma.organization.findFirst({ where: { deletedAt: null }, orderBy: { createdAt: "asc" } });
 }
+
+/**
+ * Bootstraps the one organization this app's real-world scope needs
+ * (see the note above) if it doesn't exist yet. Called from the admin
+ * "generate a season" flow — gating who can call this is the caller's
+ * job (requireRole against the real session), same convention as
+ * setUserRole in apps/rounds/.../admin/users/actions.ts.
+ */
+export async function getOrCreateDefaultOrganization(name: string) {
+  const existing = await defaultOrganization();
+  if (existing) return existing;
+  const slug = name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+  return prisma.organization.create({ data: { name, slug } });
+}

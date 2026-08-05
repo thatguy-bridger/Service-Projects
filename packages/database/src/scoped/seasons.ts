@@ -18,3 +18,20 @@ export async function currentSeasonForOrg(orgId: string) {
     },
   });
 }
+
+export async function seasonForYear(orgId: string, year: number) {
+  return prisma.season.findUnique({ where: { orgId_year: { orgId, year } } });
+}
+
+// Write side of the same "public read, admin write" split as
+// currentSeasonForOrg above. Gating who can call this is the caller's
+// job — see apps/rounds/.../admin/events/actions.ts.
+export async function createSeason(input: {
+  orgId: string;
+  year: number;
+  name: string;
+  priceCents: number;
+  pricingMode: string;
+}) {
+  return prisma.season.create({ data: input });
+}

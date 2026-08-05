@@ -1,3 +1,4 @@
+import { Prisma, type EventKind, type EventStatus } from "@prisma/client";
 import { prisma } from "../client";
 import { isStaff, resolveMembership, type SessionLike } from "./membership";
 
@@ -27,4 +28,40 @@ export async function eventForSession(
   if (isStaff(membership.role)) return event;
   if (event.status !== "OPEN") return null;
   return event;
+}
+
+export interface CreateEventInput {
+  orgId: string;
+  seasonId?: string;
+  kind: EventKind;
+  name: string;
+  slug: string;
+  status?: EventStatus;
+  serviceStartsAt: Date;
+  serviceEndsAt: Date;
+  timezone?: string;
+  modules: Record<string, unknown>;
+  outcomeSet: Record<string, unknown>;
+  createdBy: string;
+}
+
+// Write side of eventsForSession above. Gating who can call this is the
+// caller's job — see apps/rounds/.../admin/events/actions.ts.
+export async function createEvent(input: CreateEventInput) {
+  return prisma.event.create({
+    data: {
+      orgId: input.orgId,
+      seasonId: input.seasonId,
+      kind: input.kind,
+      name: input.name,
+      slug: input.slug,
+      status: input.status ?? "DRAFT",
+      serviceStartsAt: input.serviceStartsAt,
+      serviceEndsAt: input.serviceEndsAt,
+      timezone: input.timezone ?? "America/Denver",
+      modules: input.modules as Prisma.InputJsonValue,
+      outcomeSet: input.outcomeSet as Prisma.InputJsonValue,
+      createdBy: input.createdBy,
+    },
+  });
 }
