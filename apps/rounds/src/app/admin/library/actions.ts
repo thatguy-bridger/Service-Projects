@@ -8,7 +8,9 @@ import {
   eventForSession,
   seasonById,
   copyHouseholdsToEvent,
+  deleteHouseholds,
   type CopyToEventResult,
+  type DeleteResult,
 } from "@service-projects/database";
 
 export async function copyToEvent(
@@ -45,5 +47,25 @@ export async function copyToEvent(
   });
 
   revalidatePath(`/admin/events/${eventId}`);
+  return result;
+}
+
+export async function deleteHouseholdsAction(
+  _prevState: DeleteResult,
+  formData: FormData
+): Promise<DeleteResult> {
+  const session = await getServerSession(authOptions);
+  await requireRole(session, ["OWNER", "ADMIN"]);
+
+  const householdIds = formData.getAll("householdIds").map(String);
+  if (householdIds.length === 0) {
+    return { deleted: 0, errors: [{ id: "", reason: "Select at least one household." }] };
+  }
+
+  const org = await defaultOrganization();
+  if (!org) return { deleted: 0, errors: [{ id: "", reason: "No organization set up yet." }] };
+
+  const result = await deleteHouseholds(session, org.id, householdIds);
+  revalidatePath("/admin/library");
   return result;
 }

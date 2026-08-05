@@ -39,3 +39,44 @@ export async function setUserRole(formData: FormData): Promise<void> {
 
   revalidatePath("/admin/users");
 }
+
+export interface DeleteUsersResult {
+  deleted: number;
+  errors: { email: string; reason: string }[];
+}
+
+// User has no deletedAt (unlike Household/Event) and Membership/
+// Subscription rows reference it without an onDelete: Cascade, so a
+// hard delete can genuinely fail — caught per-row here and reported,
+// same honest pattern as CSV import, rather than one failure aborting
+// the whole batch or crashing the request.
+export async function deleteUsers(_prevState: DeleteUsersResult, formData: FormData): Promise<DeleteUsersResult> {
+  const session = await getServerSession(authOptions);
+  await requireRole(session, ["OWNER", "ADMIN"]);
+
+  const ids = formData.getAll("userIds").map(String);
+  const errors: DeleteUsersResult["errors"] = [];
+  let deleted = 0;
+
+  for (const id of ids) {
+    if (id === session?.user.id) {
+      errors.push({ email: id, reason: "Can't delete your own account." });
+      continue;
+    }
+    const target = await prisma.user.findUnique({ where: { id } });
+    if (!target) continue;
+    if (target.role === "OWNER" && session?.user.role !== "OWNER") {
+      errors.push({ email: target.email, reason: "Only an Owner can delete an Owner account." });
+      continue;
+    }
+    try {
+      await prisma.user.delete({ where: { id } });
+      deleted++;
+    } catch {
+      errors.push({ email: target.email, reason: "Still has memberships or other records attached." });
+    }
+  }
+
+  revalidatePath("/admin/users");
+  return { deleted, errors };
+}

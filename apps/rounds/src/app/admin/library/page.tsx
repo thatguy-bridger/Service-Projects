@@ -1,24 +1,38 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@service-projects/core-auth";
-import { defaultOrganization, eventsForSession, searchHouseholds } from "@service-projects/database";
+import { defaultOrganization, eventsForSession, browseHouseholds, type HouseholdSortField } from "@service-projects/database";
 import { Card } from "@service-projects/ui";
 import { t } from "@/copy";
 import { LibraryResults } from "./LibraryResults";
 
-// The org-wide "data library": search every household ever created for
-// this org, then copy selected ones straight into any event that has a
-// season — no CSV in the middle. Search is a plain GET (?q=) so it works
-// without client JS; only the results/copy form below it needs one.
+// The org-wide "data library": browse every household ever created for
+// this org (sortable, paginated), then copy or delete selected ones —
+// no CSV in the middle. Sort/page/search are plain GET params so it works
+// without client JS; only the results/bulk-action form below needs one.
 export const dynamic = "force-dynamic";
 
-export default async function AdminLibraryPage({ searchParams }: { searchParams: { q?: string } }) {
+const SORT_FIELDS: HouseholdSortField[] = ["contactName", "contactEmail", "addressInput", "createdAt"];
+const PAGE_SIZE = 50;
+
+export default async function AdminLibraryPage({
+  searchParams,
+}: {
+  searchParams: { q?: string; sort?: string; dir?: string; page?: string };
+}) {
   const session = await getServerSession(authOptions);
   const org = await defaultOrganization();
   const query = searchParams.q ?? "";
+  const sortBy = (SORT_FIELDS.includes(searchParams.sort as HouseholdSortField) ? searchParams.sort : "createdAt") as HouseholdSortField;
+  const sortDir = searchParams.dir === "asc" ? "asc" : "desc";
+  const page = Math.max(1, Number(searchParams.page) || 1);
 
-  const households = org && query ? await searchHouseholds(session, org.id, query) : [];
+  const result = org
+    ? await browseHouseholds(session, org.id, { query, sortBy, sortDir, page, pageSize: PAGE_SIZE })
+    : { households: [], total: 0, page: 1, pageSize: PAGE_SIZE };
+
   const events = org ? await eventsForSession(session, org.id) : [];
   const eventOptions = events.filter((ev) => ev.seasonId).map((ev) => ({ id: ev.id, name: ev.name }));
+  const totalPages = Math.max(1, Math.ceil(result.total / result.pageSize));
 
   return (
     <>
@@ -46,14 +60,21 @@ export default async function AdminLibraryPage({ searchParams }: { searchParams:
       </Card>
 
       <Card>
-        {!query ? (
-          <p style={{ color: "var(--text-secondary)" }}>{t("admin.library.search.prompt")}</p>
-        ) : households.length === 0 ? (
+        {result.households.length === 0 ? (
           <p style={{ color: "var(--text-secondary)" }}>{t("admin.library.search.empty")}</p>
         ) : eventOptions.length === 0 ? (
           <p style={{ color: "var(--text-secondary)" }}>{t("admin.library.noEvents")}</p>
         ) : (
-          <LibraryResults households={households} events={eventOptions} />
+          <LibraryResults
+            households={result.households}
+            events={eventOptions}
+            total={result.total}
+            page={result.page}
+            totalPages={totalPages}
+            query={query}
+            sortBy={sortBy}
+            sortDir={sortDir}
+          />
         )}
       </Card>
     </>

@@ -6,10 +6,16 @@ import { authOptions, requireRole } from "@service-projects/core-auth";
 import {
   defaultOrganization,
   eventForSession,
+  seasonById,
   importHouseholdsForEvent,
   addEventMembership,
   removeEventMembership,
+  removeEventMemberships,
+  removeHouseholdsFromEvent,
+  copyHouseholdsToEvent,
   type ImportResult,
+  type DeleteResult,
+  type CopyToEventResult,
   type Role,
 } from "@service-projects/database";
 
@@ -54,6 +60,84 @@ export async function removeEventPerson(eventId: string, membershipId: string): 
   await removeEventMembership(session, eventId, membershipId);
   revalidatePath(`/admin/events/${eventId}`);
 }
+
+export interface RemovePeopleResult {
+  removed: number;
+  error?: string;
+}
+
+export async function removeEventPeopleBulk(
+  eventId: string,
+  _prevState: RemovePeopleResult,
+  formData: FormData
+): Promise<RemovePeopleResult> {
+  const session = await getServerSession(authOptions);
+  await requireRole(session, ["OWNER", "ADMIN"]);
+
+  const membershipIds = formData.getAll("membershipIds").map(String);
+  if (membershipIds.length === 0) return { removed: 0, error: "Select at least one person." };
+
+  const result = await removeEventMemberships(session, eventId, membershipIds);
+  revalidatePath(`/admin/events/${eventId}`);
+  return result;
+}
+
+export async function removeHouseholdsAction(
+  eventId: string,
+  _prevState: DeleteResult,
+  formData: FormData
+): Promise<DeleteResult> {
+  const session = await getServerSession(authOptions);
+  await requireRole(session, ["OWNER", "ADMIN"]);
+
+  const subscriptionEventIds = formData.getAll("subscriptionEventIds").map(String);
+  if (subscriptionEventIds.length === 0) {
+    return { deleted: 0, errors: [{ id: "", reason: "Select at least one household." }] };
+  }
+
+  const result = await removeHouseholdsFromEvent(session, eventId, subscriptionEventIds);
+  revalidatePath(`/admin/events/${eventId}`);
+  return result;
+}
+
+export async function copyHouseholdsToOtherEventAction(
+  eventId: string,
+  _prevState: CopyToEventResult,
+  formData: FormData
+): Promise<CopyToEventResult> {
+  const session = await getServerSession(authOptions);
+  await requireRole(session, ["OWNER", "ADMIN"]);
+
+  const targetEventId = String(formData.get("targetEventId") ?? "");
+  const householdIds = formData.getAll("householdIds").map(String);
+  if (!targetEventId) return { copied: 0, error: "Choose an event to copy into." };
+  if (householdIds.length === 0) return { copied: 0, error: "Select at least one household." };
+  if (targetEventId === eventId) return { copied: 0, error: "Pick a different event than this one." };
+
+  const org = await defaultOrganization();
+  if (!org) return { copied: 0, error: "No organization set up yet." };
+
+  const targetEvent = await eventForSession(session, org.id, targetEventId);
+  if (!targetEvent) return { copied: 0, error: "Target event not found." };
+  if (!targetEvent.seasonId) {
+    return { copied: 0, error: "That event has no season, so it doesn't use the household/subscription model yet." };
+  }
+
+  const season = await seasonById(targetEvent.seasonId);
+  const amountCents = season && season.pricingMode === "per_holiday" ? season.priceCents : 0;
+
+  const result = await copyHouseholdsToEvent(session, {
+    orgId: org.id,
+    eventId: targetEventId,
+    seasonId: targetEvent.seasonId,
+    amountCents,
+    householdIds,
+  });
+
+  revalidatePath(`/admin/events/${targetEventId}`);
+  return result;
+}
+
 
 export async function importEventCsv(
   eventId: string,

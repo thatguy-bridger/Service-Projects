@@ -538,9 +538,45 @@ packages/database/
   src/scoped/households.ts                                  (+ SignupSubmission, submitSignup)
 ```
 
+## Update — bulk selection tools + Library rework
+
+Added checkbox-based multi-select with bulk actions everywhere admin data
+is listed, and rebuilt the Library page into a full browse/sort/paginate
+table instead of a search-only view.
+
+- **Users list** (`admin/users`): select-all + bulk delete (`UsersTable.tsx`).
+  Hard-deletes per row with try/catch (User has no `deletedAt` and has FK
+  dependents), reports per-row failures rather than aborting the batch.
+  Owner/self-delete are blocked server-side.
+- **Opportunities list** (`admin/events/category/[kind]`): select-all +
+  bulk delete (`OpportunitiesTable.tsx`), soft-delete via `Event.deletedAt`.
+- **Event detail → People**: bulk "remove selected" replaces the old
+  per-row remove button (`PeopleForm.tsx`), sets `Membership.status =
+  "removed"` for all selected rows in one `updateMany`.
+- **Event detail → Households** (`HouseholdsTable.tsx`, new): select-all +
+  bulk "Remove from event" (hard-deletes the `SubscriptionEvent` join row,
+  which has no dependents so this is always safe) + bulk "Copy to another
+  event" (dropdown of other events with a season, reuses
+  `copyHouseholdsToEvent`).
+- **Library** (`admin/library`): now shows *all* households by default
+  (paginated, 50/page) via new `browseHouseholds()`, not just search
+  results — `query` narrows instead of gating. Column headers sort via
+  GET params (`?sort=&dir=`), a client-side column-visibility toggle
+  hides/shows Name/Contact/Address/Placement note/Access notes/Created,
+  and it gained bulk delete (soft-delete via `deleteHouseholds()`)
+  alongside the existing bulk copy-to-event.
+
+`browseHouseholds()` replaces the old `searchHouseholds()` — same
+staff-only gate, now paginated/sorted and query-optional.
+
 ## Next
 
 Address entry (pin-drop fallback first, since it doesn't need UGRC),
 then Stripe Checkout once test keys exist, then the webhook. See
 `docs/rounds/OPEN-QUESTIONS.md` for what's still genuinely blocking
 (pricing, legal entity, UGRC/Stripe credentials).
+
+Still not addressed: the request for a deeper admin "unlimited access"
+experience (inline field editing, richer per-record views) — needs
+scoping before building; flagged for a follow-up conversation with the
+user rather than guessed at.

@@ -3,13 +3,14 @@
 import { useFormState, useFormStatus } from "react-dom";
 import { Badge, Button } from "@service-projects/ui";
 import { t } from "@/copy";
-import { addEventPerson, removeEventPerson, type MembershipActionResult } from "./actions";
+import { addEventPerson, removeEventPeopleBulk, type MembershipActionResult, type RemovePeopleResult } from "./actions";
 import type { EventMembership } from "@service-projects/database";
 
-const initialState: MembershipActionResult = {};
+const addInitialState: MembershipActionResult = {};
+const removeInitialState: RemovePeopleResult = { removed: 0 };
 const ROLES = ["ADMIN", "COORDINATOR", "VOLUNTEER"] as const;
 
-function SubmitButton() {
+function AddSubmitButton() {
   const { pending } = useFormStatus();
   return (
     <Button type="submit" variant="primary" disabled={pending}>
@@ -18,13 +19,25 @@ function SubmitButton() {
   );
 }
 
+function RemoveSubmitButton() {
+  const { pending } = useFormStatus();
+  return (
+    <Button type="submit" variant="danger" disabled={pending}>
+      {pending ? t("admin.eventDetail.people.removing") : t("admin.eventDetail.people.removeSelected")}
+    </Button>
+  );
+}
+
 export function PeopleForm({ eventId, people }: { eventId: string; people: EventMembership[] }) {
   const addWithEvent = addEventPerson.bind(null, eventId);
-  const [state, formAction] = useFormState(addWithEvent, initialState);
+  const [addState, addFormAction] = useFormState(addWithEvent, addInitialState);
+
+  const removeWithEvent = removeEventPeopleBulk.bind(null, eventId);
+  const [removeState, removeFormAction] = useFormState(removeWithEvent, removeInitialState);
 
   return (
     <>
-      <form action={formAction} className="admin-formRow">
+      <form action={addFormAction} className="admin-formRow">
         <label className="signup-field" style={{ marginBottom: 0 }}>
           <span className="signup-fieldLabel">{t("admin.eventDetail.people.email")}</span>
           <input className="signup-input" type="email" name="email" required />
@@ -39,10 +52,10 @@ export function PeopleForm({ eventId, people }: { eventId: string; people: Event
             ))}
           </select>
         </label>
-        <SubmitButton />
-        {state.error && (
+        <AddSubmitButton />
+        {addState.error && (
           <p className="signup-error" style={{ width: "100%" }}>
-            {state.error}
+            {addState.error}
           </p>
         )}
       </form>
@@ -52,35 +65,43 @@ export function PeopleForm({ eventId, people }: { eventId: string; people: Event
           {t("admin.eventDetail.people.empty")}
         </p>
       ) : (
-        <ul style={{ listStyle: "none", margin: "var(--space-3) 0 0", padding: 0, display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
-          {people.map((p) => (
-            <li
-              key={p.id}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                gap: "var(--space-3)",
-                padding: "var(--space-2) var(--space-3)",
-                borderRadius: "var(--radius-md)",
-                background: "var(--surface-sunken)",
-              }}
-            >
-              <span style={{ fontSize: "var(--text-sm)" }}>
-                {p.user.name ?? p.user.email}
-                {p.user.name && <span style={{ color: "var(--text-muted)" }}> · {p.user.email}</span>}
-              </span>
-              <span style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
+        <form action={removeFormAction} style={{ marginTop: "var(--space-3)" }}>
+          <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
+            {people.map((p) => (
+              <li
+                key={p.id}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "var(--space-3)",
+                  padding: "var(--space-2) var(--space-3)",
+                  borderRadius: "var(--radius-md)",
+                  background: "var(--surface-sunken)",
+                }}
+              >
+                <input type="checkbox" name="membershipIds" value={p.id} />
+                <span style={{ fontSize: "var(--text-sm)", flex: 1 }}>
+                  {p.user.name ?? p.user.email}
+                  {p.user.name && <span style={{ color: "var(--text-muted)" }}> · {p.user.email}</span>}
+                </span>
                 <Badge tone="accent">{p.role}</Badge>
-                <form action={removeEventPerson.bind(null, eventId, p.id)}>
-                  <Button type="submit" variant="ghost">
-                    {t("admin.eventDetail.people.remove")}
-                  </Button>
-                </form>
-              </span>
-            </li>
-          ))}
-        </ul>
+              </li>
+            ))}
+          </ul>
+          <div style={{ marginTop: "var(--space-3)" }}>
+            <RemoveSubmitButton />
+          </div>
+          {removeState.removed > 0 && (
+            <p style={{ color: "var(--color-success-500)", fontSize: "var(--text-sm)", marginTop: "var(--space-2)" }}>
+              {t("admin.eventDetail.people.removeSuccess", { count: removeState.removed })}
+            </p>
+          )}
+          {removeState.error && (
+            <p className="signup-error" style={{ marginTop: "var(--space-2)" }}>
+              {removeState.error}
+            </p>
+          )}
+        </form>
       )}
     </>
   );

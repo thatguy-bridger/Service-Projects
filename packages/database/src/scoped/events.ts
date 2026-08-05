@@ -45,6 +45,29 @@ export interface CreateEventInput {
   createdBy: string;
 }
 
+export interface DeleteEventsResult {
+  deleted: number;
+}
+
+// Soft delete — Event already has deletedAt and every read path here
+// filters on it, so this is safe even for events with existing
+// signups/people/stops (unlike a hard delete, which would hit foreign
+// key constraints from SubscriptionEvent/Membership/Stop).
+export async function deleteEvents(
+  session: SessionLike | null | undefined,
+  orgId: string,
+  eventIds: string[]
+): Promise<DeleteEventsResult> {
+  const membership = await resolveMembership(session);
+  if (!membership || !isStaff(membership.role)) return { deleted: 0 };
+
+  const result = await prisma.event.updateMany({
+    where: { id: { in: eventIds }, orgId },
+    data: { deletedAt: new Date() },
+  });
+  return { deleted: result.count };
+}
+
 // Write side of eventsForSession above. Gating who can call this is the
 // caller's job — see apps/rounds/.../admin/events/actions.ts.
 export async function createEvent(input: CreateEventInput) {

@@ -21,31 +21,109 @@ export async function householdForSession(
   return prisma.household.findFirst({ where: { id: householdId, orgId, deletedAt: null } });
 }
 
-// The org-wide "data library" — search across every household ever
-// created for this org (not scoped to one event), so an admin can find
-// and reuse a household without re-typing it or round-tripping a CSV.
-// Capped at 50 results: this is a search box, not a full listing — an
-// empty/unbounded query would dump the entire org.
-export async function searchHouseholds(session: SessionLike | null | undefined, orgId: string, query: string) {
-  const membership = await resolveMembership(session);
-  if (!membership || !isStaff(membership.role)) return [];
-  const q = query.trim();
-  if (!q) return [];
+export type HouseholdSortField = "contactName" | "contactEmail" | "addressInput" | "createdAt";
 
-  return prisma.household.findMany({
-    where: {
-      orgId,
-      deletedAt: null,
-      OR: [
-        { contactName: { contains: q, mode: "insensitive" } },
-        { contactEmail: { contains: q, mode: "insensitive" } },
-        { contactPhone: { contains: q, mode: "insensitive" } },
-        { addressInput: { contains: q, mode: "insensitive" } },
-      ],
-    },
-    orderBy: { contactName: "asc" },
-    take: 50,
+export interface BrowseHouseholdsInput {
+  query?: string;
+  sortBy?: HouseholdSortField;
+  sortDir?: "asc" | "desc";
+  page?: number; // 1-indexed
+  pageSize?: number;
+}
+
+export interface BrowseHouseholdsResult {
+  households: Awaited<ReturnType<typeof prisma.household.findMany>>;
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+// The org-wide "data library" — every household ever created for this
+// org (not scoped to one event), sortable and paginated like any other
+// data table, with an optional text filter across name/email/phone/
+// address. No query means "show everything" (paginated), not "show
+// nothing" — a real library is something you browse, not just search.
+export async function browseHouseholds(
+  session: SessionLike | null | undefined,
+  orgId: string,
+  input: BrowseHouseholdsInput = {}
+): Promise<BrowseHouseholdsResult> {
+  const membership = await resolveMembership(session);
+  if (!membership || !isStaff(membership.role)) return { households: [], total: 0, page: 1, pageSize: 0 };
+
+  const q = input.query?.trim();
+  const sortBy = input.sortBy ?? "createdAt";
+  const sortDir = input.sortDir ?? "desc";
+  const pageSize = input.pageSize ?? 50;
+  const page = Math.max(1, input.page ?? 1);
+
+  const where: Prisma.HouseholdWhereInput = {
+    orgId,
+    deletedAt: null,
+    ...(q
+      ? {
+          OR: [
+            { contactName: { contains: q, mode: "insensitive" } },
+            { contactEmail: { contains: q, mode: "insensitive" } },
+            { contactPhone: { contains: q, mode: "insensitive" } },
+            { addressInput: { contains: q, mode: "insensitive" } },
+          ],
+        }
+      : {}),
+  };
+
+  const [households, total] = await Promise.all([
+    prisma.household.findMany({
+      where,
+      orderBy: { [sortBy]: sortDir },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    }),
+    prisma.household.count({ where }),
+  ]);
+
+  return { households, total, page, pageSize };
+}
+
+export interface DeleteResult {
+  deleted: number;
+  errors: { id: string; reason: string }[];
+}
+
+// Soft delete — Household already has deletedAt and every read path here
+// filters on it, so this is safe with no FK cleanup needed (unlike
+// deleting a User, which has real foreign-key dependents).
+export async function deleteHouseholds(
+  session: SessionLike | null | undefined,
+  orgId: string,
+  householdIds: string[]
+): Promise<DeleteResult> {
+  const membership = await resolveMembership(session);
+  if (!membership || !isStaff(membership.role)) return { deleted: 0, errors: [{ id: "", reason: "Forbidden" }] };
+
+  const result = await prisma.household.updateMany({
+    where: { id: { in: householdIds }, orgId },
+    data: { deletedAt: new Date() },
   });
+  return { deleted: result.count, errors: [] };
+}
+
+// Unlink households from one event without touching the Household row
+// itself (or its Subscription, which may still cover other events in
+// the same season) — just the SubscriptionEvent join row. Always safe:
+// nothing references SubscriptionEvent.
+export async function removeHouseholdsFromEvent(
+  session: SessionLike | null | undefined,
+  eventId: string,
+  subscriptionEventIds: string[]
+): Promise<DeleteResult> {
+  const membership = await resolveMembership(session, eventId);
+  if (!membership || !isStaff(membership.role)) return { deleted: 0, errors: [{ id: "", reason: "Forbidden" }] };
+
+  const result = await prisma.subscriptionEvent.deleteMany({
+    where: { id: { in: subscriptionEventIds }, eventId },
+  });
+  return { deleted: result.count, errors: [] };
 }
 
 export interface CopyToEventResult {

@@ -1,12 +1,13 @@
 import { notFound } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@service-projects/core-auth";
-import { defaultOrganization, eventForSession, householdsForEvent, membershipsForEvent } from "@service-projects/database";
+import { defaultOrganization, eventForSession, eventsForSession, householdsForEvent, membershipsForEvent } from "@service-projects/database";
 import { Card, Badge, Button } from "@service-projects/ui";
 import { t } from "@/copy";
 import { formatCentsFull, formatHolidayDate } from "@/lib/format";
 import { ImportCsvForm } from "./ImportCsvForm";
 import { PeopleForm } from "./PeopleForm";
+import { HouseholdsTable } from "./HouseholdsTable";
 
 // This is the point of the whole admin flow: click an event, land on
 // *that event's* dataset — households/signups scoped to just this one
@@ -28,6 +29,10 @@ export default async function AdminEventDetailPage({ params }: { params: { event
   const skippedCount = rows.length - activeCount;
   const totalCents = rows.filter((r) => !r.skipped).reduce((sum, r) => sum + r.amountCents, 0);
   const people = await membershipsForEvent(session, params.eventId);
+  const allEvents = await eventsForSession(session, org.id);
+  const otherEvents = allEvents
+    .filter((ev) => ev.id !== event.id && ev.seasonId)
+    .map((ev) => ({ id: ev.id, name: ev.name }));
 
   return (
     <>
@@ -103,51 +108,9 @@ export default async function AdminEventDetailPage({ params }: { params: { event
         {rows.length === 0 ? (
           <p style={{ color: "var(--text-secondary)" }}>{t("admin.eventDetail.list.empty")}</p>
         ) : (
-          <div className="admin-tableWrap">
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead>
-                <tr>
-                  <th style={thStyle}>{t("admin.eventDetail.list.name")}</th>
-                  <th style={thStyle}>{t("admin.eventDetail.list.contact")}</th>
-                  <th style={thStyle}>{t("admin.eventDetail.list.address")}</th>
-                  <th style={thStyle}>{t("admin.eventDetail.list.status")}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((row) => (
-                  <tr key={row.subscriptionEventId} style={{ borderTop: "1px solid var(--border-default)" }}>
-                    <td style={tdStyle}>{row.household.contactName}</td>
-                    <td style={tdStyle}>
-                      {row.household.contactEmail}
-                      {row.household.contactEmail && row.household.contactPhone ? " · " : ""}
-                      {row.household.contactPhone}
-                    </td>
-                    <td style={tdStyle}>{row.household.addressInput}</td>
-                    <td style={tdStyle}>
-                      <Badge tone={row.skipped ? "neutral" : "accent"}>
-                        {row.skipped ? t("admin.eventDetail.list.skipped") : row.subscriptionStatus}
-                      </Badge>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <HouseholdsTable eventId={event.id} rows={rows} otherEvents={otherEvents} />
         )}
       </Card>
     </>
   );
 }
-
-const thStyle: React.CSSProperties = {
-  textAlign: "left",
-  padding: "var(--space-2) var(--space-3)",
-  fontSize: "var(--text-xs)",
-  color: "var(--text-muted)",
-  fontWeight: "var(--weight-medium)" as unknown as number,
-};
-
-const tdStyle: React.CSSProperties = {
-  padding: "var(--space-2) var(--space-3)",
-  fontSize: "var(--text-sm)",
-};

@@ -1,9 +1,10 @@
 import { getServerSession } from "next-auth";
 import { authOptions, ROLES } from "@service-projects/core-auth";
 import { prisma } from "@service-projects/database";
-import { Card, Badge, Button } from "@service-projects/ui";
+import { Card, Button } from "@service-projects/ui";
 import { t } from "@/copy";
 import { setUserRole } from "./actions";
+import { UsersTable } from "./UsersTable";
 
 // Always fresh: role changes here must show up immediately. Auth gate,
 // topbar, and tabs are handled by ../layout.tsx — this page only owns
@@ -54,45 +55,9 @@ export default async function AdminUsersPage() {
         {users.length === 0 ? (
           <p style={{ color: "var(--text-secondary)" }}>{t("admin.users.empty")}</p>
         ) : (
-          <div className="admin-tableWrap">
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead>
-                <tr>
-                  <th style={thStyle}>{t("admin.users.table.email")}</th>
-                  <th style={thStyle}>{t("admin.users.table.name")}</th>
-                  <th style={thStyle}>{t("admin.users.table.role")}</th>
-                  <th style={thStyle}>{t("admin.users.table.updated")}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {users.map((user) => (
-                  <tr key={user.id} style={{ borderTop: "1px solid var(--border-default)" }}>
-                    <td style={tdStyle}>{user.email}</td>
-                    <td style={tdStyle}>{user.name ?? "—"}</td>
-                    <td style={tdStyle}>
-                      <Badge tone="accent">{user.role}</Badge>
-                    </td>
-                    <td style={tdStyle}>{user.updatedAt.toLocaleDateString()}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <UsersTable users={users} />
         )}
       </Card>
     </>
   );
 }
-
-const thStyle: React.CSSProperties = {
-  textAlign: "left",
-  padding: "var(--space-2) var(--space-3)",
-  fontSize: "var(--text-xs)",
-  color: "var(--text-muted)",
-  fontWeight: "var(--weight-medium)" as unknown as number,
-};
-
-const tdStyle: React.CSSProperties = {
-  padding: "var(--space-2) var(--space-3)",
-  fontSize: "var(--text-sm)",
-};
