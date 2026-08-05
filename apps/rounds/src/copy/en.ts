@@ -53,6 +53,18 @@ export const en = {
   "admin.users.table.role": "Role",
   "admin.users.table.updated": "Last updated",
   "admin.users.empty": "No users yet.",
+
+  "auth.createAccount.cta": "Create an account with email + password",
+
+  "register.title": "Create an account",
+  "register.subtitle": "Sign in with email and password instead of Google or Microsoft.",
+  "register.form.email": "Email",
+  "register.form.password": "Password (10+ characters)",
+  "register.form.confirmPassword": "Confirm password",
+  "register.form.submit": "Create account",
+  "register.form.submitting": "Creating account…",
+  "register.error.mismatch": "Passwords don't match.",
+  "register.error.generic": "Something went wrong. Try again.",
 } as const;
 
 export type CopyKey = keyof typeof en;

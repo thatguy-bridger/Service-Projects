@@ -22,6 +22,11 @@ export default async function HomePage() {
           <a href="/api/auth/signin">
             <Button variant="primary">{t("auth.signIn.cta")}</Button>
           </a>
+          <p style={{ marginTop: "var(--space-3)" }}>
+            <a href="/register" style={{ color: "var(--color-accent-500)", fontSize: "var(--text-sm)" }}>
+              {t("auth.createAccount.cta")}
+            </a>
+          </p>
         </section>
       </main>
     );

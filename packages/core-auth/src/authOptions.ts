@@ -1,8 +1,11 @@
 import type { NextAuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
+import AzureADProvider from "next-auth/providers/azure-ad";
 import EmailProvider from "next-auth/providers/email";
+import CredentialsProvider from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import { prisma } from "@service-projects/database";
+import { verifyPassword } from "./password";
 
 const providers: NextAuthOptions["providers"] = [];
 
@@ -24,6 +27,51 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
     })
   );
 }
+
+if (
+  process.env.AZURE_AD_CLIENT_ID &&
+  process.env.AZURE_AD_CLIENT_SECRET &&
+  process.env.AZURE_AD_TENANT_ID
+) {
+  providers.push(
+    AzureADProvider({
+      clientId: process.env.AZURE_AD_CLIENT_ID,
+      clientSecret: process.env.AZURE_AD_CLIENT_SECRET,
+      tenantId: process.env.AZURE_AD_TENANT_ID,
+      // Same reasoning as Google above — Microsoft verifies the email it
+      // returns, so linking to a pre-created User row by email is safe.
+      allowDangerousEmailAccountLinking: true,
+    })
+  );
+}
+
+// Email + password. authorize() does its own lookup/verification rather
+// than going through the PrismaAdapter — that's the standard pattern for
+// mixing Credentials with an adapter-backed OAuth setup under the "jwt"
+// session strategy.
+providers.push(
+  CredentialsProvider({
+    name: "Email and password",
+    credentials: {
+      email: { label: "Email", type: "email" },
+      password: { label: "Password", type: "password" },
+    },
+    async authorize(credentials) {
+      if (!credentials?.email || !credentials.password) return null;
+
+      const user = await prisma.user.findUnique({
+        where: { email: credentials.email.trim().toLowerCase() },
+      });
+      // No account, or an OAuth-only account with no password set.
+      if (!user?.passwordHash) return null;
+
+      const valid = await verifyPassword(credentials.password, user.passwordHash);
+      if (!valid) return null;
+
+      return { id: user.id, email: user.email, name: user.name };
+    },
+  })
+);
 
 if (process.env.RESEND_API_KEY && process.env.EMAIL_FROM) {
   providers.push(
