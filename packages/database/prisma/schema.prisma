@@ -1,0 +1,53 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  USER
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  role      Role     @default(USER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Records this user created (only meaningful for ADMIN users)
+  createdRecords ServiceRecord[] @relation("RecordAuthor")
+
+  // Interactions this user made on admin-created records
+  interactions   Interaction[]
+}
+
+// Example of "data created by service administrators" that end users view/interact with.
+// Each app under apps/* can extend this pattern with its own domain-specific tables.
+model ServiceRecord {
+  id          String   @id @default(cuid())
+  title       String
+  body        String
+  authorId    String
+  author      User     @relation("RecordAuthor", fields: [authorId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  interactions Interaction[]
+}
+
+model Interaction {
+  id        String        @id @default(cuid())
+  userId    String
+  user      User          @relation(fields: [userId], references: [id])
+  recordId  String
+  record    ServiceRecord @relation(fields: [recordId], references: [id])
+  type      String        // e.g. "comment", "request", "acknowledge"
+  content   String?
+  createdAt DateTime      @default(now())
+}
