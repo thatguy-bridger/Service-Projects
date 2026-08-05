@@ -92,3 +92,20 @@
 .badge-warning { background: color-mix(in srgb, var(--color-warning-500) 16%, transparent); color: var(--color-warning-500); }
 .badge-danger { background: color-mix(in srgb, var(--color-danger-500) 16%, transparent); color: var(--color-danger-500); }
 .badge-info { background: color-mix(in srgb, var(--color-info-500) 16%, transparent); color: var(--color-info-500); }
+
+.image-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: 200px;
+  border-radius: var(--radius-lg);
+  background: linear-gradient(135deg, var(--color-accent-500), var(--color-accent-700));
+  color: white;
+}
+.image-placeholder-caption {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  opacity: 0.9;
+}

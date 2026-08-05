@@ -1,7 +1,8 @@
 import { getServerSession } from "next-auth";
 import { authOptions, can } from "@service-projects/core-auth";
-import { Button, Card, Badge } from "@service-projects/ui";
+import { Button, Card, Badge, BrandMark, ImagePlaceholder } from "@service-projects/ui";
 import { t } from "@/copy";
+import { AccountControls } from "./AccountControls";
 
 // Always fresh: reads the request's session.
 export const dynamic = "force-dynamic";
@@ -16,17 +17,62 @@ export default async function HomePage() {
   if (!session?.user) {
     return (
       <main className="rounds-shell">
+        <header className="rounds-topbar">
+          <BrandMark />
+          <span className="rounds-brand">{t("brand.name")}</span>
+        </header>
+
         <section className="rounds-hero">
           <h1>{t("previewer.landing.title")}</h1>
           <p>{t("previewer.landing.subtitle")}</p>
-          <a href="/api/auth/signin">
-            <Button variant="primary">{t("auth.signIn.cta")}</Button>
-          </a>
-          <p style={{ marginTop: "var(--space-3)" }}>
+          <div style={{ display: "flex", gap: "var(--space-3)", alignItems: "center", flexWrap: "wrap" }}>
+            <a href="/api/auth/signin">
+              <Button variant="primary">{t("auth.signIn.cta")}</Button>
+            </a>
             <a href="/register" style={{ color: "var(--color-accent-500)", fontSize: "var(--text-sm)" }}>
               {t("auth.createAccount.cta")}
             </a>
-          </p>
+          </div>
+        </section>
+
+        <ImagePlaceholder
+          caption={t("landing.imagePlaceholder.caption")}
+          style={{ margin: "var(--space-8) 0" }}
+        />
+
+        <section>
+          <h2 style={{ fontSize: "var(--text-xl)", fontWeight: "var(--weight-semibold)" }}>
+            {t("landing.howItWorks.title")}
+          </h2>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+              gap: "var(--space-4)",
+            }}
+          >
+            <Card>
+              <Badge tone="accent">1</Badge>
+              <h3 style={{ fontSize: "var(--text-base)", fontWeight: "var(--weight-medium)" }}>
+                {t("landing.howItWorks.step1.title")}
+              </h3>
+              <p style={{ color: "var(--text-secondary)", margin: 0 }}>{t("landing.howItWorks.step1.body")}</p>
+            </Card>
+            <Card>
+              <Badge tone="accent">2</Badge>
+              <h3 style={{ fontSize: "var(--text-base)", fontWeight: "var(--weight-medium)" }}>
+                {t("landing.howItWorks.step2.title")}
+              </h3>
+              <p style={{ color: "var(--text-secondary)", margin: 0 }}>{t("landing.howItWorks.step2.body")}</p>
+            </Card>
+            <Card>
+              <Badge tone="accent">3</Badge>
+              <h3 style={{ fontSize: "var(--text-base)", fontWeight: "var(--weight-medium)" }}>
+                {t("landing.howItWorks.step3.title")}
+              </h3>
+              <p style={{ color: "var(--text-secondary)", margin: 0 }}>{t("landing.howItWorks.step3.body")}</p>
+            </Card>
+          </div>
         </section>
       </main>
     );
@@ -37,9 +83,13 @@ export default async function HomePage() {
 
   return (
     <main className="rounds-shell">
-      <header className="rounds-topbar">
-        <span className="rounds-brand">{t("brand.name")}</span>
-        <Badge tone="accent">{isOwnerOrAdmin ? role : t("role.previewer.badge")}</Badge>
+      <header className="rounds-topbar" style={{ justifyContent: "space-between" }}>
+        <span style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
+          <BrandMark size={32} />
+          <span className="rounds-brand">{t("brand.name")}</span>
+          <Badge tone="accent">{isOwnerOrAdmin ? role : t("role.previewer.badge")}</Badge>
+        </span>
+        <AccountControls />
       </header>
 
       {isOwnerOrAdmin && (

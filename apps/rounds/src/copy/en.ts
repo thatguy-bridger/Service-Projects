@@ -54,17 +54,30 @@ export const en = {
   "admin.users.table.updated": "Last updated",
   "admin.users.empty": "No users yet.",
 
-  "auth.createAccount.cta": "Create an account with email + password",
+  "auth.createAccount.cta": "Sign in with email + password",
 
-  "register.title": "Create an account",
-  "register.subtitle": "Sign in with email and password instead of Google or Microsoft.",
+  "register.title": "Email + password",
+  "register.subtitle": "Already have an account with this email? Just enter your password to sign in. New here? This creates your account.",
   "register.form.email": "Email",
-  "register.form.password": "Password (10+ characters)",
+  "register.form.password": "Password (10+ characters for a new account)",
   "register.form.confirmPassword": "Confirm password",
-  "register.form.submit": "Create account",
-  "register.form.submitting": "Creating account…",
+  "register.form.confirmPasswordHint": "Only needed if you're creating a new account.",
+  "register.form.submit": "Continue",
+  "register.form.submitting": "Working…",
   "register.error.mismatch": "Passwords don't match.",
   "register.error.generic": "Something went wrong. Try again.",
+
+  "account.signOut.cta": "Sign out",
+  "account.switchAccount.cta": "Switch / add account",
+
+  "landing.imagePlaceholder.caption": "Photos from real events show up here once an organizer adds them",
+  "landing.howItWorks.title": "How it works",
+  "landing.howItWorks.step1.title": "Find an event",
+  "landing.howItWorks.step1.body": "Browse service events an organizer has published near you.",
+  "landing.howItWorks.step2.title": "Sign up in minutes",
+  "landing.howItWorks.step2.body": "Pick your options, and you're on the list — no account required to browse.",
+  "landing.howItWorks.step3.title": "A volunteer handles the rest",
+  "landing.howItWorks.step3.body": "Someone from the organizing team takes care of it, and you'll get updates along the way.",
 } as const;
 
 export type CopyKey = keyof typeof en;

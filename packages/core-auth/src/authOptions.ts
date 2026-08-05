@@ -24,6 +24,12 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
       // second, unlinked PREVIEWER account for the same address. Safe
       // here because Google verifies the email it hands back.
       allowDangerousEmailAccountLinking: true,
+      // Without this, Google silently reuses whichever Google account is
+      // already logged into the browser, so "switch account" would first
+      // require signing out here *and* at accounts.google.com. Forcing
+      // the picker on every attempt means a user can switch or add an
+      // account in one click, no prior sign-out needed.
+      authorization: { params: { prompt: "select_account" } },
     })
   );
 }
@@ -41,6 +47,9 @@ if (
       // Same reasoning as Google above — Microsoft verifies the email it
       // returns, so linking to a pre-created User row by email is safe.
       allowDangerousEmailAccountLinking: true,
+      // See the Google provider above — same "switch account in one
+      // click" reasoning.
+      authorization: { params: { prompt: "select_account" } },
     })
   );
 }

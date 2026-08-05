@@ -16,7 +16,9 @@ export function RegisterForm() {
     e.preventDefault();
     setError(null);
 
-    if (password !== confirmPassword) {
+    // Only enforced when the field is filled in — a returning user
+    // signing back in via this same form has no reason to fill it.
+    if (confirmPassword && password !== confirmPassword) {
       setError(t("register.error.mismatch"));
       return;
     }
@@ -73,7 +75,6 @@ export function RegisterForm() {
             <input
               type="password"
               required
-              minLength={10}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               style={inputStyle}
@@ -85,12 +86,13 @@ export function RegisterForm() {
             </span>
             <input
               type="password"
-              required
-              minLength={10}
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               style={inputStyle}
             />
+            <span style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>
+              {t("register.form.confirmPasswordHint")}
+            </span>
           </label>
 
           {error && (

@@ -4,6 +4,7 @@ import { prisma } from "@service-projects/database";
 import { Card, Badge, Button } from "@service-projects/ui";
 import { t } from "@/copy";
 import { setUserRole } from "./actions";
+import { AccountControls } from "../../AccountControls";
 
 // Always fresh: role changes here must show up immediately.
 export const dynamic = "force-dynamic";
@@ -17,9 +18,12 @@ export default async function AdminUsersPage() {
 
   return (
     <main className="rounds-shell">
-      <header className="rounds-topbar">
-        <span className="rounds-brand">{t("brand.name")}</span>
-        <Badge tone="accent">{session?.user.role}</Badge>
+      <header className="rounds-topbar" style={{ justifyContent: "space-between" }}>
+        <span style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
+          <span className="rounds-brand">{t("brand.name")}</span>
+          <Badge tone="accent">{session?.user.role}</Badge>
+        </span>
+        <AccountControls />
       </header>
 
       <Card>
