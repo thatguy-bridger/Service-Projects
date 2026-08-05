@@ -66,6 +66,89 @@ export async function requireOrgAccess(
   if (!membership) throw new Error("Forbidden");
 }
 
+export interface EventMembership {
+  id: string;
+  role: Role;
+  user: { id: string; email: string; name: string | null };
+}
+
+// The "people on this opportunity" list — SPEC.md §3.3's whole point:
+// who has ADMIN/COORDINATOR/VOLUNTEER access to *this* event, which can
+// differ from the next one even for the same person.
+export async function membershipsForEvent(
+  session: SessionLike | null | undefined,
+  eventId: string
+): Promise<EventMembership[]> {
+  const membership = await resolveMembership(session, eventId);
+  if (!membership || !isStaff(membership.role)) return [];
+
+  const rows = await prisma.membership.findMany({
+    where: { eventId, status: "active" },
+    include: { user: { select: { id: true, email: true, name: true } } },
+    orderBy: { createdAt: "desc" },
+  });
+
+  return rows.map((m) => ({ id: m.id, role: m.role, user: m.user }));
+}
+
+const EVENT_MEMBERSHIP_ROLES: Role[] = ["ADMIN", "COORDINATOR", "VOLUNTEER"];
+
+// Grants a role scoped to one event. If `email` has no User row yet, one
+// is created as PREVIEWER (same "pre-create by email" pattern as
+// setUserRole in apps/rounds/.../admin/users/actions.ts) — their first
+// sign-in attaches to it via allowDangerousEmailAccountLinking.
+export async function addEventMembership(
+  session: SessionLike | null | undefined,
+  input: { orgId: string; eventId: string; email: string; role: Role; grantedBy?: string }
+): Promise<{ error?: string }> {
+  const membership = await resolveMembership(session, input.eventId);
+  if (!membership || !isStaff(membership.role)) return { error: "Forbidden" };
+  if (!EVENT_MEMBERSHIP_ROLES.includes(input.role)) {
+    return { error: "Event-level access can only be Admin, Coordinator, or Volunteer." };
+  }
+
+  const email = input.email.trim().toLowerCase();
+  if (!email) return { error: "Email is required." };
+
+  const user = await prisma.user.upsert({
+    where: { email },
+    update: {},
+    create: { email, role: "PREVIEWER" },
+  });
+
+  await prisma.membership.upsert({
+    where: {
+      orgId_userId_role_eventId: { orgId: input.orgId, userId: user.id, role: input.role, eventId: input.eventId },
+    },
+    update: { status: "active" },
+    create: {
+      orgId: input.orgId,
+      userId: user.id,
+      role: input.role,
+      eventId: input.eventId,
+      status: "active",
+      grantedBy: input.grantedBy,
+    },
+  });
+
+  return {};
+}
+
+export async function removeEventMembership(
+  session: SessionLike | null | undefined,
+  eventId: string,
+  membershipId: string
+): Promise<{ error?: string }> {
+  const membership = await resolveMembership(session, eventId);
+  if (!membership || !isStaff(membership.role)) return { error: "Forbidden" };
+
+  await prisma.membership.updateMany({
+    where: { id: membershipId, eventId },
+    data: { status: "removed" },
+  });
+  return {};
+}
+
 export async function organizationsForSession(session: SessionLike | null | undefined) {
   const userId = session?.user?.id;
   if (!userId) return [];

@@ -7,8 +7,53 @@ import {
   defaultOrganization,
   eventForSession,
   importHouseholdsForEvent,
+  addEventMembership,
+  removeEventMembership,
   type ImportResult,
+  type Role,
 } from "@service-projects/database";
+
+export interface MembershipActionResult {
+  error?: string;
+}
+
+const EVENT_ROLES: Role[] = ["ADMIN", "COORDINATOR", "VOLUNTEER"];
+
+export async function addEventPerson(
+  eventId: string,
+  _prevState: MembershipActionResult,
+  formData: FormData
+): Promise<MembershipActionResult> {
+  const session = await getServerSession(authOptions);
+  await requireRole(session, ["OWNER", "ADMIN"]);
+
+  const org = await defaultOrganization();
+  if (!org) return { error: "No organization set up yet." };
+
+  const email = String(formData.get("email") ?? "").trim();
+  const role = String(formData.get("role") ?? "") as Role;
+  if (!email || !EVENT_ROLES.includes(role)) {
+    return { error: "Enter an email and pick a role." };
+  }
+
+  const result = await addEventMembership(session, {
+    orgId: org.id,
+    eventId,
+    email,
+    role,
+    grantedBy: session?.user.id,
+  });
+
+  revalidatePath(`/admin/events/${eventId}`);
+  return result;
+}
+
+export async function removeEventPerson(eventId: string, membershipId: string): Promise<void> {
+  const session = await getServerSession(authOptions);
+  await requireRole(session, ["OWNER", "ADMIN"]);
+  await removeEventMembership(session, eventId, membershipId);
+  revalidatePath(`/admin/events/${eventId}`);
+}
 
 export async function importEventCsv(
   eventId: string,

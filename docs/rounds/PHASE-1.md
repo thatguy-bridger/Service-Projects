@@ -381,8 +381,53 @@ needed" half, now closed:
   (not just in the calling server action) — a write like this shouldn't
   rely on every future caller remembering to check first.
 
+## Update: Events → category → opportunity directory + per-opportunity people (ninth session)
+
+The user restated the model directly, and it's a renaming/reorganization
+more than a new data shape:
+
+- **"Events"** (top-level) is now a real directory:
+  `/admin/events` shows category tiles (Flag Setup, Flag Takedown, Flyer
+  Delivery, Fundraiser, Pickup Collection — `EVENT_KIND_LABELS` in
+  `apps/rounds/src/lib/eventKinds.ts`) with a count of opportunities in
+  each, linking to `/admin/events/category/[kind]`.
+- **"category"** groups what the schema already calls `EventKind` — no
+  new column needed, this was always there, just not exposed as a
+  browsable grouping.
+- **"opportunity"** is what the rest of this doc has been calling
+  "event" — an individual `Event` row (e.g. one specific holiday's
+  set-out). `/admin/events/category/[kind]` lists them; clicking one
+  still goes to the existing `/admin/events/[eventId]` detail page,
+  unchanged.
+- Route note: `[eventId]` and `[kind]` can't be sibling dynamic segments
+  under the same folder — Next.js requires every dynamic segment at one
+  level to share a param name. Nested `[kind]` under a static `category/`
+  folder instead of renaming `[eventId]`.
+
+**Per-opportunity people**, closing the other half of what was asked
+("different sets of people per event, shared across the org's
+admin/volunteer/user pool"): `packages/database/src/scoped/membership.ts`
+gained `membershipsForEvent`/`addEventMembership`/`removeEventMembership`
+— the `Membership` model already had `eventId` (SPEC.md §3.3 always
+intended one person to hold different roles on different events); there
+was just no UI to actually grant one. New "People on this opportunity"
+card on `/admin/events/[eventId]`: add someone by email + Admin/
+Coordinator/Volunteer role (creates their `User` row if they don't have
+one yet, same pre-create-by-email pattern as `/admin/users`), list/remove
+current grantees. `User` accounts themselves stay global/shared, exactly
+as asked — only the `Membership` role assignment is event-scoped.
+
+**Named but not built this round:** the user separately asked for a
+"massive data library" — an org-wide household pool to pick-and-copy
+from into any event, beyond today's export-one/import-into-another CSV
+round trip. Real scope (browsing all org households, a picker UI,
+copy-selected-into-event) big enough to be its own piece of work, not
+squeezed into this session.
+
 ## What's still not built (the rest of Phase 1)
 
+- **Org-wide household library + picker.** See above — asked for, not
+  yet built.
 - **Stripe Checkout, webhook, confirmation email.** No Stripe keys exist
   in this environment; the integration shape is well-documented in
   SPEC.md §10 and wasn't started, to avoid writing untested payment code.

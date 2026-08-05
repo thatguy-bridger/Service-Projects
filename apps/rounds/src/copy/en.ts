@@ -146,11 +146,14 @@ export const en = {
   "admin.events.custom.submitting": "Creating…",
   "admin.events.custom.success": "Event created.",
 
-  "admin.events.list.title": "Current events",
-  "admin.events.list.empty": "No events yet.",
   "admin.events.list.name": "Name",
   "admin.events.list.date": "Date",
   "admin.events.list.status": "Status",
+
+  "admin.events.categories.title": "Categories",
+  "admin.events.categories.count": "{count, plural, one {# opportunity} other {# opportunities}}",
+  "admin.events.category.subtitle": "Individual opportunities under this category.",
+  "admin.events.category.empty": "No opportunities in this category yet — create one above.",
 
   "admin.eventDetail.back": "← Back to events",
   "admin.eventDetail.stats.signups": "Signups",
@@ -173,6 +176,15 @@ export const en = {
   "admin.eventDetail.import.success": "Imported {{count}} household(s).",
   "admin.eventDetail.import.errorCount": "{{count}} row(s) had a problem and were skipped:",
   "admin.eventDetail.import.errorRow": "Row {{row}}:",
+
+  "admin.eventDetail.people.title": "People on this opportunity",
+  "admin.eventDetail.people.subtitle": "Admin/Coordinator/Volunteer access scoped to just this opportunity — the same person can have a different role on a different one.",
+  "admin.eventDetail.people.email": "Email",
+  "admin.eventDetail.people.role": "Role",
+  "admin.eventDetail.people.add": "Add",
+  "admin.eventDetail.people.adding": "Adding…",
+  "admin.eventDetail.people.empty": "No one has event-level access yet — Owners/Admins already have access to everything.",
+  "admin.eventDetail.people.remove": "Remove",
 
   "admin.tabs.nav": "Admin sections",
   "admin.tabs.events": "Events",

@@ -123,3 +123,22 @@ export function moduleDefaultsFor(kind: EventKind): ModuleMatrix {
 export function outcomeSetFor(kind: EventKind): Outcome[] {
   return OUTCOME_SETS[kind];
 }
+
+// Display labels for the admin directory (Events → category → individual
+// opportunity). "Flag Setup"/"Flag Takedown" are the user's own naming
+// for FLAG_SETOUT/FLAG_PICKUP.
+export const EVENT_KIND_LABELS: Record<EventKind, string> = {
+  FLAG_SETOUT: "Flag Setup",
+  FLAG_PICKUP: "Flag Takedown",
+  FLYER_DELIVERY: "Flyer Delivery",
+  FUNDRAISER: "Fundraiser",
+  PICKUP_COLLECTION: "Pickup Collection",
+};
+
+export const EVENT_KINDS: EventKind[] = [
+  "FLAG_SETOUT",
+  "FLAG_PICKUP",
+  "FLYER_DELIVERY",
+  "FUNDRAISER",
+  "PICKUP_COLLECTION",
+];

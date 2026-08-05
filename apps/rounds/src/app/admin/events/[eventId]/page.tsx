@@ -1,11 +1,12 @@
 import { notFound } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@service-projects/core-auth";
-import { defaultOrganization, eventForSession, householdsForEvent } from "@service-projects/database";
+import { defaultOrganization, eventForSession, householdsForEvent, membershipsForEvent } from "@service-projects/database";
 import { Card, Badge, Button } from "@service-projects/ui";
 import { t } from "@/copy";
 import { formatCentsFull, formatHolidayDate } from "@/lib/format";
 import { ImportCsvForm } from "./ImportCsvForm";
+import { PeopleForm } from "./PeopleForm";
 
 // This is the point of the whole admin flow: click an event, land on
 // *that event's* dataset — households/signups scoped to just this one
@@ -26,6 +27,7 @@ export default async function AdminEventDetailPage({ params }: { params: { event
   const activeCount = rows.filter((r) => !r.skipped).length;
   const skippedCount = rows.length - activeCount;
   const totalCents = rows.filter((r) => !r.skipped).reduce((sum, r) => sum + r.amountCents, 0);
+  const people = await membershipsForEvent(session, params.eventId);
 
   return (
     <>
@@ -69,6 +71,14 @@ export default async function AdminEventDetailPage({ params }: { params: { event
           </p>
         </Card>
       </div>
+
+      <Card style={{ marginBottom: "var(--space-6)" }}>
+        <h2 style={{ margin: "0 0 4px", fontSize: "var(--text-lg)", fontWeight: "var(--weight-medium)" }}>
+          {t("admin.eventDetail.people.title")}
+        </h2>
+        <p style={{ color: "var(--text-secondary)" }}>{t("admin.eventDetail.people.subtitle")}</p>
+        <PeopleForm eventId={event.id} people={people} />
+      </Card>
 
       {event.seasonId && (
         <Card style={{ marginBottom: "var(--space-6)" }}>

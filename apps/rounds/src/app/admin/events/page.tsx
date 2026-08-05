@@ -1,18 +1,28 @@
-import { defaultOrganization, currentSeasonForOrg } from "@service-projects/database";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@service-projects/core-auth";
+import { defaultOrganization, eventsForSession } from "@service-projects/database";
 import { Card, Badge } from "@service-projects/ui";
 import { t } from "@/copy";
-import { formatHolidayDate } from "@/lib/format";
+import { EVENT_KINDS, EVENT_KIND_LABELS } from "@/lib/eventKinds";
 import { GenerateSeasonForm } from "./GenerateSeasonForm";
 import { CreateEventForm } from "./CreateEventForm";
 
-// Auth gate, topbar, and tabs are handled by ../layout.tsx — this page
-// only owns its own content.
+// The top of the directory: (Events) -> category (Flag Setup, Flag
+// Takedown, ...) -> individual opportunities (this year's Pioneer Day,
+// last year's, ...) -> that opportunity's own people/signups/data
+// (admin/events/[eventId]). Auth gate/topbar/tabs are ../layout.tsx.
 export const dynamic = "force-dynamic";
 
 export default async function AdminEventsPage() {
+  const session = await getServerSession(authOptions);
   const org = await defaultOrganization();
-  const season = org ? await currentSeasonForOrg(org.id) : null;
+  const events = org ? await eventsForSession(session, org.id) : [];
   const nextYear = new Date().getUTCFullYear() + 1;
+
+  const counts = new Map<string, number>();
+  for (const ev of events) {
+    counts.set(ev.kind, (counts.get(ev.kind) ?? 0) + 1);
+  }
 
   return (
     <>
@@ -43,54 +53,25 @@ export default async function AdminEventsPage() {
         </Card>
       </div>
 
-      <Card style={{ marginTop: "var(--space-6)" }}>
-        <h2 style={{ margin: "0 0 4px", fontSize: "var(--text-lg)", fontWeight: "var(--weight-medium)" }}>
-          {t("admin.events.list.title")}
-        </h2>
-        {!season || season.events.length === 0 ? (
-          <p style={{ color: "var(--text-secondary)" }}>{t("admin.events.list.empty")}</p>
-        ) : (
-          <div className="admin-tableWrap">
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead>
-                <tr>
-                  <th style={thStyle}>{t("admin.events.list.name")}</th>
-                  <th style={thStyle}>{t("admin.events.list.date")}</th>
-                  <th style={thStyle}>{t("admin.events.list.status")}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {season.events.map((ev) => (
-                  <tr key={ev.id} style={{ borderTop: "1px solid var(--border-default)" }}>
-                    <td style={tdStyle}>
-                      <a href={`/admin/events/${ev.id}`} style={{ color: "var(--color-accent-600)", fontWeight: "var(--weight-medium)" as unknown as number }}>
-                        {ev.name}
-                      </a>
-                    </td>
-                    <td style={tdStyle}>{formatHolidayDate(ev.serviceStartsAt)}</td>
-                    <td style={tdStyle}>
-                      <Badge tone="success">{ev.status}</Badge>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Card>
+      <h2 style={{ margin: "var(--space-6) 0 var(--space-3)", fontSize: "var(--text-lg)", fontWeight: "var(--weight-medium)" }}>
+        {t("admin.events.categories.title")}
+      </h2>
+      <div className="admin-columns">
+        {EVENT_KINDS.map((kind) => (
+          <a key={kind} href={`/admin/events/category/${kind}`} style={{ textDecoration: "none" }}>
+            <Card>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <h3 style={{ margin: 0, fontSize: "var(--text-base)", fontWeight: "var(--weight-medium)", color: "var(--text-primary)" }}>
+                  {EVENT_KIND_LABELS[kind]}
+                </h3>
+                <Badge tone="accent">
+                  {t("admin.events.categories.count", { count: counts.get(kind) ?? 0 })}
+                </Badge>
+              </div>
+            </Card>
+          </a>
+        ))}
+      </div>
     </>
   );
 }
-
-const thStyle: React.CSSProperties = {
-  textAlign: "left",
-  padding: "var(--space-2) var(--space-3)",
-  fontSize: "var(--text-xs)",
-  color: "var(--text-muted)",
-  fontWeight: "var(--weight-medium)" as unknown as number,
-};
-
-const tdStyle: React.CSSProperties = {
-  padding: "var(--space-2) var(--space-3)",
-  fontSize: "var(--text-sm)",
-};
