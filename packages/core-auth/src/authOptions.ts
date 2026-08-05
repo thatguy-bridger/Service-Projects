@@ -130,6 +130,7 @@ export const authOptions: NextAuthOptions = {
         const dbUser = await prisma.user.findUnique({ where: { id: token.sub } });
         session.user.id = token.sub;
         session.user.role = dbUser?.role ?? "PREVIEWER";
+        session.user.onboardedAt = dbUser?.onboardedAt ?? null;
       }
       return session;
     },

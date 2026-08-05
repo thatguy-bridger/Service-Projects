@@ -21,7 +21,7 @@ export function CreateEventForm({ defaultOrgName }: { defaultOrgName: string }) 
   const [state, formAction] = useFormState(createCustomEvent, initialState);
 
   return (
-    <form action={formAction} style={{ display: "flex", gap: "var(--space-3)", alignItems: "flex-end", flexWrap: "wrap" }}>
+    <form action={formAction} className="admin-formRow">
       <input type="hidden" name="orgName" value={defaultOrgName} />
       <label className="signup-field" style={{ marginBottom: 0 }}>
         <span className="signup-fieldLabel">{t("admin.events.custom.name")}</span>

@@ -272,12 +272,59 @@ deleted, `leaflet`/`react-leaflet` removed from
   every UI change in this doc (see the second session's note above); the
   first real `/signup` visit on the deployed app is the actual test.
 
+## Update: onboarding chooser, tabbed admin shell, responsive pass (sixth session)
+
+**`/welcome` — the "what brings you here" chooser.** New `User.onboardedAt`
+(nullable, migration `..._add_onboarded_at`) tracks whether an account
+has picked what it's here to do. `apps/rounds/src/app/page.tsx` redirects
+any signed-in account with real role `PREVIEWER` and no `onboardedAt` to
+`/welcome` — Owner/Admin/Coordinator/Volunteer accounts already have a
+defined position and are never redirected there. Two choices:
+"I want a service" marks onboarded and sends them to `/signup`; "I want
+to help organize or volunteer" marks onboarded and sends them home with
+a thank-you note. The volunteer path is honest about a real limitation:
+**there's no invite-key redemption system yet** (that's SPEC.md's
+Phase 5) — an Owner/Admin still has to manually grant a role via
+`/admin/users` after hearing from someone. `/welcome` says this plainly
+rather than pretending a self-serve flow exists.
+
+**Tabbed admin shell.** `/admin/*` had two near-duplicate pages, each
+re-implementing the same topbar, role-preview gate, and forbidden-preview
+view. Extracted into `apps/rounds/src/app/admin/layout.tsx` (the one real
+`requireRole` gate, shared by every admin page) + `AdminTabs.tsx` (Events
+/ Users, active-tab underline, horizontally scrollable if a phone can't
+fit both). `/admin/users` and `/admin/events` now only render their own
+content — same behavior, half the code, easier to add a third admin
+section later without repeating the gate again.
+
+**Responsive pass.** New `.admin-shell` (max-width 1180px) instead of
+reusing the narrower 720px `.rounds-shell` for admin screens — tables and
+side-by-side forms get real room on a laptop/desktop instead of being
+squeezed into a mobile-first column. `.admin-columns` (auto-fit grid) for
+the two event-creation forms, `.admin-tableWrap` (`overflow-x: auto`)
+around every admin table so a wide table degrades to a horizontal scroll
+on a phone instead of breaking the page layout, `flex-wrap: wrap` added
+to `.rounds-topbar` (role badge + preview switcher + account controls
+could overflow on narrow screens before this). `.signup-shell` (480px)
+was deliberately left narrow — a stepped public form reads better
+constrained on any device, phone or desktop, than stretched full-width.
+
+**Not attempted:** a genuine per-breakpoint visual QA pass. Every change
+above is a real, standard responsive pattern (fluid containers, CSS grid
+auto-fit, flex-wrap, scrollable tables), but none of it has been looked
+at in an actual browser at actual phone/tablet/desktop widths — same
+sandbox constraint noted in every UI session in this doc. Worth an actual
+look on a phone before calling this done.
+
 ## What's still not built (the rest of Phase 1)
 
 - **Stripe Checkout, webhook, confirmation email.** No Stripe keys exist
   in this environment; the integration shape is well-documented in
   SPEC.md §10 and wasn't started, to avoid writing untested payment code.
   This is the reason `Subscription.status` stops at `PENDING_PAYMENT`.
+- **Invite-key redemption** (SPEC.md Phase 5). `/welcome`'s volunteer
+  path is a stated interest, not a grant — an Owner/Admin still assigns
+  the role by hand in `/admin/users`.
 - **Household de-duplication.** Every submission creates a new
   `Household` row, even for a repeat signup from the same address —
   matching/merging logic isn't built (would matter more once renewals

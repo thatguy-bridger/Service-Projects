@@ -79,6 +79,10 @@ model User {
   // bcrypt hash, never a plaintext or reversibly-encrypted password. Null
   // for accounts that only ever signed in via OAuth (Google/Microsoft).
   passwordHash  String?
+  // Set the first time a new account picks what they're here to do
+  // (customer signup vs. volunteer/coordinator interest) at /welcome.
+  // Null means "ask them" — checked on every sign-in until then.
+  onboardedAt   DateTime?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 

@@ -20,7 +20,7 @@ export function GenerateSeasonForm({ defaultOrgName, defaultYear }: { defaultOrg
   const [state, formAction] = useFormState(generateFlagSeason, initialState);
 
   return (
-    <form action={formAction} style={{ display: "flex", gap: "var(--space-3)", alignItems: "flex-end", flexWrap: "wrap" }}>
+    <form action={formAction} className="admin-formRow">
       <label className="signup-field" style={{ marginBottom: 0 }}>
         <span className="signup-fieldLabel">{t("admin.events.generate.orgName")}</span>
         <input className="signup-input" type="text" name="orgName" defaultValue={defaultOrgName} required />

@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions, can } from "@service-projects/core-auth";
 import { Button, Card, Badge, BrandMark, ImagePlaceholder } from "@service-projects/ui";
@@ -14,7 +15,11 @@ export const dynamic = "force-dynamic";
 // no key redemption yet (that ships in Phase 5), so for now this page
 // *is* the entire Previewer experience: sign in, see that there's nothing
 // published yet, in the app's real tokens and copy registry.
-export default async function HomePage() {
+export default async function HomePage({
+  searchParams,
+}: {
+  searchParams: { welcomed?: string };
+}) {
   const session = await getServerSession(authOptions);
 
   if (!session?.user) {
@@ -82,6 +87,15 @@ export default async function HomePage() {
   }
 
   const realRole = session.user.role;
+
+  // Brand-new accounts land as PREVIEWER with onboardedAt unset — send
+  // them to pick what they're here to do before showing the empty
+  // previewer state. Only PREVIEWER: an Owner/Admin/Coordinator/
+  // Volunteer already has a defined position and shouldn't be asked.
+  if (realRole === "PREVIEWER" && !session.user.onboardedAt) {
+    redirect("/welcome");
+  }
+
   const canPreview = realRole === "OWNER" || realRole === "ADMIN";
   const role = getEffectiveRole(session) ?? realRole;
   const isPreviewing = canPreview && role !== realRole;
@@ -101,6 +115,14 @@ export default async function HomePage() {
           <AccountControls />
         </span>
       </header>
+
+      {searchParams.welcomed === "volunteer" && (
+        <Card style={{ marginBottom: "var(--space-6)", background: "var(--color-accent-100)" }}>
+          <p style={{ margin: 0, color: "var(--color-accent-700)", fontSize: "var(--text-sm)" }}>
+            {t("welcome.volunteer.thanks")}
+          </p>
+        </Card>
+      )}
 
       {isPreviewing && (
         <Card style={{ marginBottom: "var(--space-6)", background: "var(--color-accent-100)" }}>

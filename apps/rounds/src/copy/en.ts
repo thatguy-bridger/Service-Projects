@@ -151,6 +151,20 @@ export const en = {
   "admin.events.list.name": "Name",
   "admin.events.list.date": "Date",
   "admin.events.list.status": "Status",
+
+  "admin.tabs.nav": "Admin sections",
+  "admin.tabs.events": "Events",
+  "admin.tabs.users": "Users",
+
+  "welcome.title": "What brings you here?",
+  "welcome.subtitle": "Pick one to get started — you can always come back to this later.",
+  "welcome.customer.title": "I want a service",
+  "welcome.customer.body": "Sign up for flag set-out or whatever else is currently open.",
+  "welcome.customer.cta": "Go to signup",
+  "welcome.volunteer.title": "I want to help organize or volunteer",
+  "welcome.volunteer.body": "Coordinator and volunteer access is granted by an organizer, not automatic — let them know you're interested and they'll set you up.",
+  "welcome.volunteer.cta": "Continue",
+  "welcome.volunteer.thanks": "Thanks! Let an organizer know you're interested in helping, and they'll grant you access.",
 } as const;
 
 export type CopyKey = keyof typeof en;

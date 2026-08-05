@@ -19,6 +19,7 @@ body {
 .rounds-topbar {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: var(--space-3);
   margin-bottom: var(--space-8);
 }
@@ -339,4 +340,76 @@ body {
   color: var(--text-primary);
   text-align: right;
   font-weight: var(--weight-medium);
+}
+
+/* Admin — wider than .rounds-shell on purpose: tables and side-by-side
+ * forms benefit from the extra width on anything tablet-sized or up,
+ * while still shrinking gracefully to a phone. */
+.admin-shell {
+  width: 100%;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: var(--space-6) var(--space-4) var(--space-16);
+  box-sizing: border-box;
+}
+
+.admin-tabs {
+  display: flex;
+  gap: var(--space-2);
+  border-bottom: 1px solid var(--border-default);
+  margin-bottom: var(--space-6);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.admin-tab {
+  display: inline-block;
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--text-secondary);
+  text-decoration: none;
+  border-bottom: 2px solid transparent;
+  white-space: nowrap;
+}
+
+.admin-tab:hover {
+  color: var(--text-primary);
+}
+
+.admin-tab--active {
+  color: var(--color-accent-600);
+  border-bottom-color: var(--color-accent-500);
+}
+
+.admin-tableWrap {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.admin-formRow {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.welcome-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--space-4);
+  margin-top: var(--space-8);
+}
+
+.admin-columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: var(--space-6);
+}
+
+@media (max-width: 480px) {
+  .admin-shell {
+    padding: var(--space-4) var(--space-3) var(--space-12);
+  }
 }
