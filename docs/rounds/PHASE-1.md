@@ -201,20 +201,51 @@ caller owns the auth gate" split as everything else here:
 `getOrCreateDefaultOrganization` (organizations.ts), `createSeason` +
 `seasonForYear` (seasons.ts), `createEvent` (events.ts).
 
+## Update: real map for the address step (fourth session)
+
+Replaced the raw lat/lng number inputs with an actual map: Leaflet +
+OpenStreetMap tiles (`apps/rounds/src/app/(public)/signup/AddressMap.tsx`)
+— free, no API key or billing, attribution-only, loaded via
+`next/dynamic` with `ssr: false` since Leaflet touches `window` at import
+time. A draggable pin shows the geocoded location; dragging it calls the
+new `reverseGeocodeCoords` action to show the address at that point.
+
+**Two real bugs found and fixed while wiring this up, not just
+theoretical:**
+
+1. `UgrcProvider.geocode()` throws without a `zone` (city/ZIP) argument —
+   nothing was passing one, so every geocode call would have thrown the
+   moment the real UGRC key (added this session, see below) became
+   active. Added a required "City or ZIP" field to the address step and
+   threaded it through `geocodeAddress(addressLine, zone)`.
+2. `UgrcProvider.reverseGeocode()` is unimplemented by design (its
+   endpoint shape was never verified — see `packages/geo/src/ugrc.ts`)
+   and throws. `reverseGeocodeCoords` now catches that and returns
+   `null` instead of crashing the request; the UI keeps showing the last
+   known address rather than erroring. Dragging the pin updates the
+   address live under `MockProvider`; under real UGRC it currently
+   doesn't (falls back to the original geocoded address) until someone
+   verifies and implements `UgrcProvider.reverseGeocode` for real.
+
+**`UGRC_API_KEY` was added to the live Vercel project this session.**
+`getGeoProvider()` should now return the real `UgrcProvider` there
+instead of `MockProvider`. Its `geocode()` response parsing was built by
+reading UGRC's documented shape, not verified against a live call (no
+key existed anywhere until now) — the first real `/signup` address entry
+on the deployed app is the actual test of this, not anything run in this
+repo's sandbox (which also can't reach UGRC's IP-restricted key
+correctly without the key value itself).
+
 ## What's still not built (the rest of Phase 1)
 
 - **Stripe Checkout, webhook, confirmation email.** No Stripe keys exist
   in this environment; the integration shape is well-documented in
   SPEC.md §10 and wasn't started, to avoid writing untested payment code.
   This is the reason `Subscription.status` stops at `PENDING_PAYMENT`.
-- **UGRC geocoding — key now added, still never called for real.** A
-  `UGRC_API_KEY` was added to the live Vercel project after this was
-  written, so `getGeoProvider()` should now return the real
-  `UgrcProvider` there instead of `MockProvider`. That provider's
-  response parsing was built by reading UGRC's documented shape, not
-  verified against a live call (no key existed anywhere until now) — the
-  first real `/signup` address entry on the deployed app is the actual
-  test of this, not anything run in this repo's sandbox.
+- **`UgrcProvider.reverseGeocode`.** Still throws by design (unverified
+  shape) — dragging the map pin degrades gracefully instead of updating
+  the shown address when real UGRC is active. Verify UGRC's reverse
+  geocode endpoint shape before implementing.
 - **Household de-duplication.** Every submission creates a new
   `Household` row, even for a repeat signup from the same address —
   matching/merging logic isn't built (would matter more once renewals
