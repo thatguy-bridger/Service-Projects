@@ -1,15 +1,11 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import dynamic from "next/dynamic";
 import { Badge, Button } from "@service-projects/ui";
 import { t } from "@/copy";
 import { formatCentsFull, formatCentsShort, formatHolidayDate } from "@/lib/format";
-import { geocodeAddress, reverseGeocodeCoords, submitSignup, type AddressGeocodeResult } from "./actions";
-
-// Leaflet touches `window` at import time, so it can never run during
-// server rendering — ssr: false is required here, not just a nicety.
-const AddressMap = dynamic(() => import("./AddressMap").then((m) => m.AddressMap), { ssr: false });
+import { submitSignup } from "./actions";
+import { GoogleAddressPicker, type PlaceResult } from "./GoogleAddressPicker";
 
 export interface HolidayOption {
   id: string;
@@ -38,11 +34,7 @@ export function SignupFlow({
   const [step, setStep] = useState<Step>("holidays");
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
-  const [addressInput, setAddressInput] = useState("");
-  const [zoneInput, setZoneInput] = useState("");
-  const [geo, setGeo] = useState<AddressGeocodeResult | null>(null);
-  const [pinAddress, setPinAddress] = useState<string | null>(null);
-  const [geocoding, startGeocode] = useTransition();
+  const [place, setPlace] = useState<PlaceResult | null>(null);
   const [addressError, setAddressError] = useState<string | null>(null);
 
   const [contactName, setContactName] = useState("");
@@ -65,32 +57,8 @@ export function SignupFlow({
     });
   }
 
-  function runGeocode(address: string, zone: string) {
-    if (!address.trim() || !zone.trim()) {
-      setGeo(null);
-      setPinAddress(null);
-      return;
-    }
-    startGeocode(async () => {
-      const result = await geocodeAddress(address, zone);
-      setGeo(result);
-      setPinAddress(result?.matchedAddress ?? null);
-    });
-  }
-
-  function handlePinMove(lat: number, lng: number) {
-    setGeo((prev) => (prev ? { ...prev, lat, lng } : prev));
-    startGeocode(async () => {
-      const address = await reverseGeocodeCoords(lat, lng);
-      // null means the provider couldn't confirm an address for this
-      // pin (e.g. UgrcProvider.reverseGeocode isn't implemented yet) —
-      // keep showing the last known address rather than blanking it.
-      if (address) setPinAddress(address);
-    });
-  }
-
   function handleAddressContinue() {
-    if (!addressInput.trim()) {
+    if (!place) {
       setAddressError(t("signup.address.required"));
       return;
     }
@@ -99,7 +67,7 @@ export function SignupFlow({
   }
 
   function handleSubmit() {
-    if (!contactName.trim() || !addressInput.trim()) {
+    if (!contactName.trim() || !place) {
       setSubmitError(t("signup.contact.required"));
       return;
     }
@@ -114,14 +82,11 @@ export function SignupFlow({
           contactName: contactName.trim(),
           contactEmail: contactEmail.trim() || undefined,
           contactPhone: contactPhone.trim() || undefined,
-          addressInput: addressInput.trim(),
-          address: geo
-            ? { matchedAddress: pinAddress ?? geo.matchedAddress, zone: zoneInput.trim() }
-            : { raw: addressInput.trim(), zone: zoneInput.trim() },
-          lat: geo?.lat,
-          lng: geo?.lng,
-          geocodeConfidence: geo?.confidence,
-          geocodeSource: geo?.source,
+          addressInput: place.address,
+          address: { matchedAddress: place.address },
+          lat: place.lat,
+          lng: place.lng,
+          geocodeSource: "google",
           placementNote: placementNote.trim() || undefined,
           accessNotes: accessNotes.trim() || undefined,
         });
@@ -229,53 +194,15 @@ export function SignupFlow({
           </div>
 
           <div className="signup-list">
-            <div style={{ display: "flex", gap: "var(--space-3)", flexWrap: "wrap" }}>
-              <label className="signup-field" style={{ flex: 2, minWidth: 200 }}>
-                <span className="signup-fieldLabel">{t("signup.address.label")}</span>
-                <input
-                  className="signup-input"
-                  type="text"
-                  value={addressInput}
-                  placeholder={t("signup.address.placeholder")}
-                  onChange={(e) => {
-                    setAddressInput(e.target.value);
-                    runGeocode(e.target.value, zoneInput);
-                  }}
-                />
-              </label>
-              <label className="signup-field" style={{ flex: 1, minWidth: 120 }}>
-                <span className="signup-fieldLabel">{t("signup.address.zone")}</span>
-                <input
-                  className="signup-input"
-                  type="text"
-                  value={zoneInput}
-                  placeholder={t("signup.address.zonePlaceholder")}
-                  onChange={(e) => {
-                    setZoneInput(e.target.value);
-                    runGeocode(addressInput, e.target.value);
-                  }}
-                />
-              </label>
-            </div>
+            <label className="signup-field">
+              <span className="signup-fieldLabel">{t("signup.address.label")}</span>
+              <GoogleAddressPicker place={place} onSelect={setPlace} onMove={setPlace} />
+            </label>
 
-            {geocoding && <p className="signup-hint">{t("signup.address.locating")}</p>}
-
-            {!geocoding && geo && (
-              <>
-                <p className="signup-hint">
-                  {t("signup.address.approxPin", { confidence: Math.round(geo.confidence * 100) })}
-                </p>
-                <AddressMap lat={geo.lat} lng={geo.lng} onMove={handlePinMove} />
-                {pinAddress && (
-                  <p className="signup-hint" style={{ marginTop: "var(--space-2)" }}>
-                    {t("signup.address.pinAt", { address: pinAddress })}
-                  </p>
-                )}
-              </>
-            )}
-
-            {!geocoding && addressInput.trim() && zoneInput.trim() && !geo && (
-              <p className="signup-hint">{t("signup.address.noPin")}</p>
+            {place && (
+              <p className="signup-hint" style={{ marginTop: "var(--space-2)" }}>
+                {t("signup.address.pinAt", { address: place.address })}
+              </p>
             )}
 
             {addressError && <p className="signup-error">{addressError}</p>}
@@ -340,7 +267,7 @@ export function SignupFlow({
               </div>
               <div className="signup-reviewRow">
                 <span className="signup-reviewLabel">{t("signup.contact.reviewAddress")}</span>
-                <span className="signup-reviewValue">{pinAddress ?? addressInput}</span>
+                <span className="signup-reviewValue">{place?.address}</span>
               </div>
               <div className="signup-reviewRow">
                 <span className="signup-reviewLabel">{t("signup.contact.reviewTotal")}</span>

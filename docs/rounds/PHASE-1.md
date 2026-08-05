@@ -236,16 +236,48 @@ on the deployed app is the actual test of this, not anything run in this
 repo's sandbox (which also can't reach UGRC's IP-restricted key
 correctly without the key value itself).
 
+## Update: swapped Leaflet/OSM for Google Maps (fifth session)
+
+The Leaflet + OpenStreetMap picker from the previous session was
+replaced outright — `apps/rounds/src/app/(public)/signup/AddressMap.tsx`
+deleted, `leaflet`/`react-leaflet` removed from
+`apps/rounds/package.json`. New:
+`apps/rounds/src/app/(public)/signup/GoogleAddressPicker.tsx`, built on
+`@vis.gl/react-google-maps` (Google's own React wrapper):
+
+- **Autocomplete-as-you-type** via the classic
+  `google.maps.places.Autocomplete` widget, not the newer
+  `PlaceAutocompleteElement` — a deliberate choice. The classic widget is
+  a decade-stable, thoroughly documented API, and Google's 2024 migration
+  bills it under Places API (New) SKUs anyway (which this project
+  enabled), so there was no billing reason to reach for the newer,
+  less-proven surface, especially given this couldn't be live-tested in
+  a browser from this environment.
+- **Draggable pin + live reverse geocoding**, both via Google's own
+  `Geocoder` — this replaces the UGRC-based `reverseGeocodeCoords`
+  server action entirely, so the previous session's "drag doesn't update
+  the address under real UGRC" limitation is gone: reverse geocoding now
+  always works, since it's Google's, not UGRC's unimplemented endpoint.
+- `apps/rounds/src/app/(public)/signup/actions.ts` lost `geocodeAddress`
+  and `reverseGeocodeCoords` — the whole UGRC/`@service-projects/geo`
+  round trip for this screen is gone. That package and its
+  `UGRC_API_KEY`-backed provider are untouched and still exist for other
+  Utah-specific territory work SPEC.md §9 describes (territory fill,
+  address-points-in-polygon) — just not used by the signup address step
+  anymore.
+- New env var: `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` (must be
+  `NEXT_PUBLIC_`-prefixed — it's read in the browser, unlike the app's
+  other, server-only secrets). Added to the live Vercel project this
+  session. **Not live-tested in a browser** — same sandbox constraint as
+  every UI change in this doc (see the second session's note above); the
+  first real `/signup` visit on the deployed app is the actual test.
+
 ## What's still not built (the rest of Phase 1)
 
 - **Stripe Checkout, webhook, confirmation email.** No Stripe keys exist
   in this environment; the integration shape is well-documented in
   SPEC.md §10 and wasn't started, to avoid writing untested payment code.
   This is the reason `Subscription.status` stops at `PENDING_PAYMENT`.
-- **`UgrcProvider.reverseGeocode`.** Still throws by design (unverified
-  shape) — dragging the map pin degrades gracefully instead of updating
-  the shown address when real UGRC is active. Verify UGRC's reverse
-  geocode endpoint shape before implementing.
 - **Household de-duplication.** Every submission creates a new
   `Household` row, even for a repeat signup from the same address —
   matching/merging logic isn't built (would matter more once renewals

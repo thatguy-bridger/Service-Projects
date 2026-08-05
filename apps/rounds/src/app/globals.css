@@ -1,6 +1,5 @@
 @import "@service-projects/ui/src/tokens.css";
 @import "@service-projects/ui/src/components.css";
-@import "leaflet/dist/leaflet.css";
 
 body {
   background: var(--surface-page);
