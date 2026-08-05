@@ -40,6 +40,40 @@ export async function setUserRole(formData: FormData): Promise<void> {
   revalidatePath("/admin/users");
 }
 
+export interface UpdateUserResult {
+  ok: boolean;
+  error?: string;
+}
+
+export async function updateUserAction(
+  userId: string,
+  _prevState: UpdateUserResult,
+  formData: FormData
+): Promise<UpdateUserResult> {
+  const session = await getServerSession(authOptions);
+  await requireRole(session, ["OWNER", "ADMIN"]);
+
+  const name = String(formData.get("name") ?? "").trim();
+  const role = String(formData.get("role") ?? "") as Role;
+  if (!ROLES.includes(role)) return { ok: false, error: "Invalid role." };
+
+  const target = await prisma.user.findUnique({ where: { id: userId } });
+  if (!target) return { ok: false, error: "User not found." };
+  if (role === "OWNER" && session?.user.role !== "OWNER") {
+    return { ok: false, error: "Only an Owner can grant the Owner role." };
+  }
+  if (target.role === "OWNER" && role !== "OWNER" && session?.user.role !== "OWNER") {
+    return { ok: false, error: "Only an Owner can change an Owner's role." };
+  }
+  if (!can(session?.user.role, "users.manageRoles")) {
+    return { ok: false, error: "Forbidden" };
+  }
+
+  await prisma.user.update({ where: { id: userId }, data: { name: name || null, role } });
+  revalidatePath("/admin/users");
+  return { ok: true };
+}
+
 export interface DeleteUsersResult {
   deleted: number;
   errors: { email: string; reason: string }[];

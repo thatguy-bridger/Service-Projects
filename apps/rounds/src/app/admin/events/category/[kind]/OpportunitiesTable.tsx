@@ -47,6 +47,7 @@ export function OpportunitiesTable({ opportunities }: { opportunities: Opportuni
               <th style={thStyle}>{t("admin.events.list.name")}</th>
               <th style={thStyle}>{t("admin.events.list.date")}</th>
               <th style={thStyle}>{t("admin.events.list.status")}</th>
+              <th style={thStyle}></th>
             </tr>
           </thead>
           <tbody>
@@ -66,6 +67,11 @@ export function OpportunitiesTable({ opportunities }: { opportunities: Opportuni
                 <td style={tdStyle}>{formatHolidayDate(ev.serviceStartsAt)}</td>
                 <td style={tdStyle}>
                   <Badge tone="success">{ev.status}</Badge>
+                </td>
+                <td style={tdStyle}>
+                  <a href={`/admin/events/${ev.id}`} style={{ color: "var(--color-accent-600)" }}>
+                    {t("admin.events.list.edit")}
+                  </a>
                 </td>
               </tr>
             ))}

@@ -601,3 +601,38 @@ desyncing status from the actions that are supposed to drive it) and a
 generic "edit any model" browser. If per-subscription status editing
 turns out to be wanted (e.g. manually marking one paid/skipped outside
 the normal flow), that's a scoped follow-up, not a guess to make here.
+
+## Update — signup address manual fallback + single-row editing everywhere
+
+Two follow-ups: the signup flow's address step had no path forward at
+all if `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` was unset (just an error
+message, dead-ending the whole signup) — now it falls back to a plain
+text address field (`GoogleAddressPicker.tsx`'s `ManualAddressEntry`),
+and either path can switch to the other via a link ("enter manually" /
+"use the map"). Manual entries save with `lat`/`lng` unset and
+`geocodeSource: "manual"`, distinguishing them in the data from a real
+geocoded pin.
+
+Every admin table that only had bulk actions now also has single-row
+editing, not just bulk:
+- **Users**: inline name + role editor per row (`UserRowEditor`),
+  distinct from the existing email-lookup role-grant form — same
+  Owner-role guard rails as before.
+- **Opportunities list**: an explicit "Edit" link per row to the event
+  detail page's edit form (added last session).
+- **Event detail → People**: inline per-person role editor
+  (`PersonRoleEditor`, new `updateEventMembershipRole()`), replacing the
+  old static role badge.
+- **Event detail → Households**: an "Edit" link per row to the
+  household's detail/edit page under Library.
+
+Also removed `removeEventPerson` (the old single-row remove action),
+dead since PeopleForm switched to bulk-only removal last session — and
+its now-unused `removeEventMembership` import.
+
+One build-breaking gotcha worth documenting: `UsersTable.tsx` initially
+imported `ROLES` from `@service-projects/core-auth`'s barrel — that
+package's `index.ts` also exports `authOptions`, which pulls in
+`nodemailer` (a server-only dependency), and breaks the client bundle.
+Fixed by duplicating the small `ROLES` const locally in the client
+component instead, same as `EVENT_ROLES` already does elsewhere.

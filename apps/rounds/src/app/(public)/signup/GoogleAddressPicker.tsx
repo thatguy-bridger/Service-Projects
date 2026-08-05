@@ -6,8 +6,36 @@ import { t } from "@/copy";
 
 export interface PlaceResult {
   address: string;
-  lat: number;
-  lng: number;
+  lat: number | null;
+  lng: number | null;
+}
+
+// No API key, the Maps script failed to load, or the household just
+// prefers typing — this is the fallback path with no map/pin at all.
+// lat/lng go through as null (SignupSubmission.lat/lng are optional),
+// and geocodeSource records "manual" so staff reviewing the Library can
+// tell which rows never got a geocoded pin.
+function ManualAddressEntry({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (address: string) => void;
+}) {
+  return (
+    <div>
+      <input
+        className="signup-input"
+        type="text"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={t("signup.address.manualPlaceholder")}
+      />
+      <p className="signup-hint" style={{ marginTop: "var(--space-2)" }}>
+        {t("signup.address.manualHint")}
+      </p>
+    </div>
+  );
 }
 
 function AddressInput({ onSelect }: { onSelect: (result: PlaceResult) => void }) {
@@ -98,15 +126,37 @@ export function GoogleAddressPicker({
 }) {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
   const [mapReady, setMapReady] = useState(false);
+  // Household can always drop to manual entry — no API key, the map
+  // failed to load, or they just can't find their address on it. Once
+  // an API key exists in every environment this is a nice-to-have, not
+  // the load-bearing fallback it is until then.
+  const [manual, setManual] = useState(!apiKey);
 
-  if (!apiKey) {
-    return <p className="signup-error">{t("signup.address.noApiKey")}</p>;
+  if (manual || !apiKey) {
+    return (
+      <div>
+        <ManualAddressEntry
+          value={place?.address ?? ""}
+          onChange={(address) => onSelect({ address, lat: null, lng: null })}
+        />
+        {apiKey && (
+          <button
+            type="button"
+            className="signup-linkButton"
+            onClick={() => setManual(false)}
+            style={{ marginTop: "var(--space-2)" }}
+          >
+            {t("signup.address.useMap")}
+          </button>
+        )}
+      </div>
+    );
   }
 
   return (
     <APIProvider apiKey={apiKey} libraries={["places", "geocoding"]} onLoad={() => setMapReady(true)}>
       <AddressInput onSelect={onSelect} />
-      {place && mapReady && (
+      {place && mapReady && place.lat !== null && place.lng !== null && (
         <div
           style={{
             height: 260,
@@ -127,6 +177,14 @@ export function GoogleAddressPicker({
           </Map>
         </div>
       )}
+      <button
+        type="button"
+        className="signup-linkButton"
+        onClick={() => setManual(true)}
+        style={{ marginTop: "var(--space-2)" }}
+      >
+        {t("signup.address.enterManually")}
+      </button>
     </APIProvider>
   );
 }

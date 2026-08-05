@@ -9,11 +9,11 @@ import {
   seasonById,
   importHouseholdsForEvent,
   addEventMembership,
-  removeEventMembership,
   removeEventMemberships,
   removeHouseholdsFromEvent,
   copyHouseholdsToEvent,
   updateEvent,
+  updateEventMembershipRole,
   type ImportResult,
   type DeleteResult,
   type CopyToEventResult,
@@ -83,11 +83,26 @@ export async function updateEventAction(
   return result;
 }
 
-export async function removeEventPerson(eventId: string, membershipId: string): Promise<void> {
+export interface UpdatePersonRoleResult {
+  ok: boolean;
+  error?: string;
+}
+
+export async function updateEventPersonRoleAction(
+  eventId: string,
+  membershipId: string,
+  _prevState: UpdatePersonRoleResult,
+  formData: FormData
+): Promise<UpdatePersonRoleResult> {
   const session = await getServerSession(authOptions);
   await requireRole(session, ["OWNER", "ADMIN"]);
-  await removeEventMembership(session, eventId, membershipId);
+
+  const role = String(formData.get("role") ?? "") as Role;
+  if (!EVENT_ROLES.includes(role)) return { ok: false, error: "Pick a role." };
+
+  const result = await updateEventMembershipRole(session, eventId, membershipId, role);
   revalidatePath(`/admin/events/${eventId}`);
+  return result;
 }
 
 export interface RemovePeopleResult {

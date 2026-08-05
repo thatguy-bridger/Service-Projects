@@ -1,14 +1,51 @@
 "use client";
 
 import { useFormState, useFormStatus } from "react-dom";
-import { Badge, Button } from "@service-projects/ui";
+import { Button } from "@service-projects/ui";
 import { t } from "@/copy";
-import { addEventPerson, removeEventPeopleBulk, type MembershipActionResult, type RemovePeopleResult } from "./actions";
+import {
+  addEventPerson,
+  removeEventPeopleBulk,
+  updateEventPersonRoleAction,
+  type MembershipActionResult,
+  type RemovePeopleResult,
+  type UpdatePersonRoleResult,
+} from "./actions";
 import type { EventMembership } from "@service-projects/database";
 
 const addInitialState: MembershipActionResult = {};
 const removeInitialState: RemovePeopleResult = { removed: 0 };
+const roleInitialState: UpdatePersonRoleResult = { ok: false };
 const ROLES = ["ADMIN", "COORDINATOR", "VOLUNTEER"] as const;
+
+function RoleSaveButton() {
+  const { pending } = useFormStatus();
+  return (
+    <Button type="submit" variant="secondary" disabled={pending}>
+      {pending ? t("admin.eventDetail.people.savingRole") : t("admin.eventDetail.people.saveRole")}
+    </Button>
+  );
+}
+
+function PersonRoleEditor({ eventId, membershipId, role }: { eventId: string; membershipId: string; role: string }) {
+  const withIds = updateEventPersonRoleAction.bind(null, eventId, membershipId);
+  const [state, formAction] = useFormState(withIds, roleInitialState);
+
+  return (
+    <form action={formAction} style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
+      <select className="signup-input" name="role" defaultValue={role} style={{ minWidth: 130 }}>
+        {ROLES.map((r) => (
+          <option key={r} value={r}>
+            {r}
+          </option>
+        ))}
+      </select>
+      <RoleSaveButton />
+      {state.ok && <span style={{ color: "var(--color-success-500)", fontSize: "var(--text-xs)" }}>{t("admin.eventDetail.people.roleSaved")}</span>}
+      {state.error && <span className="signup-error" style={{ fontSize: "var(--text-xs)" }}>{state.error}</span>}
+    </form>
+  );
+}
 
 function AddSubmitButton() {
   const { pending } = useFormStatus();
@@ -19,10 +56,10 @@ function AddSubmitButton() {
   );
 }
 
-function RemoveSubmitButton() {
+function RemoveSubmitButton({ form }: { form: string }) {
   const { pending } = useFormStatus();
   return (
-    <Button type="submit" variant="danger" disabled={pending}>
+    <Button type="submit" form={form} variant="danger" disabled={pending}>
       {pending ? t("admin.eventDetail.people.removing") : t("admin.eventDetail.people.removeSelected")}
     </Button>
   );
@@ -65,7 +102,8 @@ export function PeopleForm({ eventId, people }: { eventId: string; people: Event
           {t("admin.eventDetail.people.empty")}
         </p>
       ) : (
-        <form action={removeFormAction} style={{ marginTop: "var(--space-3)" }}>
+        <div style={{ marginTop: "var(--space-3)" }}>
+          <form action={removeFormAction} id="people-remove-form" />
           <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
             {people.map((p) => (
               <li
@@ -77,19 +115,20 @@ export function PeopleForm({ eventId, people }: { eventId: string; people: Event
                   padding: "var(--space-2) var(--space-3)",
                   borderRadius: "var(--radius-md)",
                   background: "var(--surface-sunken)",
+                  flexWrap: "wrap",
                 }}
               >
-                <input type="checkbox" name="membershipIds" value={p.id} />
+                <input type="checkbox" name="membershipIds" value={p.id} form="people-remove-form" />
                 <span style={{ fontSize: "var(--text-sm)", flex: 1 }}>
                   {p.user.name ?? p.user.email}
                   {p.user.name && <span style={{ color: "var(--text-muted)" }}> · {p.user.email}</span>}
                 </span>
-                <Badge tone="accent">{p.role}</Badge>
+                <PersonRoleEditor eventId={eventId} membershipId={p.id} role={p.role} />
               </li>
             ))}
           </ul>
           <div style={{ marginTop: "var(--space-3)" }}>
-            <RemoveSubmitButton />
+            <RemoveSubmitButton form="people-remove-form" />
           </div>
           {removeState.removed > 0 && (
             <p style={{ color: "var(--color-success-500)", fontSize: "var(--text-sm)", marginTop: "var(--space-2)" }}>
@@ -101,7 +140,7 @@ export function PeopleForm({ eventId, people }: { eventId: string; people: Event
               {removeState.error}
             </p>
           )}
-        </form>
+        </div>
       )}
     </>
   );

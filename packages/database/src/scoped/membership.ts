@@ -149,6 +149,23 @@ export async function removeEventMembership(
   return {};
 }
 
+export async function updateEventMembershipRole(
+  session: SessionLike | null | undefined,
+  eventId: string,
+  membershipId: string,
+  role: Role
+): Promise<{ ok: boolean; error?: string }> {
+  const membership = await resolveMembership(session, eventId);
+  if (!membership || !isStaff(membership.role)) return { ok: false, error: "Forbidden" };
+
+  const result = await prisma.membership.updateMany({
+    where: { id: membershipId, eventId },
+    data: { role },
+  });
+  if (result.count === 0) return { ok: false, error: "Person not found." };
+  return { ok: true };
+}
+
 export async function removeEventMemberships(
   session: SessionLike | null | undefined,
   eventId: string,

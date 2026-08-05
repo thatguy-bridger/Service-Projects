@@ -58,7 +58,7 @@ export function SignupFlow({
   }
 
   function handleAddressContinue() {
-    if (!place) {
+    if (!place || !place.address.trim()) {
       setAddressError(t("signup.address.required"));
       return;
     }
@@ -67,7 +67,7 @@ export function SignupFlow({
   }
 
   function handleSubmit() {
-    if (!contactName.trim() || !place) {
+    if (!contactName.trim() || !place || !place.address.trim()) {
       setSubmitError(t("signup.contact.required"));
       return;
     }
@@ -84,9 +84,9 @@ export function SignupFlow({
           contactPhone: contactPhone.trim() || undefined,
           addressInput: place.address,
           address: { matchedAddress: place.address },
-          lat: place.lat,
-          lng: place.lng,
-          geocodeSource: "google",
+          lat: place.lat ?? undefined,
+          lng: place.lng ?? undefined,
+          geocodeSource: place.lat !== null && place.lng !== null ? "google" : "manual",
           placementNote: placementNote.trim() || undefined,
           accessNotes: accessNotes.trim() || undefined,
         });
@@ -199,7 +199,7 @@ export function SignupFlow({
               <GoogleAddressPicker place={place} onSelect={setPlace} onMove={setPlace} />
             </label>
 
-            {place && (
+            {place && place.lat !== null && (
               <p className="signup-hint" style={{ marginTop: "var(--space-2)" }}>
                 {t("signup.address.pinAt", { address: place.address })}
               </p>

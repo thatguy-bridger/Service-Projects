@@ -91,7 +91,10 @@ export const en = {
   "signup.address.placeholder": "Start typing your address…",
   "signup.address.pinAt": "Pin is at: {{address}}",
   "signup.address.pinMovedNoAddress": "Pin moved — address unavailable for this exact spot.",
-  "signup.address.noApiKey": "Address lookup isn't configured yet — ask your organizer to set up map access.",
+  "signup.address.manualPlaceholder": "Street address, city, state, ZIP",
+  "signup.address.manualHint": "We'll confirm the exact spot with you if needed — no map lookup right now.",
+  "signup.address.useMap": "Use the map instead",
+  "signup.address.enterManually": "Can't find your address? Enter it manually",
   "signup.address.back": "Back",
   "signup.address.continue": "Continue",
   "signup.address.required": "Choose an address to continue.",
@@ -149,6 +152,7 @@ export const en = {
   "admin.events.list.name": "Name",
   "admin.events.list.date": "Date",
   "admin.events.list.status": "Status",
+  "admin.events.list.edit": "Edit",
 
   "admin.events.categories.title": "Categories",
   "admin.events.categories.count": "{count, plural, one {# opportunity} other {# opportunities}}",
@@ -192,10 +196,12 @@ export const en = {
   "admin.eventDetail.people.add": "Add",
   "admin.eventDetail.people.adding": "Adding…",
   "admin.eventDetail.people.empty": "No one has event-level access yet — Owners/Admins already have access to everything.",
-  "admin.eventDetail.people.remove": "Remove",
   "admin.eventDetail.people.removing": "Removing…",
   "admin.eventDetail.people.removeSelected": "Remove selected",
   "admin.eventDetail.people.removeSuccess": "Removed {{count}} person/people.",
+  "admin.eventDetail.people.saveRole": "Save role",
+  "admin.eventDetail.people.savingRole": "Saving…",
+  "admin.eventDetail.people.roleSaved": "Saved.",
 
   "admin.tabs.nav": "Admin sections",
   "admin.tabs.events": "Events",
@@ -238,6 +244,10 @@ export const en = {
   "admin.settings.seasonMode": "Pricing mode",
 
   "admin.bulk.selectAll": "Select all",
+
+  "admin.users.row.save": "Save",
+  "admin.users.row.saving": "Saving…",
+  "admin.users.row.saved": "Saved.",
 
   "admin.users.bulk.deleting": "Deleting…",
   "admin.users.bulk.delete": "Delete selected",

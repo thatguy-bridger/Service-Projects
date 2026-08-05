@@ -1,11 +1,16 @@
 "use client";
 
 import { useFormState, useFormStatus } from "react-dom";
-import { Badge, Button } from "@service-projects/ui";
+import { Button } from "@service-projects/ui";
 import { t } from "@/copy";
-import { deleteUsers, type DeleteUsersResult } from "./actions";
+import { deleteUsers, updateUserAction, type DeleteUsersResult, type UpdateUserResult } from "./actions";
 
-const initialState: DeleteUsersResult = { deleted: 0, errors: [] };
+const deleteInitialState: DeleteUsersResult = { deleted: 0, errors: [] };
+const editInitialState: UpdateUserResult = { ok: false };
+// Duplicated from packages/core-auth's ROLES rather than imported: that
+// package's barrel also exports authOptions (server-only, pulls in
+// nodemailer), which breaks the client bundle for this component.
+const ROLES = ["OWNER", "ADMIN", "COORDINATOR", "VOLUNTEER", "PREVIEWER"] as const;
 
 export interface UserRow {
   id: string;
@@ -15,20 +20,51 @@ export interface UserRow {
   updatedAt: Date;
 }
 
-function DeleteButton() {
+function DeleteButton({ form }: { form: string }) {
   const { pending } = useFormStatus();
   return (
-    <Button type="submit" variant="danger" disabled={pending}>
+    <Button type="submit" form={form} variant="danger" disabled={pending}>
       {pending ? t("admin.users.bulk.deleting") : t("admin.users.bulk.delete")}
     </Button>
   );
 }
 
-export function UsersTable({ users }: { users: UserRow[] }) {
-  const [state, formAction] = useFormState(deleteUsers, initialState);
+function SaveButton() {
+  const { pending } = useFormStatus();
+  return (
+    <Button type="submit" variant="secondary" disabled={pending}>
+      {pending ? t("admin.users.row.saving") : t("admin.users.row.save")}
+    </Button>
+  );
+}
+
+function UserRowEditor({ user }: { user: UserRow }) {
+  const withId = updateUserAction.bind(null, user.id);
+  const [state, formAction] = useFormState(withId, editInitialState);
 
   return (
-    <form action={formAction}>
+    <form action={formAction} style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", flexWrap: "wrap" }}>
+      <input className="signup-input" name="name" defaultValue={user.name ?? ""} placeholder={t("admin.users.table.name")} style={{ minWidth: 140 }} />
+      <select className="signup-input" name="role" defaultValue={user.role} style={{ minWidth: 140 }}>
+        {ROLES.map((role) => (
+          <option key={role} value={role}>
+            {role}
+          </option>
+        ))}
+      </select>
+      <SaveButton />
+      {state.ok && <span style={{ color: "var(--color-success-500)", fontSize: "var(--text-xs)" }}>{t("admin.users.row.saved")}</span>}
+      {state.error && <span className="signup-error" style={{ fontSize: "var(--text-xs)" }}>{state.error}</span>}
+    </form>
+  );
+}
+
+export function UsersTable({ users }: { users: UserRow[] }) {
+  const [state, formAction] = useFormState(deleteUsers, deleteInitialState);
+
+  return (
+    <div>
+      <form action={formAction} id="users-bulk-form" />
       <div className="admin-tableWrap">
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
@@ -54,12 +90,11 @@ export function UsersTable({ users }: { users: UserRow[] }) {
             {users.map((user) => (
               <tr key={user.id} style={{ borderTop: "1px solid var(--border-default)" }}>
                 <td style={tdStyle}>
-                  <input type="checkbox" name="userIds" value={user.id} />
+                  <input type="checkbox" name="userIds" value={user.id} form="users-bulk-form" />
                 </td>
                 <td style={tdStyle}>{user.email}</td>
-                <td style={tdStyle}>{user.name ?? "—"}</td>
-                <td style={tdStyle}>
-                  <Badge tone="accent">{user.role}</Badge>
+                <td colSpan={2} style={tdStyle}>
+                  <UserRowEditor user={user} />
                 </td>
                 <td style={tdStyle}>{user.updatedAt.toLocaleDateString()}</td>
               </tr>
@@ -69,7 +104,7 @@ export function UsersTable({ users }: { users: UserRow[] }) {
       </div>
 
       <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", marginTop: "var(--space-3)" }}>
-        <DeleteButton />
+        <DeleteButton form="users-bulk-form" />
       </div>
 
       {state.deleted > 0 && (
@@ -86,7 +121,7 @@ export function UsersTable({ users }: { users: UserRow[] }) {
           ))}
         </ul>
       )}
-    </form>
+    </div>
   );
 }
 

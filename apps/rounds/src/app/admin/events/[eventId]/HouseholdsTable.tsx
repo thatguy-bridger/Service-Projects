@@ -68,6 +68,7 @@ export function HouseholdsTable({
               <th style={thStyle}>{t("admin.eventDetail.list.contact")}</th>
               <th style={thStyle}>{t("admin.eventDetail.list.address")}</th>
               <th style={thStyle}>{t("admin.eventDetail.list.status")}</th>
+              <th style={thStyle}></th>
             </tr>
           </thead>
           <tbody>
@@ -92,6 +93,11 @@ export function HouseholdsTable({
                   <Badge tone={row.skipped ? "neutral" : "accent"}>
                     {row.skipped ? t("admin.eventDetail.list.skipped") : row.subscriptionStatus}
                   </Badge>
+                </td>
+                <td style={tdStyle}>
+                  <a href={`/admin/library/${row.household.id}`} style={{ color: "var(--color-accent-600)" }}>
+                    {t("admin.household.edit")}
+                  </a>
                 </td>
               </tr>
             ))}
