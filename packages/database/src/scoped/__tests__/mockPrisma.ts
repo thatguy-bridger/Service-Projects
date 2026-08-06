@@ -34,9 +34,18 @@ export function createPrismaMock() {
     subscriptionEvent: {
       deleteMany: vi.fn().mockResolvedValue({ count: 1 }),
       findMany: vi.fn().mockResolvedValue([]),
+      findFirst: vi.fn().mockResolvedValue(null),
       update: vi.fn(),
       updateMany: vi.fn().mockResolvedValue({ count: 1 }),
     },
+    category: {
+      findMany: vi.fn().mockResolvedValue([]),
+      findFirst: vi.fn().mockResolvedValue(null),
+      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+      create: vi.fn(),
+      aggregate: vi.fn().mockResolvedValue({ _max: { sortOrder: 0 } }),
+    },
+    $transaction: vi.fn().mockResolvedValue([]),
     subscription: {
       create: vi.fn(),
       findUnique: vi.fn().mockResolvedValue(null),

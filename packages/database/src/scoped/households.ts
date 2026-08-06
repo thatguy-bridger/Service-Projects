@@ -204,6 +204,61 @@ export async function removeHouseholdsFromEvent(
   return { deleted: result.count, errors: [] };
 }
 
+export interface UpdateSignupForEventInput {
+  contactName?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  addressInput?: string;
+  placementNote?: string;
+  accessNotes?: string;
+  // "Permission" in the admin UI -- the subscription's approval status
+  // for this household/season.
+  subscriptionStatus?: SubStatus;
+  amountCents?: number;
+  skipped?: boolean;
+}
+
+// One row in the "Service Sign Ups" / "Member Purchases" admin tables
+// touches three tables at once (Household contact fields, Subscription
+// status/amount, SubscriptionEvent.skipped) -- this is the single write
+// path for editing any of them inline, keyed by the join row's id since
+// that's what the table renders one row per.
+export async function updateSignupForEvent(
+  session: SessionLike | null | undefined,
+  eventId: string,
+  subscriptionEventId: string,
+  input: UpdateSignupForEventInput
+): Promise<UpdateHouseholdResult> {
+  const membership = await resolveMembership(session, eventId);
+  if (!membership || !isStaff(membership.role)) return { ok: false, error: "Forbidden" };
+
+  const subEvent = await prisma.subscriptionEvent.findFirst({
+    where: { id: subscriptionEventId, eventId },
+    include: { subscription: true },
+  });
+  if (!subEvent) return { ok: false, error: "Signup not found." };
+
+  const { contactName, contactEmail, contactPhone, addressInput, placementNote, accessNotes, subscriptionStatus, amountCents, skipped } =
+    input;
+
+  await prisma.$transaction([
+    prisma.household.update({
+      where: { id: subEvent.subscription.householdId },
+      data: { contactName, contactEmail, contactPhone, addressInput, placementNote, accessNotes },
+    }),
+    prisma.subscription.update({
+      where: { id: subEvent.subscriptionId },
+      data: { status: subscriptionStatus, amountCents },
+    }),
+    prisma.subscriptionEvent.update({
+      where: { id: subscriptionEventId },
+      data: { skipped },
+    }),
+  ]);
+
+  return { ok: true };
+}
+
 export interface CopyToEventResult {
   copied: number;
   error?: string;

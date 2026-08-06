@@ -1,15 +1,17 @@
 import { notFound } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@service-projects/core-auth";
-import { defaultOrganization, eventForSession, eventsForSession, householdsForEvent, membershipsForEvent } from "@service-projects/database";
-import { Card, Badge, Button } from "@service-projects/ui";
+import {
+  defaultOrganization,
+  eventForSession,
+  householdsForEvent,
+  membershipsForEvent,
+  categoriesForOrg,
+} from "@service-projects/database";
+import { Card, Badge } from "@service-projects/ui";
 import { t } from "@/copy";
 import { formatCentsFull, formatHolidayDate } from "@/lib/format";
-import { ImportCsvForm } from "./ImportCsvForm";
-import { PeopleForm } from "./PeopleForm";
-import { HouseholdsTable } from "./HouseholdsTable";
-import { EditEventForm } from "./EditEventForm";
-import { GenerateStopsButton } from "./GenerateStopsButton";
+import { EventDetailTabs } from "./EventDetailTabs";
 
 // This is the point of the whole admin flow: click an event, land on
 // *that event's* dataset — households/signups scoped to just this one
@@ -17,6 +19,10 @@ import { GenerateStopsButton } from "./GenerateStopsButton";
 // ../../layout.tsx; eventForSession below does the event-scoped
 // membership check on top of that.
 export const dynamic = "force-dynamic";
+
+function toDateInputValue(date: Date): string {
+  return new Date(date).toISOString().slice(0, 10);
+}
 
 export default async function AdminEventDetailPage({ params }: { params: { eventId: string } }) {
   const session = await getServerSession(authOptions);
@@ -31,10 +37,7 @@ export default async function AdminEventDetailPage({ params }: { params: { event
   const skippedCount = rows.length - activeCount;
   const totalCents = rows.filter((r) => !r.skipped).reduce((sum, r) => sum + r.amountCents, 0);
   const people = await membershipsForEvent(session, params.eventId);
-  const allEvents = await eventsForSession(session, org.id);
-  const otherEvents = allEvents
-    .filter((ev) => ev.id !== event.id && ev.seasonId)
-    .map((ev) => ({ id: ev.id, name: ev.name }));
+  const categories = await categoriesForOrg(org.id);
 
   return (
     <>
@@ -54,13 +57,6 @@ export default async function AdminEventDetailPage({ params }: { params: { event
           </div>
           <Badge tone="success">{event.status}</Badge>
         </div>
-        <EditEventForm
-          eventId={event.id}
-          name={event.name}
-          status={event.status}
-          serviceStartsAt={event.serviceStartsAt}
-          serviceEndsAt={event.serviceEndsAt}
-        />
       </Card>
 
       <div className="admin-columns" style={{ marginBottom: "var(--space-6)" }}>
@@ -86,50 +82,27 @@ export default async function AdminEventDetailPage({ params }: { params: { event
         </Card>
       </div>
 
-      <Card style={{ marginBottom: "var(--space-6)" }}>
-        <h2 style={{ margin: "0 0 4px", fontSize: "var(--text-lg)", fontWeight: "var(--weight-medium)" }}>
-          {t("admin.eventDetail.people.title")}
-        </h2>
-        <p style={{ color: "var(--text-secondary)" }}>{t("admin.eventDetail.people.subtitle")}</p>
-        <PeopleForm eventId={event.id} people={people} />
-      </Card>
+      <EventDetailTabs
+        eventId={event.id}
+        seasonId={event.seasonId}
+        eventDatesRow={{
+          id: event.id,
+          name: event.name,
+          status: event.status,
+          serviceStartsAt: toDateInputValue(event.serviceStartsAt),
+          serviceEndsAt: toDateInputValue(event.serviceEndsAt),
+        }}
+        signupRows={rows}
+        people={people}
+        categories={categories.map((c) => ({ id: c.id, name: c.name }))}
+        currentCategoryId={event.categoryId}
+      />
 
-      {event.seasonId && (
-        <Card style={{ marginBottom: "var(--space-6)" }}>
-          <h2 style={{ margin: "0 0 4px", fontSize: "var(--text-lg)", fontWeight: "var(--weight-medium)" }}>
-            {t("admin.eventDetail.import.title")}
-          </h2>
-          <p style={{ color: "var(--text-secondary)" }}>{t("admin.eventDetail.import.subtitle")}</p>
-          <ImportCsvForm eventId={event.id} />
-        </Card>
-      )}
-
-      {event.seasonId && (
-        <Card style={{ marginBottom: "var(--space-6)" }}>
-          <h2 style={{ margin: "0 0 4px", fontSize: "var(--text-lg)", fontWeight: "var(--weight-medium)" }}>
-            {t("admin.eventDetail.stops.title")}
-          </h2>
-          <p style={{ color: "var(--text-secondary)" }}>{t("admin.eventDetail.stops.subtitle")}</p>
-          <GenerateStopsButton eventId={event.id} />
-        </Card>
-      )}
-
-      <Card>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "var(--space-3)", marginBottom: "var(--space-3)" }}>
-          <h2 style={{ margin: 0, fontSize: "var(--text-lg)", fontWeight: "var(--weight-medium)" }}>
-            {t("admin.eventDetail.list.title")}
-          </h2>
-          <a href={`/admin/events/${event.id}/export`}>
-            <Button variant="secondary">{t("admin.eventDetail.export")}</Button>
-          </a>
-        </div>
-
-        {rows.length === 0 ? (
-          <p style={{ color: "var(--text-secondary)" }}>{t("admin.eventDetail.list.empty")}</p>
-        ) : (
-          <HouseholdsTable eventId={event.id} rows={rows} otherEvents={otherEvents} />
-        )}
-      </Card>
+      <p style={{ marginTop: "var(--space-4)" }}>
+        <a href={`/admin/events/${event.id}/export`} style={{ color: "var(--color-accent-600)", fontSize: "var(--text-sm)" }}>
+          {t("admin.eventDetail.export")}
+        </a>
+      </p>
     </>
   );
 }
