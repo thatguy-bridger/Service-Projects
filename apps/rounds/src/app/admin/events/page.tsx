@@ -3,8 +3,7 @@ import { authOptions } from "@service-projects/core-auth";
 import { defaultOrganization, eventsForSession, categoriesForOrg } from "@service-projects/database";
 import { Card, Badge } from "@service-projects/ui";
 import { t } from "@/copy";
-import { GenerateEventsForm } from "./GenerateEventsForm";
-import { CreateEventForm } from "./CreateEventForm";
+import { CreateEventsForm } from "./CreateEventsForm";
 
 // The top of the directory: (Events) -> category (Flag Setup, Flag
 // Takedown, ...) -> individual opportunities (this year's Pioneer Day,
@@ -32,23 +31,19 @@ export default async function AdminEventsPage() {
         </p>
       </Card>
 
-      <div className="admin-columns">
-        <Card>
-          <h2 style={{ margin: "0 0 4px", fontSize: "var(--text-lg)", fontWeight: "var(--weight-medium)" }}>
-            {t("admin.events.generate.title")}
-          </h2>
-          <p style={{ color: "var(--text-secondary)" }}>{t("admin.events.generate.subtitle")}</p>
-          <GenerateEventsForm defaultOrgName={org?.name ?? ""} defaultYear={nextYear} />
-        </Card>
-
-        <Card>
-          <h2 style={{ margin: "0 0 4px", fontSize: "var(--text-lg)", fontWeight: "var(--weight-medium)" }}>
-            {t("admin.events.custom.title")}
-          </h2>
-          <p style={{ color: "var(--text-secondary)" }}>{t("admin.events.custom.subtitle")}</p>
-          <CreateEventForm defaultOrgName={org?.name ?? ""} />
-        </Card>
-      </div>
+      <Card>
+        <h2 style={{ margin: "0 0 4px", fontSize: "var(--text-lg)", fontWeight: "var(--weight-medium)" }}>
+          Create events
+        </h2>
+        <p style={{ color: "var(--text-secondary)" }}>
+          Add one event or several at once, and put them in a category (existing or new) right away.
+        </p>
+        <CreateEventsForm
+          defaultOrgName={org?.name ?? ""}
+          categories={categories.map((c) => ({ id: c.id, name: c.name }))}
+          defaultYear={nextYear}
+        />
+      </Card>
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "var(--space-6) 0 var(--space-3)" }}>
         <h2 style={{ margin: 0, fontSize: "var(--text-lg)", fontWeight: "var(--weight-medium)" }}>
