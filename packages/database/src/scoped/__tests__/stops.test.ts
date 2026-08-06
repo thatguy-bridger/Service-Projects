@@ -9,7 +9,7 @@ vi.mock("../../client", async () => {
 const { prisma } = await import("../../client");
 const prismaMock = prisma as unknown as PrismaMock;
 
-const { generateStopsFromSubscriptions } = await import("../stops");
+const { generateStopsFromSubscriptions, stopsForSession } = await import("../stops");
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -83,6 +83,26 @@ describe("generateStopsFromSubscriptions", () => {
     expect(prismaMock.subscriptionEvent.update).toHaveBeenCalledWith({
       where: { id: "se-1" },
       data: { stopId: "orphaned-stop" },
+    });
+  });
+});
+
+describe("stopsForSession", () => {
+  it("a signed-out visitor sees nothing", async () => {
+    const result = await stopsForSession(null, "event-1");
+    expect(result).toEqual([]);
+    expect(prismaMock.stop.findMany).not.toHaveBeenCalled();
+  });
+
+  it("staff see every stop on the event, unfiltered", async () => {
+    await stopsForSession(OWNER, "event-1");
+    expect(prismaMock.stop.findMany).toHaveBeenCalledWith({ where: { eventId: "event-1" } });
+  });
+
+  it("a volunteer only sees stops on routes they're assigned to for this event (Phase 3)", async () => {
+    await stopsForSession(VOLUNTEER, "event-1");
+    expect(prismaMock.stop.findMany).toHaveBeenCalledWith({
+      where: { eventId: "event-1", route: { assignments: { some: { userId: "u-vol" } } } },
     });
   });
 });

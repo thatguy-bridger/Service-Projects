@@ -89,6 +89,9 @@ model User {
   // Rounds: which orgs/events this user has a role in.
   memberships Membership[]
 
+  // Rounds: which routes this user (a volunteer) is assigned to.
+  routeAssignments RouteAssignment[]
+
   // Rounds: households this account is linked to, so a signed-in
   // household doesn't retype its address/contact info every season.
   // Nullable/optional on Household's side — most households never
@@ -243,6 +246,7 @@ model Event {
   deletedAt       DateTime?
 
   stops              Stop[]
+  routes             Route[]
   memberships        Membership[]
   subscriptionEvents SubscriptionEvent[]
 
@@ -339,7 +343,8 @@ model Stop {
   household         Household? @relation(fields: [householdId], references: [id])
   signupId          String? // Signup model ships in Phase 1/2
   carriedFromStopId String?
-  routeId           String? // Route model ships in Phase 3
+  routeId           String?
+  route             Route?     @relation(fields: [routeId], references: [id])
   sequence          Int?
   status            StopStatus @default(UNASSIGNED)
   lat               Float
@@ -358,6 +363,41 @@ model Stop {
   createdAt         DateTime   @default(now())
 
   @@index([eventId, routeId, sequence])
+}
+
+// Phase 3 (SPEC.md §9.3): an ordered list of stops assigned to one or
+// more volunteers. Deliberately scoped down from SPEC.md's full model
+// for a first real, working slice -- geometry/plannedDistanceM/
+// briefingMd/travelMode etc. are real fields for later (route map,
+// offline briefing) once that UI exists; not added speculatively ahead
+// of a consumer, same rule the rest of this schema follows.
+model Route {
+  id        String    @id @default(cuid())
+  eventId   String
+  event     Event     @relation(fields: [eventId], references: [id])
+  name      String
+  color     String    @default("#6f4ef0")
+  status    String    @default("draft") // draft|published|in_progress|complete
+  createdBy String
+  createdAt DateTime  @default(now())
+  deletedAt DateTime?
+
+  stops       Stop[]
+  assignments RouteAssignment[]
+}
+
+model RouteAssignment {
+  id         String    @id @default(cuid())
+  routeId    String
+  route      Route     @relation(fields: [routeId], references: [id])
+  userId     String
+  user       User      @relation(fields: [userId], references: [id])
+  role       String    @default("lead") // lead|helper
+  assignedBy String
+  assignedAt DateTime  @default(now())
+  acceptedAt DateTime?
+
+  @@unique([routeId, userId])
 }
 
 // Copy registry override storage (SPEC.md §11.1). The code-level defaults

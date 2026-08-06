@@ -95,14 +95,16 @@ export async function stopsForSession(session: SessionLike | null | undefined, e
   }
 
   if (membership.role === "VOLUNTEER") {
-    // Route/RouteAssignment ship in Phase 3. Until a volunteer can be
-    // assigned to a route, they have no stops to see — by construction,
-    // not by an oversight. Kept as an explicit branch (rather than
-    // falling into the `return []` below) so the Phase 3 TODO is easy to
-    // find: filter by `route.assignments.some(...)` and add a `select`
-    // built from the form schema's `visibleTo: Role[]` (SPEC.md §6, §7.2)
-    // instead of returning everything.
-    return [];
+    // Phase 3: a volunteer sees stops on routes they're actually
+    // assigned to for this event, nothing else. Field-level redaction
+    // via a form schema's `visibleTo: Role[]` (SPEC.md §7.2) still
+    // doesn't exist (no form builder yet) — that's the next TODO here,
+    // not this one.
+    const userId = session?.user?.id;
+    if (!userId) return [];
+    return prisma.stop.findMany({
+      where: { eventId, route: { assignments: { some: { userId } } } },
+    });
   }
 
   return [];
