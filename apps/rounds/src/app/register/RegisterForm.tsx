@@ -48,7 +48,7 @@ export function RegisterForm() {
   }
 
   return (
-    <main className="rounds-shell">
+    <>
       <Card>
         <h1 style={{ margin: "0 0 4px", fontSize: "var(--text-xl)", fontWeight: "var(--weight-semibold)" }}>
           {t("register.title")}
@@ -104,7 +104,7 @@ export function RegisterForm() {
           </Button>
         </form>
       </Card>
-    </main>
+    </>
   );
 }
 

@@ -1,11 +1,9 @@
-import { cookies } from "next/headers";
 import { getServerSession } from "next-auth";
 import { authOptions, requireRole, can } from "@service-projects/core-auth";
-import { Card, Badge, BrandMark } from "@service-projects/ui";
+import { Card, Button } from "@service-projects/ui";
 import { t } from "@/copy";
-import { AccountControls } from "../AccountControls";
-import { PreviewRoleSwitcher } from "../PreviewRoleSwitcher";
-import { getEffectiveRole, PREVIEW_COOKIE } from "@/lib/previewRole";
+import { AppTopbar } from "../AppTopbar";
+import { getEffectiveRole } from "@/lib/previewRole";
 import { AdminTabs } from "./AdminTabs";
 
 // Shared shell for every /admin/* page: one auth gate, one topbar with
@@ -19,32 +17,20 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   const realRole = session!.user.role;
   const role = getEffectiveRole(session) ?? realRole;
-  const currentPreview = cookies().get(PREVIEW_COOKIE)?.value ?? "REAL";
   const isPreviewing = role !== realRole;
-
-  const header = (
-    <header className="rounds-topbar" style={{ justifyContent: "space-between" }}>
-      <span style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
-        <BrandMark size={32} />
-        <span className="rounds-brand">{t("brand.name")}</span>
-        <Badge tone="accent">{role}</Badge>
-      </span>
-      <span style={{ display: "flex", alignItems: "center", gap: "var(--space-4)", flexWrap: "wrap" }}>
-        <PreviewRoleSwitcher currentPreview={currentPreview} />
-        <AccountControls />
-      </span>
-    </header>
-  );
 
   if (!can(role, "users.manageRoles")) {
     return (
       <main className="admin-shell">
-        {header}
+        <AppTopbar section={t("admin.tabs.nav")} />
         <Card>
           <h1 style={{ margin: "0 0 4px", fontSize: "var(--text-xl)", fontWeight: "var(--weight-semibold)" }}>
             {t("preview.forbidden.title", { role })}
           </h1>
           <p style={{ color: "var(--text-secondary)" }}>{t("preview.forbidden.body", { role })}</p>
+          <a href="/">
+            <Button variant="secondary">{t("preview.forbidden.backHome", { role })}</Button>
+          </a>
         </Card>
       </main>
     );
@@ -52,7 +38,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   return (
     <main className="admin-shell">
-      {header}
+      <AppTopbar section={t("admin.tabs.nav")} />
 
       {isPreviewing && (
         <Card style={{ marginBottom: "var(--space-6)", background: "var(--color-accent-100)" }}>

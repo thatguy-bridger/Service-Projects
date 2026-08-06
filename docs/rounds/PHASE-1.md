@@ -636,3 +636,59 @@ package's `index.ts` also exports `authOptions`, which pulls in
 `nodemailer` (a server-only dependency), and breaks the client bundle.
 Fixed by duplicating the small `ROLES` const locally in the client
 component instead, same as `EVENT_ROLES` already does elsewhere.
+
+## Update — consistent navigation, free address map, signup layout
+
+Direct response to a user-compiled feedback sheet (feature-request rows,
+not a code review): navigation was inconsistent across screens, "view
+as" wasn't useful, and the signup address step had no way to see or
+confirm the pin.
+
+- **One shared topbar** (`AppTopbar.tsx`, new): every screen — home,
+  welcome, register, signup, admin — now renders the same header:
+  brand/home link, current section, an "Admin" shortcut for staff, the
+  effective role badge, the preview switcher (Owner/Admin only), and
+  account controls. Before this, `/signup` and `/register` had no
+  topbar at all, and home/welcome/admin each hand-rolled their own
+  slightly different copy of one — the actual root cause of "no matter
+  which screen I'm on" not holding true. This is a straight duplication
+  removal, not new UI language.
+- **"View as" (role preview)**: the admin-forbidden view previewing as
+  a non-staff role now explains plainly that a real account in that
+  role never sees this screen and links straight to what they *would*
+  see (`/` as that role), instead of just stating the page is
+  admin-only. The role badge in the topbar also now always shows the
+  real/previewed role rather than hiding it behind a generic
+  "Previewer" label for non-staff — the badge answering "who am I right
+  now" consistently was the missing piece, not new preview logic.
+- **Signup layout**: the stepper itself is untouched (mobile-first is
+  still correct there), but on viewports ≥900px it now sits inside the
+  app's normal topbar chrome next to a season/holiday summary side
+  panel, instead of floating alone in a 480px column with empty gray
+  gutters on either side and no way back into the rest of the app.
+- **Address confirmation + pin-drop, without any API key**: replaced
+  the Google Maps-dependent picker (which, with no
+  `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` configured, degraded to a plain
+  text field with no map at all) with `OSMAddressPicker.tsx` — address
+  search via Nominatim (OpenStreetMap's free geocoder, no key, no
+  billing account) and a Leaflet map with a draggable pin using OSM's
+  public tile servers. This works out of the box in every environment;
+  no credential to request from anyone. Dropped the
+  `@vis.gl/react-google-maps` and `@types/google.maps` dependencies
+  entirely along with the now-dead `GoogleAddressPicker.tsx`. New
+  dependency added: `leaflet` (~150KB, dynamically imported client-side
+  only so it doesn't load until the address step) + `@types/leaflet`
+  (dev-only). Nominatim's usage policy caps unauthenticated browser use
+  around 1 request/second; the search input debounces at 400ms, well
+  under that, and this app's real signup volume is nowhere near the
+  ceiling — if that ever changes, everything routes through one fetch
+  helper in `OSMAddressPicker.tsx` that's easy to point at a paid or
+  self-hosted geocoder instead.
+
+Deliberately not attempted this session: the rest of `SPEC.md`'s Phase
+2+ scope (form builder, route builder, PostGIS territory fill, Stripe,
+invite keys, layout blocks, multi-language). That document itself says
+not to attempt it in one pass — phase by phase, with a go-ahead between
+each. This session's concrete, scoped feedback (navigation, view-as,
+address/pin-drop) was the actionable subset; the rest stays the
+roadmap for follow-up sessions.

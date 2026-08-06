@@ -48,17 +48,106 @@ body {
   max-width: 34em;
 }
 
-/* Flag signup — SPEC.md §14.1, mocked in Rounds Screens 1a. Public,
- * mobile-first (volunteer/public screens are designed at 390x844 first
- * per SPEC.md's master prompt); centered rather than stretched on a
- * wider viewport, same rule §16.1 gives the volunteer route screen. */
+/* Flag signup — SPEC.md §14.1, mocked in Rounds Screens 1a. The stepper
+ * itself stays mobile-first and narrow (that's still correct for a
+ * phone in hand); on wide viewports it now sits inside the app's normal
+ * topbar chrome next to a summary side panel, instead of floating alone
+ * in empty gutters with no way back to the rest of the app. */
+.signup-page {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-8);
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0 var(--space-4);
+}
+
+.signup-side {
+  display: none;
+  flex-direction: column;
+  gap: var(--space-3);
+  flex: 1;
+  max-width: 380px;
+  padding: var(--space-10) 0;
+}
+
+.signup-side h2 {
+  margin: 0;
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-semibold);
+  letter-spacing: -0.02em;
+}
+
+.signup-sideBody {
+  color: var(--text-secondary);
+  margin: 0 0 var(--space-2);
+}
+
+.signup-sideList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.signup-sideList li {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--border-default);
+  font-size: var(--text-sm);
+}
+
+.signup-sideList li > span:first-child {
+  flex: 1;
+  font-weight: var(--weight-medium);
+  color: var(--text-primary);
+}
+
+.signup-sideDate {
+  color: var(--text-secondary);
+}
+
+.signup-sidePrice {
+  color: var(--text-muted);
+}
+
+.signup-main {
+  flex: none;
+}
+
+@media (min-width: 900px) {
+  .signup-side {
+    display: flex;
+  }
+}
+
 .signup-shell {
   max-width: 480px;
   margin: 0 auto;
-  min-height: 100vh;
   display: flex;
   flex-direction: column;
   background: var(--surface-page);
+}
+
+@media (min-width: 900px) {
+  .signup-shell {
+    min-height: auto;
+    margin: var(--space-8) 0;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border-default);
+    box-shadow: var(--shadow-md);
+    overflow: hidden;
+  }
+}
+
+@media (max-width: 899px) {
+  .signup-shell {
+    min-height: 100vh;
+  }
 }
 
 .signup-header {

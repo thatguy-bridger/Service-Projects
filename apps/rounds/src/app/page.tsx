@@ -1,12 +1,10 @@
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions, can } from "@service-projects/core-auth";
-import { Button, Card, Badge, BrandMark, ImagePlaceholder } from "@service-projects/ui";
+import { Button, Card, Badge, ImagePlaceholder } from "@service-projects/ui";
 import { t } from "@/copy";
-import { AccountControls } from "./AccountControls";
-import { PreviewRoleSwitcher } from "./PreviewRoleSwitcher";
-import { getEffectiveRole, PREVIEW_COOKIE } from "@/lib/previewRole";
+import { AppTopbar } from "./AppTopbar";
+import { getEffectiveRole } from "@/lib/previewRole";
 
 // Always fresh: reads the request's session.
 export const dynamic = "force-dynamic";
@@ -25,10 +23,7 @@ export default async function HomePage({
   if (!session?.user) {
     return (
       <main className="rounds-shell">
-        <header className="rounds-topbar">
-          <BrandMark />
-          <span className="rounds-brand">{t("brand.name")}</span>
-        </header>
+        <AppTopbar />
 
         <section className="rounds-hero">
           <h1>{t("previewer.landing.title")}</h1>
@@ -100,21 +95,10 @@ export default async function HomePage({
   const role = getEffectiveRole(session) ?? realRole;
   const isPreviewing = canPreview && role !== realRole;
   const isOwnerOrAdmin = can(role, "users.manageRoles");
-  const currentPreview = cookies().get(PREVIEW_COOKIE)?.value ?? "REAL";
 
   return (
     <main className="rounds-shell">
-      <header className="rounds-topbar" style={{ justifyContent: "space-between" }}>
-        <span style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
-          <BrandMark size={32} />
-          <span className="rounds-brand">{t("brand.name")}</span>
-          <Badge tone="accent">{isOwnerOrAdmin ? role : t("role.previewer.badge")}</Badge>
-        </span>
-        <span style={{ display: "flex", alignItems: "center", gap: "var(--space-4)" }}>
-          {canPreview && <PreviewRoleSwitcher currentPreview={currentPreview} />}
-          <AccountControls />
-        </span>
-      </header>
+      <AppTopbar />
 
       {searchParams.welcomed === "volunteer" && (
         <Card style={{ marginBottom: "var(--space-6)", background: "var(--color-accent-100)" }}>

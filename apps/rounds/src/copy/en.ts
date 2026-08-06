@@ -13,18 +13,19 @@ export const en = {
   "brand.name": "Rounds",
 
   "auth.signIn.cta": "Sign in",
+  "nav.admin": "Admin",
 
   "previewer.landing.title": "Find a service event near you",
   "previewer.landing.subtitle":
     "Sign in to browse events, or enter a key if someone gave you one.",
 
-  "role.previewer.badge": "Previewer",
 
   "previewer.emptyState.title": "No events published yet",
   "previewer.emptyState.body":
     "When an organizer publishes an event, it'll show up here. Have an invite key? Look for \"Have a key?\" once events are live.",
 
   "signup.stepper.holidays": "Holidays",
+  "signup.side.body": "{{org}} volunteers place and collect flags on the mornings shown below. Pick as many as you'd like — you can always change your mind later from the link in your confirmation email.",
   "signup.stepper.address": "Address",
   "signup.stepper.pay": "Pay",
   "signup.holidays.title": "Which holidays this year?",
@@ -83,18 +84,18 @@ export const en = {
   "preview.real": "Yourself",
   "preview.banner": "Previewing as {{role}} — this doesn't change your real permissions. Any admin actions here still use your real account.",
   "preview.forbidden.title": "Not visible to {{role}}",
-  "preview.forbidden.body": "This page is admin-only. A {{role}} account would land somewhere else entirely — this is what that looks like.",
+  "preview.forbidden.body": "This page is admin-only, so a real {{role}} account never sees it — they'd land on the home screen instead. Go there to see exactly what they'd see.",
+  "preview.forbidden.backHome": "Go to the home screen as {{role}}",
 
   "signup.address.title": "Where should we set up?",
   "signup.address.subtitle": "Start typing your address and pick it from the list. Drag the pin on the map if it's not quite right.",
   "signup.address.label": "Street address",
   "signup.address.placeholder": "Start typing your address…",
+  "signup.address.searching": "Searching…",
+  "signup.address.dragHint": "Drag the pin if it's not quite right — that's exactly where we'll come.",
+  "signup.address.useAsTyped": "Can't find it in the list? Use the address as typed",
   "signup.address.pinAt": "Pin is at: {{address}}",
   "signup.address.pinMovedNoAddress": "Pin moved — address unavailable for this exact spot.",
-  "signup.address.manualPlaceholder": "Street address, city, state, ZIP",
-  "signup.address.manualHint": "We'll confirm the exact spot with you if needed — no map lookup right now.",
-  "signup.address.useMap": "Use the map instead",
-  "signup.address.enterManually": "Can't find your address? Enter it manually",
   "signup.address.back": "Back",
   "signup.address.continue": "Continue",
   "signup.address.required": "Choose an address to continue.",

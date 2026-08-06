@@ -1,8 +1,9 @@
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@service-projects/core-auth";
-import { Card, Button, BrandMark } from "@service-projects/ui";
+import { Card, Button } from "@service-projects/ui";
 import { t } from "@/copy";
+import { AppTopbar } from "../AppTopbar";
 import { chooseCustomerIntent, chooseVolunteerIntent } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -14,10 +15,7 @@ export default async function WelcomePage() {
 
   return (
     <main className="rounds-shell">
-      <header className="rounds-topbar">
-        <BrandMark size={32} />
-        <span className="rounds-brand">{t("brand.name")}</span>
-      </header>
+      <AppTopbar section={t("welcome.title")} />
 
       <section className="rounds-hero">
         <h1>{t("welcome.title")}</h1>
