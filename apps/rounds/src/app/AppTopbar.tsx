@@ -44,6 +44,11 @@ export async function AppTopbar({ section }: { section?: string }) {
             {t("nav.admin")}
           </a>
         )}
+        {signedIn && (
+          <a href="/my-routes" style={{ fontSize: "var(--text-sm)", color: "var(--color-accent-600)" }}>
+            My routes
+          </a>
+        )}
         {signedIn && role && <Badge tone="accent">{role}</Badge>}
       </span>
       <span style={{ display: "flex", alignItems: "center", gap: "var(--space-4)", flexWrap: "wrap" }}>

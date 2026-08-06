@@ -4,13 +4,9 @@ import { authOptions } from "@service-projects/core-auth";
 import { defaultOrganization, eventsForSession, categoriesForOrg } from "@service-projects/database";
 import { Card } from "@service-projects/ui";
 import { t } from "@/copy";
-import { OpportunitiesTable } from "../../category/[kind]/OpportunitiesTable";
+import { OpportunitiesTable } from "../../OpportunitiesTable";
 
 export const dynamic = "force-dynamic";
-
-// The dynamic-category counterpart to ../../category/[kind] -- same
-// OpportunitiesTable, just filtered by the user-created Category instead
-// of the fixed EventKind enum.
 export default async function AdminEventsByCategoryPage({ params }: { params: { categoryId: string } }) {
   const session = await getServerSession(authOptions);
   const org = await defaultOrganization();

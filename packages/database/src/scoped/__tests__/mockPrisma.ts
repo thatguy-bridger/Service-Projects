@@ -72,6 +72,23 @@ export function createPrismaMock() {
       findUnique: vi.fn().mockResolvedValue(null),
       upsert: vi.fn(),
     },
+    route: {
+      findMany: vi.fn().mockResolvedValue([]),
+      findFirst: vi.fn().mockResolvedValue(null),
+      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+      create: vi.fn(),
+    },
+    routeAssignment: {
+      findMany: vi.fn().mockResolvedValue([]),
+      upsert: vi.fn(),
+      deleteMany: vi.fn().mockResolvedValue({ count: 1 }),
+    },
+    visit: {
+      findUnique: vi.fn().mockResolvedValue(null),
+      findMany: vi.fn().mockResolvedValue([]),
+      groupBy: vi.fn().mockResolvedValue([]),
+      create: vi.fn(),
+    },
   };
 }
 

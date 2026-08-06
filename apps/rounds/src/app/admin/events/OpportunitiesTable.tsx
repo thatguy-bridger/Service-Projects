@@ -1,7 +1,7 @@
 "use client";
 
 import { DataTable, type DataTableColumn } from "@service-projects/ui";
-import { deleteOpportunitiesAction, saveOpportunityRowAction, addOpportunityAction } from "./actions";
+import { deleteOpportunitiesAction, saveOpportunityRowAction, addOpportunityAction } from "./opportunityActions";
 import { EVENT_KINDS, EVENT_KIND_LABELS } from "@/lib/eventKinds";
 import type { EventKind } from "@service-projects/database";
 
