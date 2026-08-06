@@ -60,22 +60,16 @@ export default async function AdminLibraryPage({
       </Card>
 
       <Card>
-        {result.households.length === 0 ? (
-          <p style={{ color: "var(--text-secondary)" }}>{t("admin.library.search.empty")}</p>
-        ) : eventOptions.length === 0 ? (
-          <p style={{ color: "var(--text-secondary)" }}>{t("admin.library.noEvents")}</p>
-        ) : (
-          <LibraryResults
-            households={result.households}
-            events={eventOptions}
-            total={result.total}
-            page={result.page}
-            totalPages={totalPages}
-            query={query}
-            sortBy={sortBy}
-            sortDir={sortDir}
-          />
-        )}
+        <LibraryResults
+          households={result.households}
+          events={eventOptions}
+          total={result.total}
+          page={result.page}
+          totalPages={totalPages}
+          query={query}
+          sortBy={sortBy}
+          sortDir={sortDir}
+        />
       </Card>
     </>
   );

@@ -244,3 +244,57 @@ export async function generateStopsAction(
   revalidatePath(`/admin/events/${eventId}`);
   return result;
 }
+
+// DataTable-compatible variants (plain args, not FormData).
+
+export async function savePersonRoleAction(
+  eventId: string,
+  membershipId: string,
+  patch: Record<string, string>
+): Promise<UpdatePersonRoleResult> {
+  const session = await getServerSession(authOptions);
+  await requireRole(session, ["OWNER", "ADMIN"]);
+
+  const role = (patch.role ?? "") as Role;
+  if (!EVENT_ROLES.includes(role)) return { ok: false, error: "Pick a role." };
+
+  const result = await updateEventMembershipRole(session, eventId, membershipId, role);
+  revalidatePath(`/admin/events/${eventId}`);
+  return result;
+}
+
+export async function removePeopleAction(eventId: string, membershipIds: string[]): Promise<{ deleted: number }> {
+  const session = await getServerSession(authOptions);
+  await requireRole(session, ["OWNER", "ADMIN"]);
+  const result = await removeEventMemberships(session, eventId, membershipIds);
+  revalidatePath(`/admin/events/${eventId}`);
+  return { deleted: result.removed };
+}
+
+export async function addPersonAction(
+  eventId: string,
+  values: Record<string, string>
+): Promise<MembershipActionResult> {
+  const session = await getServerSession(authOptions);
+  await requireRole(session, ["OWNER", "ADMIN"]);
+
+  const org = await defaultOrganization();
+  if (!org) return { error: "No organization set up yet." };
+
+  const email = (values.email ?? "").trim();
+  const role = (values.role ?? "") as Role;
+  if (!email || !EVENT_ROLES.includes(role)) {
+    return { error: "Enter an email and pick a role." };
+  }
+
+  const result = await addEventMembership(session, {
+    orgId: org.id,
+    eventId,
+    email,
+    role,
+    grantedBy: session?.user.id,
+  });
+
+  revalidatePath(`/admin/events/${eventId}`);
+  return result;
+}

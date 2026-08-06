@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "./Button";
 
 export interface DataTableColumn<T> {
@@ -37,17 +38,31 @@ export function DataTable<T extends { id: string }>({
   onSaveRow,
   onDeleteSelected,
   onImportCsv,
+  onAddRow,
+  onSelectionChange,
   csvFilenamePrefix = "export",
   emptyMessage = "Nothing here yet.",
+  deleteLabel = "Delete selected data",
 }: {
   rows: T[];
   columns: DataTableColumn<T>[];
   onSaveRow?: (id: string, patch: Record<string, string>) => Promise<DataTableSaveResult>;
   onDeleteSelected?: (ids: string[]) => Promise<{ deleted: number }>;
+  deleteLabel?: string;
   onImportCsv?: (csvText: string) => Promise<DataTableImportResult>;
+  // Adds a new row -- opens a blank form of every editable column. On
+  // success the caller is responsible for getting the new row back into
+  // `rows` (a router refresh or local state update); this component
+  // doesn't own the row list, it's always a prop.
+  onAddRow?: (values: Record<string, string>) => Promise<DataTableSaveResult>;
+  // Lets a page build its own extra bulk action (e.g. "copy selected
+  // into event X") alongside the built-in toolbar, without this
+  // component needing to know about it.
+  onSelectionChange?: (ids: string[]) => void;
   csvFilenamePrefix?: string;
   emptyMessage?: string;
 }) {
+  const router = useRouter();
   const [filters, setFilters] = useState<Record<string, string>>({});
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -58,6 +73,10 @@ export function DataTable<T extends { id: string }>({
   const [importOpen, setImportOpen] = useState(false);
   const [importText, setImportText] = useState("");
   const [importResult, setImportResult] = useState<DataTableImportResult | null>(null);
+  const [addOpen, setAddOpen] = useState(false);
+  const [addValues, setAddValues] = useState<Record<string, string>>({});
+  const [adding, setAdding] = useState(false);
+  const [addError, setAddError] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
   const [copyModal, setCopyModal] = useState<{ filename: string; rowCount: number } | null>(null);
 
@@ -77,8 +96,9 @@ export function DataTable<T extends { id: string }>({
 
   function toggleAll() {
     setSelected((prev) => {
-      if (allVisibleSelected) return new Set();
-      return new Set(filteredRows.map((r) => r.id));
+      const next = allVisibleSelected ? new Set<string>() : new Set(filteredRows.map((r) => r.id));
+      onSelectionChange?.(Array.from(next));
+      return next;
     });
   }
 
@@ -87,6 +107,7 @@ export function DataTable<T extends { id: string }>({
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
+      onSelectionChange?.(Array.from(next));
       return next;
     });
   }
@@ -136,6 +157,7 @@ export function DataTable<T extends { id: string }>({
     try {
       await onDeleteSelected(Array.from(selected));
       setSelected(new Set());
+      router.refresh();
     } finally {
       setDeleting(false);
     }
@@ -160,6 +182,7 @@ export function DataTable<T extends { id: string }>({
     try {
       const result = await onImportCsv(importText);
       setImportResult(result);
+      if (result.imported > 0) router.refresh();
     } finally {
       setImporting(false);
     }
@@ -181,6 +204,7 @@ export function DataTable<T extends { id: string }>({
       const result = await onSaveRow(id, editValues);
       if (result.ok) {
         setEditingId(null);
+        router.refresh();
       } else {
         setSaveError(result.error ?? "Save failed.");
       }
@@ -189,9 +213,39 @@ export function DataTable<T extends { id: string }>({
     }
   }
 
+  function openAdd() {
+    setAddError(null);
+    const blank: Record<string, string> = {};
+    for (const col of columns) if (col.editable) blank[col.key] = col.selectOptions?.[0] ?? "";
+    setAddValues(blank);
+    setAddOpen(true);
+  }
+
+  async function handleAdd() {
+    if (!onAddRow) return;
+    setAdding(true);
+    setAddError(null);
+    try {
+      const result = await onAddRow(addValues);
+      if (result.ok) {
+        setAddOpen(false);
+        router.refresh();
+      } else {
+        setAddError(result.error ?? "Couldn't add row.");
+      }
+    } finally {
+      setAdding(false);
+    }
+  }
+
   return (
     <div>
       <div style={{ display: "flex", gap: "var(--space-2)", alignItems: "center", flexWrap: "wrap", marginBottom: "var(--space-3)" }}>
+        {onAddRow && (
+          <Button type="button" variant="primary" onClick={openAdd}>
+            Add row
+          </Button>
+        )}
         {selected.size > 0 && (
           <>
             <span style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)" }}>
@@ -202,7 +256,7 @@ export function DataTable<T extends { id: string }>({
             </Button>
             {onDeleteSelected && (
               <Button type="button" variant="danger" disabled={deleting} onClick={handleDeleteSelected}>
-                {deleting ? "Deleting…" : "Delete selected data"}
+                {deleting ? "Working…" : deleteLabel}
               </Button>
             )}
           </>
@@ -367,6 +421,56 @@ export function DataTable<T extends { id: string }>({
               </Button>
               <Button type="button" variant="primary" disabled={importing || !importText.trim()} onClick={handleImport}>
                 {importing ? "Importing…" : "Import"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {addOpen && (
+        <div className="dialog-backdrop" onClick={() => setAddOpen(false)}>
+          <div className="dialog" onClick={(e) => e.stopPropagation()}>
+            <h2 className="dialog-title">Add row</h2>
+            <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)", marginTop: "var(--space-2)" }}>
+              {columns
+                .filter((c) => c.editable)
+                .map((col) => (
+                  <label key={col.key} className="signup-field">
+                    <span className="signup-fieldLabel">{col.label}</span>
+                    {col.selectOptions ? (
+                      <select
+                        className="signup-input"
+                        value={addValues[col.key] ?? ""}
+                        onChange={(e) => setAddValues((prev) => ({ ...prev, [col.key]: e.target.value }))}
+                      >
+                        {col.selectOptions.map((opt) => (
+                          <option key={opt} value={opt}>
+                            {opt}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        className="signup-input"
+                        type={col.inputType ?? "text"}
+                        value={addValues[col.key] ?? ""}
+                        onChange={(e) => setAddValues((prev) => ({ ...prev, [col.key]: e.target.value }))}
+                      />
+                    )}
+                  </label>
+                ))}
+            </div>
+            {addError && (
+              <p className="signup-error" style={{ marginTop: "var(--space-2)" }}>
+                {addError}
+              </p>
+            )}
+            <div className="dialog-actions">
+              <Button type="button" variant="ghost" onClick={() => setAddOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="button" variant="primary" disabled={adding} onClick={handleAdd}>
+                {adding ? "Adding…" : "Add"}
               </Button>
             </div>
           </div>
