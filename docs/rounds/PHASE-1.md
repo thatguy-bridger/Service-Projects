@@ -857,3 +857,31 @@ with no product or credential decision attached.
    (`AddressPicker.tsx`), and a CSP strict enough to matter has to
    enumerate those correctly or it silently breaks the address picker;
    that needs deliberate building and testing, not a guessed default.
+
+## Update — removed the Season model, per explicit request
+
+The `Season` model (a year + a flat/per-holiday price, sitting above
+`Event`) is gone. Pricing now lives directly on `Event.priceCents`, and
+`Category` (added in the design-system/tables pass) gained an optional
+`priceCents` for a flat bundle price — set it and any subset of that
+category's events charges that one price; leave it null and each
+selected event's own price is summed. `Subscription.categoryId` replaces
+`Subscription.seasonId` (nullable — a mixed or uncategorized selection
+just leaves it null; no unique constraint needed since Postgres treats
+multiple NULLs as distinct).
+
+Migration `20260806140000_remove_seasons` backfills every existing
+`Event.priceCents` from its old `Season.priceCents` before dropping the
+table, so already-generated flag events keep their price. Existing
+`Subscription` rows keep their already-computed `amountCents` unchanged;
+only the grouping FK moved (to `categoryId`, left `null` for them since
+no `Category` existed yet when they were created).
+
+The signup page (`/signup`) now shows every currently-OPEN event
+org-wide (via `openEventsForSignup`) instead of "the current year's
+Season", computing the bundle-aware total client-side in
+`SignupFlow.tsx`. The season-generator action (`generateFlagEvents`,
+renamed from `generateFlagSeason`) now creates a `Category` for the year
+instead of a `Season` and assigns each of the 7 holiday events to it.
+The Settings page's dedicated "Seasons" table is gone — price is edited
+directly on each event (`/admin/events`) or bundle (`/admin/categories`).

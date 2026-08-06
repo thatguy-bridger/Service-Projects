@@ -20,12 +20,14 @@ export async function categoriesForOrg(orgId: string) {
 export interface CategoryActionResult {
   ok: boolean;
   error?: string;
+  categoryId?: string;
 }
 
 export async function createCategory(
   session: SessionLike | null | undefined,
   orgId: string,
-  name: string
+  name: string,
+  priceCents?: number | null
 ): Promise<CategoryActionResult> {
   const membership = await resolveMembership(session);
   if (!membership || !isStaff(membership.role)) return { ok: false, error: "Forbidden" };
@@ -47,10 +49,16 @@ export async function createCategory(
     _max: { sortOrder: true },
   });
 
-  await prisma.category.create({
-    data: { orgId, name: trimmed, slug, sortOrder: (maxOrder._max.sortOrder ?? 0) + 1 },
+  const category = await prisma.category.create({
+    data: {
+      orgId,
+      name: trimmed,
+      slug,
+      sortOrder: (maxOrder._max.sortOrder ?? 0) + 1,
+      priceCents: priceCents ?? null,
+    },
   });
-  return { ok: true };
+  return { ok: true, categoryId: category.id };
 }
 
 export async function renameCategory(
@@ -67,6 +75,23 @@ export async function renameCategory(
   const result = await prisma.category.updateMany({
     where: { id: categoryId, orgId, deletedAt: null },
     data: { name: trimmed },
+  });
+  if (result.count === 0) return { ok: false, error: "Category not found." };
+  return { ok: true };
+}
+
+export async function setCategoryPrice(
+  session: SessionLike | null | undefined,
+  orgId: string,
+  categoryId: string,
+  priceCents: number | null
+): Promise<CategoryActionResult> {
+  const membership = await resolveMembership(session);
+  if (!membership || !isStaff(membership.role)) return { ok: false, error: "Forbidden" };
+
+  const result = await prisma.category.updateMany({
+    where: { id: categoryId, orgId, deletedAt: null },
+    data: { priceCents },
   });
   if (result.count === 0) return { ok: false, error: "Category not found." };
   return { ok: true };

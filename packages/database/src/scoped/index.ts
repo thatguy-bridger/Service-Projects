@@ -6,6 +6,5 @@ export * from "./visits";
 export * from "./households";
 export * from "./events";
 export * from "./stops";
-export * from "./seasons";
 export * from "./selfService";
 export * from "./inviteKeys";

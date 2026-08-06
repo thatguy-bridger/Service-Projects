@@ -49,11 +49,11 @@ export async function deleteSignupsAction(eventId: string, subscriptionEventIds:
   return result;
 }
 
-export async function importSignupsCsvAction(eventId: string, seasonId: string, csvText: string): Promise<ImportResult> {
+export async function importSignupsCsvAction(eventId: string, categoryId: string | null, csvText: string): Promise<ImportResult> {
   const session = await getServerSession(authOptions);
   const org = await defaultOrganization();
   if (!org) return { imported: 0, errors: [{ row: 0, reason: "No organization." }] };
-  const result = await importHouseholdsForEvent(session, { orgId: org.id, seasonId, eventId, csvText });
+  const result = await importHouseholdsForEvent(session, { orgId: org.id, categoryId, eventId, csvText });
   revalidatePath(`/admin/events/${eventId}`);
   return result;
 }
@@ -76,6 +76,7 @@ export async function saveEventDatesRowAction(
   const result = await updateEvent(session, org.id, eventId, {
     name: patch.name,
     status: patch.status as EventStatus | undefined,
+    priceCents: patch.priceCents ? Math.round(Number(patch.priceCents) * 100) : undefined,
     serviceStartsAt,
     serviceEndsAt,
   });

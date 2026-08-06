@@ -3,7 +3,7 @@ import { authOptions } from "@service-projects/core-auth";
 import { defaultOrganization, eventsForSession, categoriesForOrg } from "@service-projects/database";
 import { Card, Badge } from "@service-projects/ui";
 import { t } from "@/copy";
-import { GenerateSeasonForm } from "./GenerateSeasonForm";
+import { GenerateEventsForm } from "./GenerateEventsForm";
 import { CreateEventForm } from "./CreateEventForm";
 
 // The top of the directory: (Events) -> category (Flag Setup, Flag
@@ -38,7 +38,7 @@ export default async function AdminEventsPage() {
             {t("admin.events.generate.title")}
           </h2>
           <p style={{ color: "var(--text-secondary)" }}>{t("admin.events.generate.subtitle")}</p>
-          <GenerateSeasonForm defaultOrgName={org?.name ?? ""} defaultYear={nextYear} />
+          <GenerateEventsForm defaultOrgName={org?.name ?? ""} defaultYear={nextYear} />
         </Card>
 
         <Card>

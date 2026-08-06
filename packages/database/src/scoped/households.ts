@@ -297,7 +297,7 @@ export interface CopyToEventResult {
 // just addressed by existing Household id instead of parsed CSV rows.
 export async function copyHouseholdsToEvent(
   session: SessionLike | null | undefined,
-  input: { orgId: string; eventId: string; seasonId: string; amountCents: number; householdIds: string[] }
+  input: { orgId: string; eventId: string; categoryId: string | null; amountCents: number; householdIds: string[] }
 ): Promise<CopyToEventResult> {
   const membership = await resolveMembership(session, input.eventId);
   if (!membership || !isStaff(membership.role)) return { copied: 0, error: "Forbidden" };
@@ -308,11 +308,18 @@ export async function copyHouseholdsToEvent(
     const household = await prisma.household.findFirst({ where: { id: householdId, orgId: input.orgId } });
     if (!household) continue; // skip anything that doesn't belong to this org
 
-    const subscription = await prisma.subscription.upsert({
-      where: { householdId_seasonId: { householdId, seasonId: input.seasonId } },
-      update: {},
-      create: { householdId, seasonId: input.seasonId, status: "PENDING_PAYMENT", amountCents: input.amountCents },
+    // Prisma's composite-unique upsert doesn't handle a nullable key
+    // field well (categoryId is null for uncategorized events), so this
+    // finds/creates manually rather than upserting on
+    // (householdId, categoryId) directly.
+    let subscription = await prisma.subscription.findFirst({
+      where: { householdId, categoryId: input.categoryId },
     });
+    if (!subscription) {
+      subscription = await prisma.subscription.create({
+        data: { householdId, categoryId: input.categoryId, status: "PENDING_PAYMENT", amountCents: input.amountCents },
+      });
+    }
 
     await prisma.subscriptionEvent.upsert({
       where: { subscriptionId_eventId: { subscriptionId: subscription.id, eventId: input.eventId } },
@@ -470,7 +477,7 @@ export async function importHouseholdsForEvent(
   session: SessionLike | null | undefined,
   input: {
     orgId: string;
-    seasonId: string;
+    categoryId: string | null;
     eventId: string;
     csvText: string;
   }
@@ -539,11 +546,20 @@ export async function importHouseholdsForEvent(
           },
         });
 
-    const subscription = await prisma.subscription.upsert({
-      where: { householdId_seasonId: { householdId: household.id, seasonId: input.seasonId } },
-      update: { status, amountCents },
-      create: { householdId: household.id, seasonId: input.seasonId, status, amountCents },
+    // Same nullable-composite-key workaround as copyHouseholdsToEvent.
+    let subscription = await prisma.subscription.findFirst({
+      where: { householdId: household.id, categoryId: input.categoryId },
     });
+    if (subscription) {
+      subscription = await prisma.subscription.update({
+        where: { id: subscription.id },
+        data: { status, amountCents },
+      });
+    } else {
+      subscription = await prisma.subscription.create({
+        data: { householdId: household.id, categoryId: input.categoryId, status, amountCents },
+      });
+    }
 
     await prisma.subscriptionEvent.upsert({
       where: { subscriptionId_eventId: { subscriptionId: subscription.id, eventId: input.eventId } },
@@ -559,7 +575,9 @@ export async function importHouseholdsForEvent(
 
 export interface SignupSubmission {
   orgId: string;
-  seasonId: string;
+  // Set only when every selected event shares one category (a bundled
+  // signup); null for a mixed or entirely uncategorized selection.
+  categoryId?: string | null;
   eventIds: string[];
   amountCents: number;
   contactName: string;
@@ -583,7 +601,7 @@ export interface SignupSubmission {
  * Public, unauthenticated write — the whole point of the signup flow is
  * that no account is required (SPEC.md §3.2), so this deliberately isn't
  * session-gated like the helpers above (same reasoning as
- * currentSeasonForOrg in scoped/seasons.ts).
+ * openEventsForSignup in scoped/events.ts).
  *
  * No Stripe integration exists yet (docs/rounds/PHASE-1.md), so the
  * created Subscription is left in PENDING_PAYMENT rather than ACTIVE —
@@ -643,7 +661,7 @@ export async function submitSignup(input: SignupSubmission) {
   const subscription = await prisma.subscription.create({
     data: {
       householdId: household.id,
-      seasonId: input.seasonId,
+      categoryId: input.categoryId ?? null,
       status: "PENDING_PAYMENT",
       amountCents: input.amountCents,
       events: {

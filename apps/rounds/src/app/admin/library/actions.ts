@@ -6,7 +6,6 @@ import { authOptions, requireRole } from "@service-projects/core-auth";
 import {
   defaultOrganization,
   eventForSession,
-  seasonById,
   copyHouseholdsToEvent,
   deleteHouseholds,
   updateHousehold,
@@ -34,18 +33,12 @@ export async function copyToEvent(
 
   const event = await eventForSession(session, org.id, eventId);
   if (!event) return { copied: 0, error: "Event not found." };
-  if (!event.seasonId) {
-    return { copied: 0, error: "That event has no season, so it doesn't use the household/subscription model yet." };
-  }
-
-  const season = await seasonById(event.seasonId);
-  const amountCents = season && season.pricingMode === "per_holiday" ? season.priceCents : 0;
 
   const result = await copyHouseholdsToEvent(session, {
     orgId: org.id,
     eventId: event.id,
-    seasonId: event.seasonId,
-    amountCents,
+    categoryId: event.categoryId,
+    amountCents: event.priceCents,
     householdIds,
   });
 
@@ -133,18 +126,12 @@ export async function copyToEventBySelection(eventId: string, householdIds: stri
 
   const event = await eventForSession(session, org.id, eventId);
   if (!event) return { copied: 0, error: "Event not found." };
-  if (!event.seasonId) {
-    return { copied: 0, error: "That event has no season, so it doesn't use the household/subscription model yet." };
-  }
-
-  const season = await seasonById(event.seasonId);
-  const amountCents = season && season.pricingMode === "per_holiday" ? season.priceCents : 0;
 
   const result = await copyHouseholdsToEvent(session, {
     orgId: org.id,
     eventId: event.id,
-    seasonId: event.seasonId,
-    amountCents,
+    categoryId: event.categoryId,
+    amountCents: event.priceCents,
     householdIds,
   });
 

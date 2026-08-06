@@ -6,7 +6,6 @@ import { authOptions, requireRole } from "@service-projects/core-auth";
 import {
   defaultOrganization,
   eventForSession,
-  seasonById,
   importHouseholdsForEvent,
   addEventMembership,
   removeEventMemberships,
@@ -165,18 +164,12 @@ export async function copyHouseholdsToOtherEventAction(
 
   const targetEvent = await eventForSession(session, org.id, targetEventId);
   if (!targetEvent) return { copied: 0, error: "Target event not found." };
-  if (!targetEvent.seasonId) {
-    return { copied: 0, error: "That event has no season, so it doesn't use the household/subscription model yet." };
-  }
-
-  const season = await seasonById(targetEvent.seasonId);
-  const amountCents = season && season.pricingMode === "per_holiday" ? season.priceCents : 0;
 
   const result = await copyHouseholdsToEvent(session, {
     orgId: org.id,
     eventId: targetEventId,
-    seasonId: targetEvent.seasonId,
-    amountCents,
+    categoryId: targetEvent.categoryId,
+    amountCents: targetEvent.priceCents,
     householdIds,
   });
 
@@ -204,26 +197,10 @@ export async function importEventCsv(
   const event = await eventForSession(session, org.id, eventId);
   if (!event) return { imported: 0, errors: [{ row: 0, reason: "Event not found." }] };
 
-  // Subscription/Household is the flag-season signup model — an event
-  // with no season (a custom fundraiser/flyer/etc created via "Create a
-  // custom event") doesn't have this data shape to import into yet.
-  if (!event.seasonId) {
-    return {
-      imported: 0,
-      errors: [
-        {
-          row: 0,
-          reason:
-            "This event has no season, so it doesn't use the household/subscription model — import isn't available for it yet.",
-        },
-      ],
-    };
-  }
-
   const csvText = await file.text();
   const result = await importHouseholdsForEvent(session, {
     orgId: org.id,
-    seasonId: event.seasonId,
+    categoryId: event.categoryId,
     eventId: event.id,
     csvText,
   });

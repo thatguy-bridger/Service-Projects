@@ -194,7 +194,7 @@ export function SelfServiceForm({ token, view }: { token: string; view: SelfServ
         <Card key={sub.subscriptionId} style={{ marginBottom: "var(--space-6)" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "var(--space-3)" }}>
             <h2 style={{ margin: 0, fontSize: "var(--text-lg)", fontWeight: "var(--weight-medium)" }}>
-              {sub.seasonName}
+              {sub.label}
             </h2>
             {sub.cancelledAt ? (
               <Badge tone="neutral">{t("selfService.cancelled")}</Badge>

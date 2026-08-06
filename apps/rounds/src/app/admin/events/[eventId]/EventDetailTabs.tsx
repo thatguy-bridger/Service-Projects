@@ -77,6 +77,7 @@ interface EventDatesRow {
   id: string;
   name: string;
   status: EventStatus;
+  priceCents: number;
   serviceStartsAt: string;
   serviceEndsAt: string;
 }
@@ -84,13 +85,13 @@ interface EventDatesRow {
 const eventDatesColumns: DataTableColumn<EventDatesRow>[] = [
   { key: "name", label: "Name", getValue: (r) => r.name, editable: true },
   { key: "status", label: "Status", getValue: (r) => r.status, editable: true, selectOptions: ["DRAFT", "OPEN", "CLOSED", "ARCHIVED"] },
+  { key: "priceCents", label: "Price ($)", getValue: (r) => (r.priceCents / 100).toFixed(2), editable: true, inputType: "number" },
   { key: "serviceStartsAt", label: "Starts", getValue: (r) => r.serviceStartsAt, editable: true, inputType: "date" },
   { key: "serviceEndsAt", label: "Ends", getValue: (r) => r.serviceEndsAt, editable: true, inputType: "date" },
 ];
 
 export function EventDetailTabs({
   eventId,
-  seasonId,
   eventDatesRow,
   signupRows,
   people,
@@ -99,7 +100,6 @@ export function EventDetailTabs({
   routes,
 }: {
   eventId: string;
-  seasonId: string | null;
   eventDatesRow: EventDatesRow;
   signupRows: HouseholdForEvent[];
   people: EventMembership[];
@@ -147,7 +147,7 @@ export function EventDetailTabs({
             emptyMessage="No signups yet."
             onSaveRow={(id, patch) => saveSignupRowAction(eventId, id, patch)}
             onDeleteSelected={(ids) => deleteSignupsAction(eventId, ids)}
-            onImportCsv={seasonId ? (csv) => importSignupsCsvAction(eventId, seasonId, csv) : undefined}
+            onImportCsv={(csv) => importSignupsCsvAction(eventId, categoryId || null, csv)}
           />
           <div style={{ marginTop: "var(--space-6)" }}>
             <h2 style={{ fontSize: "var(--text-lg)", fontWeight: "var(--weight-medium)" }}>People on this event</h2>
@@ -197,14 +197,12 @@ export function EventDetailTabs({
             )}
           </div>
 
-          {seasonId && (
-            <div>
-              <h2 style={{ fontSize: "var(--text-lg)", fontWeight: "var(--weight-medium)", marginBottom: "var(--space-1)" }}>
-                Generate stops
-              </h2>
-              <GenerateStopsButton eventId={eventId} />
-            </div>
-          )}
+          <div>
+            <h2 style={{ fontSize: "var(--text-lg)", fontWeight: "var(--weight-medium)", marginBottom: "var(--space-1)" }}>
+              Generate stops
+            </h2>
+            <GenerateStopsButton eventId={eventId} />
+          </div>
 
           <div>
             <h2 style={{ fontSize: "var(--text-lg)", fontWeight: "var(--weight-medium)", marginBottom: "var(--space-1)" }}>

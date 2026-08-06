@@ -160,7 +160,6 @@ model Organization {
   memberships Membership[]
   events      Event[]
   households  Household[]
-  seasons     Season[]
   categories  Category[]
   inviteKeys  InviteKey[]
 
@@ -173,37 +172,29 @@ model Organization {
 // organize events. `kind` stays on Event (module/outcome defaults still
 // key off it), but the browsable "category" grouping in /admin/events is
 // now this model, not a fixed enum.
+// User-managed grouping of events, and (optionally) their shared bundle
+// pricing. Also the replacement for the old Season model: a household
+// used to sign up for a Season for one price covering a bundle of
+// holiday Events; now that same "sign up once, cover several Events"
+// behavior lives here — set priceCents to charge one flat price across
+// every Event in this Category regardless of which subset a household
+// selects, or leave it null to charge each Event's own price and sum
+// them (see Subscription.categoryId, Event.priceCents below).
 model Category {
-  id        String       @id @default(cuid())
-  orgId     String
-  org       Organization @relation(fields: [orgId], references: [id])
-  name      String
-  slug      String
-  sortOrder Int          @default(0)
-  createdAt DateTime     @default(now())
-  deletedAt DateTime?
-
-  events Event[]
-
-  @@unique([orgId, slug])
-}
-
-model Season {
-  id             String       @id @default(cuid())
-  orgId          String
-  organization   Organization @relation(fields: [orgId], references: [id])
-  year           Int
-  name           String // "2027 Flag Season"
-  priceCents     Int // per selected holiday, or flat — see pricingMode
-  pricingMode    String // "per_holiday" | "flat"
-  renewalOpensAt DateTime?
+  id         String       @id @default(cuid())
+  orgId      String
+  org        Organization @relation(fields: [orgId], references: [id])
+  name       String
+  slug       String
+  sortOrder  Int          @default(0)
+  priceCents Int? // null = sum each selected Event's own priceCents
+  createdAt  DateTime     @default(now())
+  deletedAt  DateTime?
 
   events        Event[]
   subscriptions Subscription[]
 
-  createdAt DateTime @default(now())
-
-  @@unique([orgId, year])
+  @@unique([orgId, slug])
 }
 
 model Membership {
@@ -228,8 +219,6 @@ model Event {
   id              String       @id @default(cuid())
   orgId           String
   organization    Organization @relation(fields: [orgId], references: [id])
-  seasonId        String?
-  season          Season?      @relation(fields: [seasonId], references: [id])
   categoryId      String?
   category        Category?    @relation(fields: [categoryId], references: [id])
   kind            EventKind
@@ -239,6 +228,7 @@ model Event {
   summary         String?
   descriptionMd   String?
   coverImageUrl   String?
+  priceCents      Int          @default(0) // this Event's own price; see Category.priceCents for bundle pricing
   serviceStartsAt DateTime
   serviceEndsAt   DateTime
   signupsCloseAt  DateTime?
@@ -311,8 +301,13 @@ model Subscription {
   id                      String    @id @default(cuid())
   householdId             String
   household               Household @relation(fields: [householdId], references: [id])
-  seasonId                String
-  season                  Season    @relation(fields: [seasonId], references: [id])
+  // Which bundle this signup belongs to, if any -- set only when every
+  // selected Event shares one Category; a mixed selection (or entirely
+  // uncategorized Events) leaves this null. Nullable, so no uniqueness
+  // constraint on (householdId, categoryId) -- a household can have
+  // several uncategorized Subscriptions.
+  categoryId              String?
+  category                Category? @relation(fields: [categoryId], references: [id])
   status                  SubStatus @default(DRAFT)
   amountCents             Int
   stripeCheckoutSessionId String?
@@ -325,7 +320,7 @@ model Subscription {
 
   createdAt DateTime @default(now())
 
-  @@unique([householdId, seasonId])
+  @@index([householdId, categoryId])
 }
 
 // The join between a Subscription and one of the season's holiday Events —

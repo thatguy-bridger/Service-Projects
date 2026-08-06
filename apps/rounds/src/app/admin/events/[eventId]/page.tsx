@@ -86,11 +86,11 @@ export default async function AdminEventDetailPage({ params }: { params: { event
 
       <EventDetailTabs
         eventId={event.id}
-        seasonId={event.seasonId}
         eventDatesRow={{
           id: event.id,
           name: event.name,
           status: event.status,
+          priceCents: event.priceCents,
           serviceStartsAt: toDateInputValue(event.serviceStartsAt),
           serviceEndsAt: toDateInputValue(event.serviceEndsAt),
         }}
