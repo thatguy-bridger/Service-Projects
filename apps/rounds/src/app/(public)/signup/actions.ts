@@ -2,7 +2,7 @@
 
 import { headers } from "next/headers";
 import { submitSignup as submitSignupToDb, type SignupSubmission } from "@service-projects/database";
-import { rateLimit, clientIpFromHeaders } from "@/lib/rateLimit";
+import { rateLimit, clientIpFromHeaders } from "@service-projects/core-auth";
 
 // The address step resolves in the browser via AddressPicker.tsx: Google
 // Places/Geocoder when NEXT_PUBLIC_GOOGLE_MAPS_API is set, Nominatim

@@ -6,6 +6,7 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import { prisma } from "@service-projects/database";
 import { verifyPassword } from "./password";
+import { rateLimit } from "./rateLimit";
 
 const providers: NextAuthOptions["providers"] = [];
 
@@ -67,10 +68,21 @@ providers.push(
     },
     async authorize(credentials) {
       if (!credentials?.email || !credentials.password) return null;
+      const email = credentials.email.trim().toLowerCase();
 
-      const user = await prisma.user.findUnique({
-        where: { email: credentials.email.trim().toLowerCase() },
-      });
+      // This is the real credential check — apps/rounds's /api/register
+      // route also verifies a password for its own return-user flow, but
+      // that's a separate, earlier check the client makes before ever
+      // calling next-auth's signIn("credentials", ...), which lands here.
+      // Rate limiting *there* doesn't cover *this*. Keyed by email (not
+      // IP — this callback only gets a plain headers object, whose casing
+      // varies by proxy) since the risk being closed is credential
+      // stuffing against one known account, not a firehose of email
+      // enumeration from one IP.
+      const { allowed } = rateLimit(`credentials-auth:${email}`, 10, 15 * 60 * 1000);
+      if (!allowed) return null;
+
+      const user = await prisma.user.findUnique({ where: { email } });
       // No account, or an OAuth-only account with no password set.
       if (!user?.passwordHash) return null;
 

@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import { authOptions } from "@service-projects/core-auth";
+import { authOptions, rateLimit, clientIpFromHeaders } from "@service-projects/core-auth";
 import { defaultOrganization, linkHouseholdToUser } from "@service-projects/database";
-import { rateLimit, clientIpFromHeaders } from "@/lib/rateLimit";
 
 // Called right after a household's own "create an account" flow on the
 // signup confirmation screen (RegisterForm.tsx) finishes signIn(), so

@@ -818,3 +818,42 @@ with no product or credential decision attached.
    test suite and is a simpler canonical example of the access-control
    pattern than `browseHouseholds`, worth keeping as library API even
    though the Library page itself uses the fuller helper.
+
+## Update — five more autonomous, no-input-needed items
+
+1. **Fixed the real rate-limiting gap.** Last batch's rate limiting on
+   `/api/register` didn't actually cover the real credential check —
+   the client's follow-up `signIn("credentials", ...)` call lands in
+   `next-auth`'s own `authorize()` callback in
+   `packages/core-auth/src/authOptions.ts`, a separate code path that
+   had no limiting at all. Moved `rateLimit`/`clientIpFromHeaders` from
+   `apps/rounds/src/lib` into `packages/core-auth` (shared, so both the
+   app's API routes and the auth package itself can use one
+   implementation instead of two) and added a 10-attempts/15-min limit
+   keyed by email inside `authorize()` — the actual password-guessing
+   oracle, now closed.
+2. **Test suite for `packages/core-auth`** (new Vitest setup, 28
+   tests): `permissions.test.ts` proves `capabilityCard()` can never
+   grant something `can()`/`requireRole` would reject (they all read
+   the same `PERMISSIONS` table — SPEC.md §3.4's whole point);
+   `requireRole.test.ts` (mocking `resolveMembership`) covers the
+   top-level-role and event-scoped-membership paths; `password.test.ts`
+   covers hash/verify round-trips and the strength floor;
+   `rateLimit.test.ts` covers window expiry and IP-header parsing.
+3. **Test suite for `apps/rounds`'s pure helpers** (new Vitest setup,
+   11 tests): `holidays.test.ts` pins the exact dates verified earlier
+   in this doc (`docs/rounds/PHASE-1.md`'s calendar-math check) so a
+   future refactor can't silently drift, plus weekday/fixed-date
+   invariants across multiple years; `format.test.ts` covers the
+   cents/date formatters. `npm run test` at the repo root now runs all
+   three packages' suites via Turbo (71 tests total).
+4. **`/api/health`** (new): unauthenticated `SELECT 1` liveness check
+   for an uptime monitor or load balancer — reveals nothing beyond
+   "can this instance reach its database right now."
+5. **Baseline security headers** (`next.config.js`): `X-Content-Type-
+   Options`, `X-Frame-Options: DENY`, `Referrer-Policy`. Deliberately
+   did **not** add a Content-Security-Policy — this app loads Google
+   Maps scripts and OpenStreetMap tiles from specific origins
+   (`AddressPicker.tsx`), and a CSP strict enough to matter has to
+   enumerate those correctly or it silently breaks the address picker;
+   that needs deliberate building and testing, not a guessed default.

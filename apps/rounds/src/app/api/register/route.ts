@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
-import { hashPassword, verifyPassword, isPasswordStrongEnough } from "@service-projects/core-auth";
+import {
+  hashPassword,
+  verifyPassword,
+  isPasswordStrongEnough,
+  rateLimit,
+  clientIpFromHeaders,
+} from "@service-projects/core-auth";
 import { prisma } from "@service-projects/database";
-import { rateLimit, clientIpFromHeaders } from "@/lib/rateLimit";
 
 // Plain API route rather than a server action: the client needs the
 // created account's existence confirmed *before* it calls next-auth's
