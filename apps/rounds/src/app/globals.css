@@ -10,6 +10,19 @@ body {
   margin: 0;
 }
 
+/* Modernist: headings set in Archivo at display weight, tight leading —
+ * matches the design system's own foundation rule. */
+h1, h2, h3, h4 {
+  font-family: var(--font-heading);
+  font-weight: var(--font-heading-weight);
+  line-height: var(--leading-tight);
+  letter-spacing: -0.015em;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--color-accent-500) 30%, transparent);
+}
+
 .rounds-shell {
   max-width: 720px;
   margin: 0 auto;

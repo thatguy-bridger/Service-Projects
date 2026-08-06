@@ -3,53 +3,75 @@
  * shadow, and type. Import this once at the app root (globals.css):
  *   @import "@service-projects/ui/src/tokens.css";
  * Components should reference var(--token-name), never raw hex/px values.
+ *
+ * Values follow the "Modernist" design system (flat, architectural, near-
+ * mono red on white, set in Archivo, zero corner radius, strong 2px
+ * rules) -- see the system's own readme for the full direction. The
+ * token *names* below are unchanged from before this pass so no
+ * consuming component needed to change what it references.
  */
 
 :root {
-  /* ---- Brand ---- */
-  --color-accent-50: #f2f0ff;
-  --color-accent-100: #e5e0ff;
-  --color-accent-200: #c9beff;
-  --color-accent-300: #a996ff;
-  --color-accent-400: #8b70fa;
-  --color-accent-500: #6f4ef0; /* primary */
-  --color-accent-600: #5936d1;
-  --color-accent-700: #4527a8;
-  --color-accent-800: #331d7f;
-  --color-accent-900: #23145a;
+  /* ---- Brand (mono accent — a single red role; no second accent chosen,
+     so accent-2 below is a machine-derived stand-in kept only so both
+     resolve, treated as one role) ---- */
+  --color-accent-50: #fff8f6;
+  --color-accent-100: #fff2ef;
+  --color-accent-200: #ffe0d9;
+  --color-accent-300: #ffc4b8;
+  --color-accent-400: #ff9783;
+  --color-accent-500: #ff563c; /* primary */
+  --color-accent-600: #dd2b0f;
+  --color-accent-700: #ae1800;
+  --color-accent-800: #7c1405;
+  --color-accent-900: #4d170e;
 
-  /* ---- Neutrals (warm gray) ---- */
+  --color-accent-2-100: #fff2ef;
+  --color-accent-2-200: #ffe0da;
+  --color-accent-2-300: #ffc4b9;
+  --color-accent-2-400: #ff9784;
+  --color-accent-2-500: #ef6853;
+  --color-accent-2-600: #c94b39;
+  --color-accent-2-700: #9e3526;
+  --color-accent-2-800: #71261b;
+  --color-accent-2-900: #471d16;
+
+  /* ---- Neutrals (Modernist's OKLCH-derived ramp) ---- */
   --color-gray-0: #ffffff;
-  --color-gray-50: #faf9f8;
-  --color-gray-100: #f2f0ee;
-  --color-gray-200: #e6e3e0;
-  --color-gray-300: #d3cec9;
-  --color-gray-400: #a9a29b;
-  --color-gray-500: #837b73;
-  --color-gray-600: #635c56;
-  --color-gray-700: #47423d;
-  --color-gray-800: #2e2a26;
-  --color-gray-900: #1c1916;
+  --color-gray-50: #f8f4f4;
+  --color-gray-100: #f3f2f2; /* ground */
+  --color-gray-200: #eae7e7;
+  --color-gray-300: #d7d3d3;
+  --color-gray-400: #bab6b6;
+  --color-gray-500: #9b9797;
+  --color-gray-600: #7d7979;
+  --color-gray-700: #605d5d;
+  --color-gray-800: #444141;
+  --color-gray-900: #201e1d;
 
-  /* ---- Semantic ---- */
+  /* ---- Semantic (functional status colors — the mono system has no
+     equivalents, so these stay distinct hues for meaning, tuned to sit
+     quietly against the ground rather than compete with the accent) ---- */
   --color-success-500: #2fa66b;
   --color-warning-500: #d99a2b;
-  --color-danger-500: #d9502b;
+  --color-danger-500: var(--color-accent-700);
   --color-info-500: #2f8ed9;
 
   /* ---- Surface / text (theme-mapped) ---- */
-  --surface-page: var(--color-gray-50);
-  --surface-raised: var(--color-gray-0);
-  --surface-sunken: var(--color-gray-100);
-  --border-default: var(--color-gray-200);
-  --border-strong: var(--color-gray-300);
+  --surface-page: var(--color-gray-100);
+  --surface-raised: #eae9e9;
+  --surface-sunken: var(--color-gray-50);
+  --border-default: color-mix(in srgb, var(--color-gray-900) 40%, transparent);
+  --border-strong: var(--color-gray-900);
   --text-primary: var(--color-gray-900);
-  --text-secondary: var(--color-gray-600);
-  --text-muted: var(--color-gray-400);
+  --text-secondary: var(--color-gray-700);
+  --text-muted: var(--color-gray-500);
   --text-on-accent: #ffffff;
 
-  /* ---- Typography ---- */
-  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  /* ---- Typography (Archivo for both roles; heading set bold/800) ---- */
+  --font-sans: "Archivo", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-heading: "Archivo", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-heading-weight: 800;
   --font-mono: "IBM Plex Mono", ui-monospace, monospace;
 
   --text-xs: 0.75rem;   /* 12px */
@@ -60,16 +82,17 @@
   --text-2xl: 1.75rem;  /* 28px */
   --text-3xl: 2.25rem;  /* 36px */
 
-  --leading-tight: 1.2;
+  --leading-tight: 1.12;
   --leading-normal: 1.5;
   --leading-relaxed: 1.7;
 
   --weight-regular: 400;
-  --weight-medium: 500;
+  --weight-medium: 600;
   --weight-semibold: 600;
-  --weight-bold: 700;
+  --weight-bold: 800;
 
-  /* ---- Spacing scale (4px base) ---- */
+  /* ---- Spacing scale (4px base — unchanged, already matches Modernist's
+     4/8/12/16/24/32px steps at the default root size) ---- */
   --space-1: 0.25rem;
   --space-2: 0.5rem;
   --space-3: 0.75rem;
@@ -81,16 +104,16 @@
   --space-12: 3rem;
   --space-16: 4rem;
 
-  /* ---- Radius (friendly/approachable = generous rounding) ---- */
-  --radius-sm: 0.375rem;
-  --radius-md: 0.625rem;
-  --radius-lg: 1rem;
-  --radius-full: 999px;
+  /* ---- Radius (Modernist: zero, on purpose, everywhere) ---- */
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+  --radius-full: 0px;
 
-  /* ---- Shadow (soft) ---- */
-  --shadow-sm: 0 1px 2px rgba(28, 25, 22, 0.06);
-  --shadow-md: 0 4px 12px rgba(28, 25, 22, 0.08);
-  --shadow-lg: 0 12px 32px rgba(28, 25, 22, 0.12);
+  /* ---- Shadow (Modernist's ink-tinted elevation) ---- */
+  --shadow-sm: 0 1px 2px color-mix(in srgb, var(--color-gray-900) 14%, transparent);
+  --shadow-md: 0 3px 10px color-mix(in srgb, var(--color-gray-900) 16%, transparent);
+  --shadow-lg: 0 12px 32px color-mix(in srgb, var(--color-gray-900) 22%, transparent);
 
   /* ---- Motion ---- */
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
@@ -99,15 +122,15 @@
   --duration-slow: 320ms;
 
   /* ---- Focus ring ---- */
-  --focus-ring: 0 0 0 3px var(--color-accent-200);
+  --focus-ring: 0 0 0 2px var(--color-accent-500);
 }
 
 :root[data-theme="dark"] {
   --surface-page: var(--color-gray-900);
   --surface-raised: var(--color-gray-800);
-  --surface-sunken: #14110f;
-  --border-default: var(--color-gray-700);
-  --border-strong: var(--color-gray-600);
+  --surface-sunken: #14120f;
+  --border-default: color-mix(in srgb, var(--color-gray-50) 40%, transparent);
+  --border-strong: var(--color-gray-50);
   --text-primary: var(--color-gray-50);
   --text-secondary: var(--color-gray-300);
   --text-muted: var(--color-gray-500);
@@ -116,16 +139,16 @@
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.45);
   --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.55);
 
-  --focus-ring: 0 0 0 3px var(--color-accent-700);
+  --focus-ring: 0 0 0 2px var(--color-accent-400);
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --surface-page: var(--color-gray-900);
     --surface-raised: var(--color-gray-800);
-    --surface-sunken: #14110f;
-    --border-default: var(--color-gray-700);
-    --border-strong: var(--color-gray-600);
+    --surface-sunken: #14120f;
+    --border-default: color-mix(in srgb, var(--color-gray-50) 40%, transparent);
+    --border-strong: var(--color-gray-50);
     --text-primary: var(--color-gray-50);
     --text-secondary: var(--color-gray-300);
     --text-muted: var(--color-gray-500);
@@ -134,6 +157,6 @@
     --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.45);
     --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.55);
 
-    --focus-ring: 0 0 0 3px var(--color-accent-700);
+    --focus-ring: 0 0 0 2px var(--color-accent-400);
   }
 }
