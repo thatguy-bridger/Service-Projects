@@ -1,0 +1,11 @@
+-- schema.prisma declares `extensions = [postgis]` (the postgresqlExtensions
+-- preview feature), but no prior migration ever actually ran
+-- `CREATE EXTENSION postgis` against a real database -- it was enabled by
+-- hand in the original dev sandbox's local Postgres install and never
+-- captured into a tracked migration. Confirmed as the real cause of the
+-- production /signup crash: findNearbyHouseholds() (packages/database/src/
+-- scoped/households.ts) runs raw SQL using ST_DWithin/ST_MakePoint, which
+-- throws "function st_dwithin(...) does not exist" on every real signup
+-- submission that includes a geocoded lat/lng, since the extension was
+-- never enabled on the live Neon database.
+CREATE EXTENSION IF NOT EXISTS "postgis";
