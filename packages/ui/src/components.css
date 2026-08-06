@@ -8,9 +8,15 @@
  */
 
 .btn {
-  font-family: var(--font-sans);
+  display: inline-flex;
+  align-items: center;
+  /* Modernist: button labels are flush left, never centered -- a button
+     wider than its label starts the text at the left padding edge. */
+  justify-content: flex-start;
+  text-align: left;
+  font-family: var(--font-heading);
+  font-weight: var(--font-heading-weight);
   font-size: var(--text-sm);
-  font-weight: var(--weight-medium);
   line-height: var(--leading-tight);
   padding: var(--space-2) var(--space-4);
   border-radius: var(--radius-md);
@@ -70,10 +76,22 @@
 
 .card {
   background: var(--surface-raised);
-  border: 1px solid var(--border-default);
+  /* Modernist: nothing floats, strong 2px rules organize instead of
+     shadows -- elevation is opt-in via .elev-sm/-md/-lg below. */
+  border: 2px solid var(--border-default);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
   padding: var(--space-6);
+}
+.elev-sm { box-shadow: var(--shadow-sm); }
+.elev-md { box-shadow: var(--shadow-md); }
+.elev-lg { box-shadow: var(--shadow-lg); }
+
+/* A strong 2px divider between major sections. */
+.hr {
+  height: 2px;
+  border: 0;
+  background: var(--border-default);
+  margin: var(--space-4) 0;
 }
 
 .badge {
