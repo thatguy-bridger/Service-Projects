@@ -89,6 +89,20 @@ export function createPrismaMock() {
       groupBy: vi.fn().mockResolvedValue([]),
       create: vi.fn(),
     },
+    inviteKey: {
+      findMany: vi.fn().mockResolvedValue([]),
+      findUnique: vi.fn().mockResolvedValue(null),
+      create: vi.fn(),
+      update: vi.fn(),
+      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+    },
+    keyRedemption: {
+      findUnique: vi.fn().mockResolvedValue(null),
+      create: vi.fn(),
+    },
+    auditLog: {
+      create: vi.fn(),
+    },
   };
 }
 

@@ -41,6 +41,36 @@ export async function saveOpportunityRowAction(eventId: string, patch: Record<st
   return result;
 }
 
+export async function setOpportunityCategoryAction(
+  eventId: string,
+  categoryId: string | null
+): Promise<{ ok: boolean; error?: string }> {
+  const session = await getServerSession(authOptions);
+  await requireRole(session, ["OWNER", "ADMIN"]);
+  const org = await defaultOrganization();
+  if (!org) return { ok: false, error: "No organization set up yet." };
+  const result = await setEventCategory(session, org.id, eventId, categoryId);
+  revalidatePath("/admin/events");
+  return result;
+}
+
+export async function moveOpportunitiesToCategoryAction(
+  eventIds: string[],
+  categoryId: string | null
+): Promise<{ moved: number }> {
+  const session = await getServerSession(authOptions);
+  await requireRole(session, ["OWNER", "ADMIN"]);
+  const org = await defaultOrganization();
+  if (!org) return { moved: 0 };
+  let moved = 0;
+  for (const eventId of eventIds) {
+    const result = await setEventCategory(session, org.id, eventId, categoryId);
+    if (result.ok) moved += 1;
+  }
+  revalidatePath("/admin/events");
+  return { moved };
+}
+
 export async function addOpportunityAction(
   fixedKind: EventKind | null,
   fixedCategoryId: string | null,

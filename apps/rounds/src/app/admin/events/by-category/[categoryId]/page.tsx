@@ -39,6 +39,7 @@ export default async function AdminEventsByCategoryPage({ params }: { params: { 
         <OpportunitiesTable
           opportunities={opportunities}
           fixedCategoryId={category ? category.id : null}
+          categories={categories.map((c) => ({ id: c.id, name: c.name }))}
         />
       </Card>
     </>

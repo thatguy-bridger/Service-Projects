@@ -33,7 +33,7 @@ export async function generateFlagSeason(_prevState: ActionResult, formData: For
   const year = Number(formData.get("year"));
   const priceDollars = Number(formData.get("priceDollars"));
 
-  if (!orgName || !Number.isInteger(year) || year < 2024 || Number.isNaN(priceDollars) || priceDollars < 0) {
+  if (!orgName || !Number.isInteger(year) || Number.isNaN(priceDollars) || priceDollars < 0) {
     return { error: "Enter a valid organization name, year, and price." };
   }
 
