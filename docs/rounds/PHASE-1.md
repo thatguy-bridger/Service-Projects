@@ -692,3 +692,15 @@ not to attempt it in one pass — phase by phase, with a go-ahead between
 each. This session's concrete, scoped feedback (navigation, view-as,
 address/pin-drop) was the actionable subset; the rest stays the
 roadmap for follow-up sessions.
+
+## Update — Google Maps address picker restored, key-driven
+
+The user has a Google Maps API key configured (`NEXT_PUBLIC_GOOGLE_MAPS_API`
+— note: no `_KEY` suffix, confirmed directly by the user, not assumed).
+`AddressPicker.tsx` (new) now dispatches: `GoogleAddressPicker.tsx`
+(restored, unchanged logic) when that env var is set, `OSMAddressPicker.tsx`
+otherwise. Same call site in `SignupFlow.tsx` either way — nothing else
+had to change. `geocodeSource` on the submitted household records which
+path actually produced the pin (`google` / `osm` / `manual`), so Library
+rows stay honest about provenance regardless of which key is configured
+in a given environment.

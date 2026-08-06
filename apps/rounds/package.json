@@ -15,6 +15,7 @@
     "@service-projects/geo": "*",
     "@service-projects/ui": "*",
     "@vercel/analytics": "^2.0.1",
+    "@vis.gl/react-google-maps": "^1.9.0",
     "leaflet": "^1.9.4",
     "next": "^14.2.0",
     "next-auth": "^4.24.0",
@@ -22,6 +23,7 @@
     "react-dom": "^18.3.0"
   },
   "devDependencies": {
+    "@types/google.maps": "^3.65.4",
     "@types/leaflet": "^1.9.22",
     "@types/node": "^20.0.0",
     "@types/react": "^18.3.0",

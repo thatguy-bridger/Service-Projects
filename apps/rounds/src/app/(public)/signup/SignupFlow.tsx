@@ -5,7 +5,7 @@ import { Badge, Button } from "@service-projects/ui";
 import { t } from "@/copy";
 import { formatCentsFull, formatCentsShort, formatHolidayDate } from "@/lib/format";
 import { submitSignup } from "./actions";
-import { OSMAddressPicker, type PlaceResult } from "./OSMAddressPicker";
+import { AddressPicker, type PlaceResult } from "./AddressPicker";
 
 export interface HolidayOption {
   id: string;
@@ -86,7 +86,12 @@ export function SignupFlow({
           address: { matchedAddress: place.address },
           lat: place.lat ?? undefined,
           lng: place.lng ?? undefined,
-          geocodeSource: place.lat !== null && place.lng !== null ? "osm" : "manual",
+          geocodeSource:
+            place.lat === null || place.lng === null
+              ? "manual"
+              : process.env.NEXT_PUBLIC_GOOGLE_MAPS_API
+                ? "google"
+                : "osm",
           placementNote: placementNote.trim() || undefined,
           accessNotes: accessNotes.trim() || undefined,
         });
@@ -196,7 +201,7 @@ export function SignupFlow({
           <div className="signup-list">
             <label className="signup-field">
               <span className="signup-fieldLabel">{t("signup.address.label")}</span>
-              <OSMAddressPicker place={place} onSelect={setPlace} onMove={setPlace} />
+              <AddressPicker place={place} onSelect={setPlace} onMove={setPlace} />
             </label>
 
             {place && place.lat !== null && (
