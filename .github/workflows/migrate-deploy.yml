@@ -23,9 +23,10 @@ jobs:
       # Baseline: these 7 migrations' schema is already live in production
       # (the database was never initialized via `migrate deploy`, so Prisma's
       # own bookkeeping table has no record of them) -- mark them applied
-      # without re-running their SQL, so only the two genuinely new
-      # migrations below get executed for real.
+      # without re-running their SQL. continue-on-error because a prior run
+      # may have already marked some of these (idempotent either way).
       - name: Baseline pre-existing migrations
+        continue-on-error: true
         run: |
           for m in \
             20260805052351_init \
@@ -37,6 +38,66 @@ jobs:
             20260805193313_add_onboarded_at; do
             npx prisma migrate resolve --applied "$m"
           done
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DATABASE_URL_UNPOOLED: ${{ secrets.DATABASE_URL_UNPOOLED }}
+      # A prior run found the *last two* migrations partially applied too
+      # (e.g. `Household.userId` already existed) -- something added parts
+      # of this schema outside of `migrate deploy` at some point. Rather
+      # than guess further, this step checks each column/index/constraint
+      # from those two migrations individually and creates only what's
+      # actually missing, then marks both migrations resolved. Safe to
+      # re-run: every statement is guarded by an existence check.
+      - name: Heal partially-applied migrations, then mark them resolved
+        run: |
+          sudo apt-get update -y >/dev/null && sudo apt-get install -y postgresql-client >/dev/null
+          psql "$DATABASE_URL_UNPOOLED" -v ON_ERROR_STOP=1 <<'SQL'
+          DO $$
+          BEGIN
+            IF NOT EXISTS (
+              SELECT 1 FROM information_schema.columns
+              WHERE table_name = 'Household' AND column_name = 'userId'
+            ) THEN
+              ALTER TABLE "Household" ADD COLUMN "userId" TEXT;
+            END IF;
+
+            IF NOT EXISTS (
+              SELECT 1 FROM pg_indexes
+              WHERE tablename = 'Household' AND indexname = 'Household_userId_idx'
+            ) THEN
+              CREATE INDEX "Household_userId_idx" ON "Household"("userId");
+            END IF;
+
+            IF NOT EXISTS (
+              SELECT 1 FROM pg_constraint WHERE conname = 'Household_userId_fkey'
+            ) THEN
+              ALTER TABLE "Household" ADD CONSTRAINT "Household_userId_fkey"
+                FOREIGN KEY ("userId") REFERENCES "User"("id")
+                ON DELETE SET NULL ON UPDATE CASCADE;
+            END IF;
+
+            IF NOT EXISTS (
+              SELECT 1 FROM information_schema.columns
+              WHERE table_name = 'Household' AND column_name = 'needsReviewReason'
+            ) THEN
+              ALTER TABLE "Household" ADD COLUMN "needsReviewReason" TEXT;
+            END IF;
+
+            IF NOT EXISTS (
+              SELECT 1 FROM information_schema.columns
+              WHERE table_name = 'Household' AND column_name = 'selfServiceTokenExpiresAt'
+            ) THEN
+              ALTER TABLE "Household" ADD COLUMN "selfServiceTokenExpiresAt" TIMESTAMP(3);
+            END IF;
+          END $$;
+SQL
+        env:
+          DATABASE_URL_UNPOOLED: ${{ secrets.DATABASE_URL_UNPOOLED }}
+      - name: Resolve the two healed migrations
+        continue-on-error: true
+        run: |
+          npx prisma migrate resolve --applied 20260806035144_link_household_to_user
+          npx prisma migrate resolve --applied 20260806042723_household_review_and_token_expiry
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           DATABASE_URL_UNPOOLED: ${{ secrets.DATABASE_URL_UNPOOLED }}
