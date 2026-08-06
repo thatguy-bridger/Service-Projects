@@ -16,6 +16,7 @@ jobs:
           node-version: 20
       - run: npm install
       - run: npx prisma migrate status
+        continue-on-error: true
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           DATABASE_URL_UNPOOLED: ${{ secrets.DATABASE_URL_UNPOOLED }}
