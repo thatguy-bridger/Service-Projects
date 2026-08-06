@@ -189,3 +189,88 @@ with a second copy of the holiday list, the stepper card itself widened
 (480px → 640px, was needlessly narrow before) and fills the viewport
 edge-to-edge on a phone, centered with breathing room on anything
 wider — using the space without inventing content to fill it with.
+
+## Update — live production crash diagnosis and fix (signup submission)
+
+The user reported hitting "Something went wrong" on `/signup` in the real
+deployed app and asked for a live diagnosis. This session had, for the
+first time, real outbound network access (still no raw Postgres — only
+:443 — see below) plus the production `DATABASE_URL`, so this is the
+first entry in this doc verified against the actual live site and
+database rather than a local sandbox.
+
+**Two real, distinct bugs found and fixed, in the order discovered:**
+
+1. **The two most recent migrations were never applied to production.**
+   `prisma migrate status` against the real database (via a new
+   `.github/workflows/migrate-deploy.yml`, `workflow_dispatch`-triggered,
+   since this sandbox can only reach Postgres through GitHub Actions'
+   runners, not directly) showed **all 9** migrations unapplied — not
+   just the two recent ones. The database already had real data and a
+   schema matching the first 7 migrations, though: it was never
+   initialized via `migrate deploy` in the first place, so Prisma's own
+   `_prisma_migrations` bookkeeping table had no record of anything.
+   Resolved by baselining the 7 already-live migrations
+   (`prisma migrate resolve --applied`) and, for the last two — found to
+   be *partially* live (`Household.userId` existed but its index/FK
+   didn't; the review-queue columns were fully missing) — a small
+   idempotent healing script
+   (`packages/database/scripts/heal-household-migrations.sql`) that
+   checks each column/index/constraint individually before creating it.
+2. **The real cause of the crash: PostGIS was never enabled on
+   production.** After fixing (1), a live end-to-end Playwright test
+   against the deployed site — select holidays, pick a real address via
+   the production Google Places widget, fill contact info, click Submit —
+   still 500'd with the exact user-reported message. `schema.prisma` has
+   declared `extensions = [postgis]` since Phase 0, and
+   `findNearbyHouseholds()` (this doc's own duplicate-detection feature)
+   runs raw SQL using `ST_DWithin`/`ST_MakePoint` on every submission
+   that includes a lat/lng — but grepping every migration file in the
+   repo turned up no `CREATE EXTENSION postgis` anywhere. It was enabled
+   by hand in the original dev sandbox's local Postgres install (Phase 0
+   mentions installing `postgresql-16-postgis-3` via apt) and never
+   captured into a tracked migration, so it silently never existed on the
+   real database. Fixed with migration
+   `20260806090000_enable_postgis_extension`
+   (`CREATE EXTENSION IF NOT EXISTS "postgis"`).
+
+**Also found and fixed, via the same live browser pass:** `/admin/*`
+crashed with a generic "Something went wrong" for a signed-out visitor
+instead of prompting sign-in — `requireRole` throws a plain `Error` when
+there's no session at all, and `admin/layout.tsx` had no path for "not
+signed in yet" versus "signed in with the wrong role." Now redirects to
+`/api/auth/signin` first.
+
+**Verified for real after both fixes, not just "should work":** drove the
+actual production site with Playwright (pre-installed Chromium, routed
+through this sandbox's egress proxy — needed `--ssl-version-max=tls1.2`,
+since the proxy's TLS re-termination couldn't handle Chromium's default
+TLS 1.3 post-quantum/ECH handshake) through a complete real signup:
+holiday selection → a real Google-geocoded address → contact info →
+Submit → landed on the real confirmation screen with a working
+self-service link. Followed that link to `/h/[token]` and confirmed the
+self-service page renders the real subscription and that toggling
+"Skip" on a holiday is a real write that round-trips correctly — this
+path shares `findNearbyHouseholds()` with signup, so it was silently
+broken by the same missing-PostGIS bug and is fixed by the same
+migration.
+
+**Real test data left in production from this verification**, flagged
+here rather than silently left: two households under `contactEmail`
+patterns `pwtest+*@example.com` and `pwtest-ss+*@example.com` (one
+`Test Testerson` at 9375 S 700 E, Sandy — 2 holidays; one
+`QA SelfService Test`, same address — 2 holidays, one skipped), plus one
+`PREVIEWER`-role `User` row `pwtest-admin+*@example.com` created via a
+real `/register` (never promoted to staff — that step was correctly
+blocked by this session's safety controls as a production
+privilege-escalation action taken without a chance to confirm with the
+user first). Recommend deleting all three via `/admin/library` and
+`/admin/users` once reviewed.
+
+**Not attempted this session, and why:** promoting the QA account to
+`OWNER` to test the rest of the staff admin panel (events, library,
+review queue, CSV import/export, settings) — this would have required
+running a production DB write granting elevated privileges while the
+user was known to be unavailable to confirm, which this session's own
+safety controls correctly declined to push through. That's real
+remaining scope for a future session with the user present.
