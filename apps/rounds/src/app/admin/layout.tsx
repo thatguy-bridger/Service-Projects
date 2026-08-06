@@ -1,4 +1,5 @@
 import { getServerSession } from "next-auth";
+import { redirect } from "next/navigation";
 import { authOptions, requireRole, can } from "@service-projects/core-auth";
 import { Card, Button } from "@service-projects/ui";
 import { t } from "@/copy";
@@ -13,6 +14,16 @@ import { AdminTabs } from "./AdminTabs";
 // cosmetic only (see docs/rounds/PHASE-0.md's role-preview notes).
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const session = await getServerSession(authOptions);
+
+  // requireRole throws a plain Error when there's no session at all,
+  // which the nearest error boundary renders as a generic "Something
+  // went wrong" crash screen -- confusing for the common case of a
+  // signed-out visitor just clicking an /admin link. Send them to sign
+  // in instead; requireRole below still handles "signed in, wrong role".
+  if (!session?.user) {
+    redirect(`/api/auth/signin?callbackUrl=/admin`);
+  }
+
   await requireRole(session, ["OWNER", "ADMIN"]);
 
   const realRole = session!.user.role;
