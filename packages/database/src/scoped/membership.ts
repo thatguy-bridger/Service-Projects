@@ -134,21 +134,6 @@ export async function addEventMembership(
   return {};
 }
 
-export async function removeEventMembership(
-  session: SessionLike | null | undefined,
-  eventId: string,
-  membershipId: string
-): Promise<{ error?: string }> {
-  const membership = await resolveMembership(session, eventId);
-  if (!membership || !isStaff(membership.role)) return { error: "Forbidden" };
-
-  await prisma.membership.updateMany({
-    where: { id: membershipId, eventId },
-    data: { status: "removed" },
-  });
-  return {};
-}
-
 export async function updateEventMembershipRole(
   session: SessionLike | null | undefined,
   eventId: string,
@@ -179,20 +164,4 @@ export async function removeEventMemberships(
     data: { status: "removed" },
   });
   return { removed: result.count };
-}
-
-export async function organizationsForSession(session: SessionLike | null | undefined) {
-  const userId = session?.user?.id;
-  if (!userId) return [];
-  if (session?.user?.role === "OWNER" || session?.user?.role === "ADMIN") {
-    return prisma.organization.findMany({ where: { deletedAt: null } });
-  }
-  const memberships = await prisma.membership.findMany({
-    where: { userId, status: "active" },
-    select: { orgId: true },
-    distinct: ["orgId"],
-  });
-  const orgIds = memberships.map((m) => m.orgId);
-  if (orgIds.length === 0) return [];
-  return prisma.organization.findMany({ where: { id: { in: orgIds }, deletedAt: null } });
 }

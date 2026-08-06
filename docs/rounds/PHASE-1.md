@@ -760,3 +760,61 @@ row, linked to the same account) — SPEC.md's household model already
 treats each season's submission as its own record via `Subscription`,
 and collapsing that into an editable single record per account is a
 bigger modeling decision than this request asked for.
+
+## Update — five autonomous, no-input-needed items
+
+Run as a batch while waiting for further direction: engineering work
+with no product or credential decision attached.
+
+1. **Real test suite for the scoped access-control helpers**
+   (`packages/database/src/scoped/__tests__/`, new Vitest setup —
+   `npm run test` at the repo root now runs it via Turbo). This
+   sandbox can't reach the real Postgres database, so these are unit
+   tests against a hand-built Prisma mock (`mockPrisma.ts`) rather
+   than integration tests against real data — they verify the
+   *authorization logic itself*: a Volunteer/Previewer gets turned
+   away before any query runs, an org-scoped write's `where` clause
+   always includes the caller's `orgId` (so an id from a different org
+   can't be reached), and `resolveMembership` correctly short-circuits
+   OWNER/ADMIN org-wide while resolving event-scoped roles from a
+   `Membership` row for everyone else. 32 tests across
+   `membership.test.ts`, `households.test.ts`, `events.test.ts` — the
+   exact surface SPEC.md §6 asks to be tested.
+2. **Loading/error boundaries.** Every route previously rendered a
+   blank white page during a server-component fetch and the
+   framework's raw crash screen on an error. Added `loading.tsx` +
+   `error.tsx` for `/admin`, `/signup`, and the app root (covering
+   `/`, `/welcome`, `/register`) — Next.js's built-in convention, no
+   new design-system components needed.
+3. **Rate limiting on the three public write endpoints**
+   (`apps/rounds/src/lib/rateLimit.ts`, new): `submitSignup` (5/10min
+   per IP), `/api/register` (10/15min per IP — this route doubles as
+   sign-in, so it was previously an unthrottled password-guessing
+   oracle against any known email), `/api/link-household` (20/15min
+   per IP). In-memory, so **honestly best-effort, not a hard
+   guarantee** — Vercel serverless functions don't guarantee the same
+   instance handles consecutive requests, so a determined attacker
+   spreading requests across cold starts isn't fully stopped. Real
+   protection would need a durable store (Vercel KV, Upstash Redis),
+   not added since it needs an account/credential this environment
+   doesn't have. Still strictly better than the zero limiting these
+   endpoints had.
+4. **Google address input styling.** Flagged last session as an
+   unverified caveat: `PlaceAutocompleteElement` renders its own input
+   inside a shadow root, so the `.signup-input` class only styled the
+   host box, not the input Google actually renders inside it. Added
+   `::part(input)` rules (the CSS part Google's docs document for
+   this). **Still not verified in a live browser** — no browser access
+   in this environment — so if it still looks mismatched, that's the
+   next thing to check, not a sign the approach is wrong.
+5. **Dead-code sweep.** Removed two scoped helpers with zero callers
+   anywhere in the app (`removeEventMembership` — dead since the
+   People list moved to bulk-only removal, noted but not deleted at
+   the time; `organizationsForSession` — multi-org scaffolding for a
+   feature this app's real-world scope doesn't need, unlike
+   `stopsForSession`'s Phase-3 TODO which stays since it's a
+   documented near-term target). Kept `householdsForSession` despite
+   having no app-code caller — it's now directly covered by the new
+   test suite and is a simpler canonical example of the access-control
+   pattern than `browseHouseholds`, worth keeping as library API even
+   though the Library page itself uses the fuller helper.

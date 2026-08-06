@@ -122,8 +122,11 @@ export function SignupFlow({
         });
         setSubmittedHouseholdId(result.householdId);
         setStep("done");
-      } catch {
-        setSubmitError(t("signup.contact.error"));
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "";
+        setSubmitError(
+          message.startsWith("RATE_LIMITED:") ? t("signup.contact.rateLimited") : t("signup.contact.error")
+        );
       }
     });
   }

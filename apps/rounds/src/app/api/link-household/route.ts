@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@service-projects/core-auth";
 import { defaultOrganization, linkHouseholdToUser } from "@service-projects/database";
+import { rateLimit, clientIpFromHeaders } from "@/lib/rateLimit";
 
 // Called right after a household's own "create an account" flow on the
 // signup confirmation screen (RegisterForm.tsx) finishes signIn(), so
@@ -11,6 +12,15 @@ import { defaultOrganization, linkHouseholdToUser } from "@service-projects/data
 // household to *itself*, and the household id came from that same
 // household's own just-completed submission.
 export async function POST(request: Request) {
+  const ip = clientIpFromHeaders(request.headers);
+  const { allowed, retryAfterSeconds } = rateLimit(`link-household:${ip}`, 20, 15 * 60 * 1000);
+  if (!allowed) {
+    return NextResponse.json(
+      { error: "Too many attempts from this connection. Try again in a few minutes." },
+      { status: 429, headers: { "Retry-After": String(retryAfterSeconds ?? 60) } }
+    );
+  }
+
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Not signed in." }, { status: 401 });

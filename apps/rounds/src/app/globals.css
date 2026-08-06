@@ -379,6 +379,36 @@ body {
   font-size: var(--text-base);
 }
 
+/* google.maps.places.PlaceAutocompleteElement (gmp-place-autocomplete,
+ * see GoogleAddressPicker.tsx) renders its own input inside a shadow
+ * root — a plain class on the host element styles the host's box
+ * (block-level, full width, so it slots into .signup-field like a real
+ * input), but not the internal <input> Google renders. Google exposes
+ * that internal input via the `input` CSS part for exactly this reason.
+ * Not verified in a live browser (no browser access in this
+ * environment — see docs/rounds/PHASE-1.md); if it still looks
+ * mismatched against a plain .signup-input, that's the next thing to
+ * check, not a sign this rule is wrong in principle. */
+gmp-place-autocomplete.signup-input {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+}
+
+gmp-place-autocomplete.signup-input::part(input) {
+  width: 100%;
+  box-sizing: border-box;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-default);
+  background: var(--surface-sunken);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+}
+
 .signup-hint {
   font-size: var(--text-sm);
   color: var(--text-secondary);

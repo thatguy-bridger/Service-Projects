@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { hashPassword, verifyPassword, isPasswordStrongEnough } from "@service-projects/core-auth";
 import { prisma } from "@service-projects/database";
+import { rateLimit, clientIpFromHeaders } from "@/lib/rateLimit";
 
 // Plain API route rather than a server action: the client needs the
 // created account's existence confirmed *before* it calls next-auth's
@@ -12,7 +13,19 @@ import { prisma } from "@service-projects/database";
 // already has a password set, this verifies it instead of erroring, so
 // the client's follow-up signIn("credentials", ...) call succeeds the
 // same way either way — same page, same form, no separate login screen.
+// That dual role is exactly why this needs rate limiting: with none, this
+// endpoint doubled as an unthrottled password-guessing oracle against
+// any known email.
 export async function POST(request: Request) {
+  const ip = clientIpFromHeaders(request.headers);
+  const { allowed, retryAfterSeconds } = rateLimit(`register:${ip}`, 10, 15 * 60 * 1000);
+  if (!allowed) {
+    return NextResponse.json(
+      { error: "Too many attempts from this connection. Try again in a few minutes." },
+      { status: 429, headers: { "Retry-After": String(retryAfterSeconds ?? 60) } }
+    );
+  }
+
   const body = await request.json().catch(() => null);
   const email = typeof body?.email === "string" ? body.email.trim().toLowerCase() : "";
   const password = typeof body?.password === "string" ? body.password : "";

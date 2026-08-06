@@ -11,6 +11,10 @@
  */
 export const en = {
   "brand.name": "Rounds",
+  "app.loading": "Loading…",
+  "app.error.title": "Something went wrong",
+  "app.error.body": "This page hit an error. Try again — if it keeps happening, let us know what you were doing.",
+  "app.error.retry": "Try again",
 
   "auth.signIn.cta": "Sign in",
   "nav.admin": "Admin",
@@ -35,6 +39,10 @@ export const en = {
   "signup.holidays.selectedCount":
     "{count, plural, one {# holiday selected} other {# holidays selected}}",
   "signup.holidays.continue": "Continue",
+  "signup.loading": "Loading…",
+  "signup.error.title": "Something went wrong",
+  "signup.error.body": "We hit an error loading this page. Nothing you entered has been lost — try again.",
+  "signup.error.retry": "Try again",
   "signup.notFound.title": "Signups aren't open right now",
   "signup.notFound.body": "Check back soon, or ask your organizer for the current signup link.",
 
@@ -121,6 +129,7 @@ export const en = {
   "signup.contact.submitting": "Submitting…",
   "signup.contact.required": "Name and address are required.",
   "signup.contact.error": "Something went wrong submitting your signup. Try again.",
+  "signup.contact.rateLimited": "Too many signups from this connection in a short time — wait a few minutes and try again.",
 
   "signup.done.title": "You're on the list",
   "signup.done.body": "We've saved your signup for {{count}} {count, plural, one {holiday} other {holidays}}. An organizer will reach out about payment and details.",
@@ -210,6 +219,11 @@ export const en = {
   "admin.eventDetail.people.saveRole": "Save role",
   "admin.eventDetail.people.savingRole": "Saving…",
   "admin.eventDetail.people.roleSaved": "Saved.",
+
+  "admin.loading": "Loading…",
+  "admin.error.title": "Something went wrong",
+  "admin.error.body": "This page hit an error loading its data. Try again — if it keeps happening, the underlying data or connection may be the issue.",
+  "admin.error.retry": "Try again",
 
   "admin.tabs.nav": "Admin sections",
   "admin.tabs.events": "Events",

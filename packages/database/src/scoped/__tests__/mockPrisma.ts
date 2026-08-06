@@ -1,0 +1,58 @@
+import { vi } from "vitest";
+
+// A hand-built stand-in for the Prisma client, not a real database
+// connection — this sandbox can't reach Postgres (only outbound HTTPS
+// works here), so these tests exercise the *authorization logic* in
+// each scoped helper (who gets which `where` clause, who gets turned
+// away before any query runs) rather than real query results. That's
+// exactly the surface SPEC.md §6 asks to be tested: "a volunteer
+// session cannot read an unassigned stop, a previewer reads nothing, a
+// coordinator cannot read another org's data" — all of that is decided
+// by the `where` clause these mocks let us inspect, not by what
+// Postgres would actually return for it.
+export function createPrismaMock() {
+  return {
+    household: {
+      findMany: vi.fn().mockResolvedValue([]),
+      findFirst: vi.fn().mockResolvedValue(null),
+      count: vi.fn().mockResolvedValue(0),
+      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+      create: vi.fn(),
+    },
+    event: {
+      findMany: vi.fn().mockResolvedValue([]),
+      findFirst: vi.fn().mockResolvedValue(null),
+      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+      create: vi.fn(),
+    },
+    membership: {
+      findFirst: vi.fn().mockResolvedValue(null),
+      findMany: vi.fn().mockResolvedValue([]),
+      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+      create: vi.fn(),
+    },
+    subscriptionEvent: {
+      deleteMany: vi.fn().mockResolvedValue({ count: 1 }),
+      findMany: vi.fn().mockResolvedValue([]),
+    },
+    subscription: {
+      create: vi.fn(),
+      findUnique: vi.fn().mockResolvedValue(null),
+    },
+    season: {
+      findUnique: vi.fn().mockResolvedValue(null),
+      findMany: vi.fn().mockResolvedValue([]),
+      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+    },
+    organization: {
+      findFirst: vi.fn().mockResolvedValue(null),
+      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+    },
+    user: {
+      findUnique: vi.fn().mockResolvedValue(null),
+      upsert: vi.fn(),
+    },
+  };
+}
+
+export type PrismaMock = ReturnType<typeof createPrismaMock>;
