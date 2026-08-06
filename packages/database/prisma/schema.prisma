@@ -69,6 +69,12 @@ enum SubStatus {
   CANCELLED
 }
 
+enum Disposition {
+  SUCCESS
+  NEUTRAL
+  FAILED
+}
+
 model User {
   id            String    @id @default(cuid())
   email         String    @unique
@@ -91,6 +97,7 @@ model User {
 
   // Rounds: which routes this user (a volunteer) is assigned to.
   routeAssignments RouteAssignment[]
+  visits           Visit[]
 
   // Rounds: households this account is linked to, so a signed-in
   // household doesn't retype its address/contact info every season.
@@ -362,6 +369,8 @@ model Stop {
   needsReview       Boolean    @default(false)
   createdAt         DateTime   @default(now())
 
+  visits Visit[]
+
   @@index([eventId, routeId, sequence])
 }
 
@@ -384,6 +393,7 @@ model Route {
 
   stops       Stop[]
   assignments RouteAssignment[]
+  visits      Visit[]
 }
 
 model RouteAssignment {
@@ -398,6 +408,38 @@ model RouteAssignment {
   acceptedAt DateTime?
 
   @@unique([routeId, userId])
+}
+
+// Phase 4 (SPEC.md §9.4/16): one recorded outcome at one stop by one
+// volunteer -- "left at door", "no answer", whatever the event's own
+// outcomeSet defines (Stop's/Event's `outcomeSet` JSON, not re-validated
+// here; the field app's own outcome picker is the one place that has to
+// agree with it). `clientId` is generated client-side before the
+// request goes out, so a retried request (flaky connection, double
+// tap) can't create a duplicate Visit -- worth having from day one even
+// before Phase 7's offline queue actually needs it, since the mobile
+// network conditions that motivate offline support are exactly the ones
+// that cause a request to look like it failed when it actually
+// succeeded.
+model Visit {
+  id              String      @id @default(cuid())
+  stopId          String
+  stop            Stop        @relation(fields: [stopId], references: [id])
+  routeId         String
+  route           Route       @relation(fields: [routeId], references: [id])
+  userId          String
+  user            User        @relation(fields: [userId], references: [id])
+  outcome         String
+  disposition     Disposition
+  note            String?
+  photoUrl        String?
+  itemCount       Int?
+  amountCents     Int?
+  minutesSpent    Int?
+  recordedAt      DateTime    @default(now())
+  syncedAt        DateTime?
+  recordedOffline Boolean     @default(false)
+  clientId        String      @unique
 }
 
 // Copy registry override storage (SPEC.md §11.1). The code-level defaults

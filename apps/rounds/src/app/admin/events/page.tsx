@@ -3,7 +3,6 @@ import { authOptions } from "@service-projects/core-auth";
 import { defaultOrganization, eventsForSession, categoriesForOrg } from "@service-projects/database";
 import { Card, Badge } from "@service-projects/ui";
 import { t } from "@/copy";
-import { EVENT_KINDS, EVENT_KIND_LABELS } from "@/lib/eventKinds";
 import { GenerateSeasonForm } from "./GenerateSeasonForm";
 import { CreateEventForm } from "./CreateEventForm";
 
@@ -18,11 +17,6 @@ export default async function AdminEventsPage() {
   const org = await defaultOrganization();
   const events = org ? await eventsForSession(session, org.id) : [];
   const nextYear = new Date().getUTCFullYear() + 1;
-
-  const counts = new Map<string, number>();
-  for (const ev of events) {
-    counts.set(ev.kind, (counts.get(ev.kind) ?? 0) + 1);
-  }
 
   const categories = org ? await categoriesForOrg(org.id) : [];
   const uncategorizedCount = events.filter((ev) => !ev.categoryId).length;
@@ -56,28 +50,10 @@ export default async function AdminEventsPage() {
         </Card>
       </div>
 
-      <h2 style={{ margin: "var(--space-6) 0 var(--space-3)", fontSize: "var(--text-lg)", fontWeight: "var(--weight-medium)" }}>
-        {t("admin.events.categories.title")}
-      </h2>
-      <div className="admin-columns">
-        {EVENT_KINDS.map((kind) => (
-          <a key={kind} href={`/admin/events/category/${kind}`} style={{ textDecoration: "none" }}>
-            <Card>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <h3 style={{ margin: 0, fontSize: "var(--text-base)", fontWeight: "var(--weight-medium)", color: "var(--text-primary)" }}>
-                  {EVENT_KIND_LABELS[kind]}
-                </h3>
-                <Badge tone="accent">
-                  {t("admin.events.categories.count", { count: counts.get(kind) ?? 0 })}
-                </Badge>
-              </div>
-            </Card>
-          </a>
-        ))}
-      </div>
-
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "var(--space-6) 0 var(--space-3)" }}>
-        <h2 style={{ margin: 0, fontSize: "var(--text-lg)", fontWeight: "var(--weight-medium)" }}>Your categories</h2>
+        <h2 style={{ margin: 0, fontSize: "var(--text-lg)", fontWeight: "var(--weight-medium)" }}>
+          {t("admin.events.categories.title")}
+        </h2>
         <a href="/admin/categories" style={{ color: "var(--color-accent-600)", fontSize: "var(--text-sm)" }}>
           Manage categories
         </a>
