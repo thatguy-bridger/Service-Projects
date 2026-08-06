@@ -98,6 +98,7 @@ model User {
   // Rounds: which routes this user (a volunteer) is assigned to.
   routeAssignments RouteAssignment[]
   visits           Visit[]
+  keyRedemptions   KeyRedemption[]
 
   // Rounds: households this account is linked to, so a signed-in
   // household doesn't retype its address/contact info every season.
@@ -161,6 +162,7 @@ model Organization {
   households  Household[]
   seasons     Season[]
   categories  Category[]
+  inviteKeys  InviteKey[]
 
   createdAt DateTime  @default(now())
   deletedAt DateTime?
@@ -256,6 +258,7 @@ model Event {
   routes             Route[]
   memberships        Membership[]
   subscriptionEvents SubscriptionEvent[]
+  inviteKeys         InviteKey[]
 
   @@unique([orgId, slug])
 }
@@ -440,6 +443,44 @@ model Visit {
   syncedAt        DateTime?
   recordedOffline Boolean     @default(false)
   clientId        String      @unique
+}
+
+// Phase 5 (SPEC.md §5's InviteKey block): a shareable code that grants a
+// role on redemption -- how an Owner/Admin brings on a Coordinator or
+// Volunteer without hand-editing /admin/users. Never stores the raw
+// code, same hash-and-compare pattern as Household's self-service token
+// (households.ts's hashToken/issueSelfServiceToken) -- possession of the
+// raw code is what grants access, not a stored secret an attacker could
+// read off a database dump.
+model InviteKey {
+  id         String       @id @default(cuid())
+  orgId      String
+  org        Organization @relation(fields: [orgId], references: [id])
+  eventId    String? // null = org-wide role grant
+  event      Event?       @relation(fields: [eventId], references: [id])
+  codeHash   String       @unique
+  codePrefix String // first few chars, shown in the admin UI so a key is identifiable without ever re-showing the raw code
+  grantsRole Role
+  maxUses    Int          @default(1)
+  useCount   Int          @default(0)
+  expiresAt  DateTime?
+  note       String?
+  revokedAt  DateTime?
+  createdBy  String
+  createdAt  DateTime     @default(now())
+
+  redemptions KeyRedemption[]
+}
+
+model KeyRedemption {
+  id         String    @id @default(cuid())
+  keyId      String
+  key        InviteKey @relation(fields: [keyId], references: [id])
+  userId     String
+  user       User      @relation(fields: [userId], references: [id])
+  redeemedAt DateTime  @default(now())
+
+  @@unique([keyId, userId])
 }
 
 // Copy registry override storage (SPEC.md §11.1). The code-level defaults

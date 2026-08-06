@@ -9,6 +9,7 @@ const TABS = [
   { href: "/admin/review", label: t("admin.tabs.review") },
   { href: "/admin/library", label: t("admin.tabs.library") },
   { href: "/admin/users", label: t("admin.tabs.users") },
+  { href: "/admin/keys", label: "Keys" },
   { href: "/admin/settings", label: t("admin.tabs.settings") },
 ] as const;
 
