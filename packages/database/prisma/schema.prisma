@@ -89,6 +89,13 @@ model User {
   // Rounds: which orgs/events this user has a role in.
   memberships Membership[]
 
+  // Rounds: households this account is linked to, so a signed-in
+  // household doesn't retype its address/contact info every season.
+  // Nullable/optional on Household's side — most households never
+  // create an account at all (SPEC.md's "no account required" signup
+  // is still the default path).
+  households Household[]
+
   // NextAuth PrismaAdapter — Google account linking. No `Session` model:
   // both apps use the "jwt" session strategy, and NextAuth never calls the
   // adapter's session methods under that strategy, so it's safe to omit.
@@ -223,6 +230,12 @@ model Household {
   id                   String       @id @default(cuid())
   orgId                String
   organization         Organization @relation(fields: [orgId], references: [id])
+  // Optional link to a real account — set when the household chooses to
+  // "create an account" after a signup, so a future signed-in visit can
+  // prefill their contact/address instead of asking again. Most
+  // households never link one; the public signup form works with none.
+  userId               String?
+  user                 User?        @relation(fields: [userId], references: [id])
   contactName          String
   contactEmail         String?
   contactPhone         String?
@@ -245,6 +258,7 @@ model Household {
   deletedAt DateTime?
 
   @@index([orgId, lat, lng])
+  @@index([userId])
 }
 
 model Subscription {

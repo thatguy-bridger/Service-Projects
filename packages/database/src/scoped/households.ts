@@ -436,6 +436,10 @@ export interface SignupSubmission {
   contactName: string;
   contactEmail?: string;
   contactPhone?: string;
+  // Set when the household is already signed in (they linked an account
+  // on a previous visit) — links the new household record straight to
+  // their account instead of leaving it anonymous.
+  userId?: string;
   addressInput: string;
   address: Record<string, unknown>;
   lat?: number;
@@ -461,6 +465,7 @@ export async function submitSignup(input: SignupSubmission) {
   const household = await prisma.household.create({
     data: {
       orgId: input.orgId,
+      userId: input.userId,
       contactName: input.contactName,
       contactEmail: input.contactEmail,
       contactPhone: input.contactPhone,
@@ -488,4 +493,45 @@ export async function submitSignup(input: SignupSubmission) {
   });
 
   return { householdId: household.id, subscriptionId: subscription.id };
+}
+
+/**
+ * The signed-in household's most recent linked household record, for
+ * prefilling the signup form (name/email/phone/address/placement note)
+ * so they don't retype it every season. Not session-gated the way the
+ * staff helpers above are — a household reading its own linked record is
+ * expected, same as the self-service token flow SPEC.md §4.4 describes,
+ * just keyed by account instead of a signed link for now.
+ */
+export async function householdForUser(userId: string, orgId: string) {
+  return prisma.household.findFirst({
+    where: { userId, orgId, deletedAt: null },
+    orderBy: { createdAt: "desc" },
+  });
+}
+
+export interface LinkHouseholdResult {
+  ok: boolean;
+  error?: string;
+}
+
+/**
+ * Links an already-created household (from an anonymous signup) to the
+ * account the household just created on the confirmation screen. Scoped
+ * to orgId so a household id from one org can't be linked by a session
+ * in another; no staff/session role check beyond that — this runs
+ * immediately after the household's own account creation, acting on
+ * their own just-submitted signup, not someone else's.
+ */
+export async function linkHouseholdToUser(
+  householdId: string,
+  userId: string,
+  orgId: string
+): Promise<LinkHouseholdResult> {
+  const result = await prisma.household.updateMany({
+    where: { id: householdId, orgId, deletedAt: null },
+    data: { userId },
+  });
+  if (result.count === 0) return { ok: false, error: "Household not found." };
+  return { ok: true };
 }

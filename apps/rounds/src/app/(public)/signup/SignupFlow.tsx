@@ -20,30 +20,54 @@ export interface HolidayOption {
 
 type Step = "holidays" | "address" | "contact" | "done";
 
+export interface InitialHousehold {
+  contactName: string;
+  contactEmail: string | null;
+  contactPhone: string | null;
+  placementNote: string | null;
+  accessNotes: string | null;
+  addressInput: string;
+  lat: number | null;
+  lng: number | null;
+}
+
 export function SignupFlow({
   orgId,
   orgName,
   seasonId,
   holidays,
+  signedIn = false,
+  userId,
+  initialHousehold,
 }: {
   orgId: string;
   orgName: string;
   seasonId: string;
   holidays: HolidayOption[];
+  signedIn?: boolean;
+  userId?: string;
+  initialHousehold?: InitialHousehold | null;
 }) {
   const [step, setStep] = useState<Step>("holidays");
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
-  const [place, setPlace] = useState<PlaceResult | null>(null);
+  // Prefilled from the signed-in household's last linked record, if any
+  // — a returning, account-linked household doesn't retype this.
+  const [place, setPlace] = useState<PlaceResult | null>(
+    initialHousehold
+      ? { address: initialHousehold.addressInput, lat: initialHousehold.lat, lng: initialHousehold.lng }
+      : null
+  );
   const [addressError, setAddressError] = useState<string | null>(null);
 
-  const [contactName, setContactName] = useState("");
-  const [contactEmail, setContactEmail] = useState("");
-  const [contactPhone, setContactPhone] = useState("");
-  const [placementNote, setPlacementNote] = useState("");
-  const [accessNotes, setAccessNotes] = useState("");
+  const [contactName, setContactName] = useState(initialHousehold?.contactName ?? "");
+  const [contactEmail, setContactEmail] = useState(initialHousehold?.contactEmail ?? "");
+  const [contactPhone, setContactPhone] = useState(initialHousehold?.contactPhone ?? "");
+  const [placementNote, setPlacementNote] = useState(initialHousehold?.placementNote ?? "");
+  const [accessNotes, setAccessNotes] = useState(initialHousehold?.accessNotes ?? "");
   const [submitting, startSubmit] = useTransition();
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submittedHouseholdId, setSubmittedHouseholdId] = useState<string | null>(null);
 
   const selectedHolidays = useMemo(() => holidays.filter((h) => selected.has(h.key)), [holidays, selected]);
   const totalCents = useMemo(() => selectedHolidays.reduce((sum, h) => sum + h.priceCents, 0), [selectedHolidays]);
@@ -74,7 +98,7 @@ export function SignupFlow({
     setSubmitError(null);
     startSubmit(async () => {
       try {
-        await submitSignup({
+        const result = await submitSignup({
           orgId,
           seasonId,
           eventIds: selectedHolidays.map((h) => h.id),
@@ -82,6 +106,7 @@ export function SignupFlow({
           contactName: contactName.trim(),
           contactEmail: contactEmail.trim() || undefined,
           contactPhone: contactPhone.trim() || undefined,
+          userId,
           addressInput: place.address,
           address: { matchedAddress: place.address },
           lat: place.lat ?? undefined,
@@ -95,6 +120,7 @@ export function SignupFlow({
           placementNote: placementNote.trim() || undefined,
           accessNotes: accessNotes.trim() || undefined,
         });
+        setSubmittedHouseholdId(result.householdId);
         setStep("done");
       } catch {
         setSubmitError(t("signup.contact.error"));
@@ -297,12 +323,39 @@ export function SignupFlow({
       )}
 
       {step === "done" && (
-        <div className="signup-intro" style={{ padding: "var(--space-16) var(--space-5)", textAlign: "center" }}>
+        <div className="signup-intro" style={{ padding: "var(--space-12) var(--space-5)", textAlign: "center" }}>
           <h1>{t("signup.done.title")}</h1>
           <p>{t("signup.done.body", { count: selectedHolidays.length })}</p>
-          <a href="/" style={{ color: "var(--color-accent-500)" }}>
-            {t("signup.done.backHome")}
-          </a>
+
+          {!signedIn && submittedHouseholdId && (
+            <div className="signup-accountCta">
+              <h2 className="signup-accountCtaTitle">{t("signup.done.accountCta.title")}</h2>
+              <p className="signup-accountCtaBody">{t("signup.done.accountCta.body")}</p>
+              <a
+                href={`/register?${new URLSearchParams({
+                  householdId: submittedHouseholdId,
+                  email: contactEmail.trim(),
+                  name: contactName.trim(),
+                  next: "/",
+                }).toString()}`}
+              >
+                <Button type="button" variant="primary">
+                  {t("signup.done.accountCta.cta")}
+                </Button>
+              </a>
+              <p className="signup-accountCtaSkip">
+                <a href="/" style={{ color: "var(--text-secondary)" }}>
+                  {t("signup.done.accountCta.skip")}
+                </a>
+              </p>
+            </div>
+          )}
+
+          {(signedIn || !submittedHouseholdId) && (
+            <a href="/" style={{ color: "var(--color-accent-500)" }}>
+              {t("signup.done.backHome")}
+            </a>
+          )}
         </div>
       )}
     </div>

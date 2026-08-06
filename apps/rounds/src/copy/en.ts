@@ -59,6 +59,9 @@ export const en = {
 
   "register.title": "Email + password",
   "register.subtitle": "Already have an account with this email? Just enter your password to sign in. New here? This creates your account.",
+  "register.afterSignup.title": "Create your account",
+  "register.afterSignup.subtitle": "We've filled in what you just told us — just set a password to save it for next season.",
+  "register.form.name": "Name",
   "register.form.email": "Email",
   "register.form.password": "Password (10+ characters for a new account)",
   "register.form.confirmPassword": "Confirm password",
@@ -122,6 +125,10 @@ export const en = {
   "signup.done.title": "You're on the list",
   "signup.done.body": "We've saved your signup for {{count}} {count, plural, one {holiday} other {holidays}}. An organizer will reach out about payment and details.",
   "signup.done.backHome": "Back to home",
+  "signup.done.accountCta.title": "Want to skip the form next time?",
+  "signup.done.accountCta.body": "Create a quick account with the info you just entered, and next season you can just sign in — your address and placement note will already be filled in.",
+  "signup.done.accountCta.cta": "Create an account",
+  "signup.done.accountCta.skip": "No thanks, I'm done",
 
   "dashboard.manageEvents.title": "Events and seasons",
   "dashboard.manageEvents.body": "Generate this year's flag season, or create a one-off event.",

@@ -1,4 +1,6 @@
-import { defaultOrganization, currentSeasonForOrg } from "@service-projects/database";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@service-projects/core-auth";
+import { defaultOrganization, currentSeasonForOrg, householdForUser } from "@service-projects/database";
 import { t } from "@/copy";
 import { formatCentsShort, formatHolidayDate } from "@/lib/format";
 import { AppTopbar } from "../../AppTopbar";
@@ -12,8 +14,11 @@ import { SignupFlow } from "./SignupFlow";
 export const dynamic = "force-dynamic";
 
 export default async function SignupPage() {
+  const session = await getServerSession(authOptions);
   const org = await defaultOrganization();
   const season = org ? await currentSeasonForOrg(org.id) : null;
+  const linkedHousehold =
+    session?.user?.id && org ? await householdForUser(session.user.id, org.id) : null;
 
   if (!org || !season || season.events.length === 0) {
     return (
@@ -58,7 +63,28 @@ export default async function SignupPage() {
           </ul>
         </aside>
         <div className="signup-main">
-          <SignupFlow orgId={org.id} orgName={org.name} seasonId={season.id} holidays={holidays} />
+          <SignupFlow
+            orgId={org.id}
+            orgName={org.name}
+            seasonId={season.id}
+            holidays={holidays}
+            signedIn={!!session?.user}
+            userId={session?.user?.id}
+            initialHousehold={
+              linkedHousehold
+                ? {
+                    contactName: linkedHousehold.contactName,
+                    contactEmail: linkedHousehold.contactEmail,
+                    contactPhone: linkedHousehold.contactPhone,
+                    placementNote: linkedHousehold.placementNote,
+                    accessNotes: linkedHousehold.accessNotes,
+                    addressInput: linkedHousehold.addressInput,
+                    lat: linkedHousehold.lat,
+                    lng: linkedHousehold.lng,
+                  }
+                : null
+            }
+          />
         </div>
       </div>
     </>

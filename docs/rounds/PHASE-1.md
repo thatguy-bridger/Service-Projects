@@ -723,3 +723,40 @@ the formatted address + lat/lng) inside a `useEffect`, the same pattern
 widget. The draggable-pin reverse-geocode still uses
 `google.maps.Geocoder` (the plain Geocoding API, which was never split
 into legacy/new) — no change needed there.
+
+## Update — optional account linking for households
+
+Direct follow-up request: after a signup, offer the household a quick
+account so a future signed-in visit doesn't retype anything.
+
+- **Schema** (migration `link_household_to_user`, purely additive —
+  nullable FK + index, no data touched): `Household.userId String?` →
+  `User`. Most households still never link one; the public signup form
+  works exactly as before with no account.
+- **`householdForUser(userId, orgId)`** (new, `scoped/households.ts`):
+  the signed-in household's most recently created linked household, for
+  prefill. **`linkHouseholdToUser(householdId, userId, orgId)`** (new):
+  links an already-submitted household to the account the household
+  creates right after. `submitSignup` now accepts an optional `userId`
+  so a signed-in household's submission is linked immediately instead
+  of needing the extra link step.
+- **Signup page**: reads the session server-side; if the signed-in user
+  has a linked household, `SignupFlow` is prefilled (name, email,
+  phone, address, placement note, access notes) instead of starting
+  blank.
+- **Confirmation screen**: if the household wasn't signed in,
+  offers "Create an account" (skippable) that deep-links to `/register`
+  with their just-entered name/email pre-filled and the new
+  household's id attached. `/api/register` now accepts an optional
+  `name`. A new `/api/link-household` route (session-gated, links only
+  to the caller's own account) is called right after `signIn()`
+  succeeds — that's the earliest point a request can carry the fresh
+  session cookie, since `signIn()` is a client-side next-auth call a
+  server action can't trigger.
+
+Deliberately not built: updating an *existing* linked household in
+place on a later signup (each submission still creates a new household
+row, linked to the same account) — SPEC.md's household model already
+treats each season's submission as its own record via `Subscription`,
+and collapsing that into an editable single record per account is a
+bigger modeling decision than this request asked for.

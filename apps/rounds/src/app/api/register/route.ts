@@ -16,6 +16,7 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
   const email = typeof body?.email === "string" ? body.email.trim().toLowerCase() : "";
   const password = typeof body?.password === "string" ? body.password : "";
+  const name = typeof body?.name === "string" && body.name.trim() ? body.name.trim() : undefined;
 
   if (!email || !password) {
     return NextResponse.json({ error: "Email and password are required." }, { status: 400 });
@@ -45,11 +46,12 @@ export async function POST(request: Request) {
   // If an admin already pre-created this email with a role (see
   // /admin/users) or it exists from a prior OAuth sign-in with no
   // password yet, attach the password to that same row instead of
-  // creating a duplicate.
+  // creating a duplicate. `name` only sets on create — an existing
+  // account's name (if any) isn't overwritten by a later password-set.
   await prisma.user.upsert({
     where: { email },
     update: { passwordHash },
-    create: { email, passwordHash },
+    create: { email, passwordHash, name },
   });
 
   return NextResponse.json({ ok: true });
