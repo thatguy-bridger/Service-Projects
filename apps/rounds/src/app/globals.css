@@ -16,12 +16,29 @@ body {
   padding: var(--space-8) var(--space-4) var(--space-16);
 }
 
+/* Full-bleed, identical on every screen regardless of what's below it —
+ * the content shell's own max-width (720px here, 1180px for
+ * .admin-shell, none at all for the signup stepper) used to double as
+ * the topbar's width too, so the topbar was visibly a different width
+ * on every page. Rendered as a sibling *before* each page's shell (see
+ * AppTopbar.tsx's call sites), not nested inside it, so this padding is
+ * the only padding it ever gets — never doubled up with a shell's. */
 .rounds-topbar {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: var(--space-3);
-  margin-bottom: var(--space-8);
+  width: 100%;
+  box-sizing: border-box;
+  padding: var(--space-4) var(--space-6);
+  border-bottom: 1px solid var(--border-default);
+  background: var(--surface-raised);
+}
+
+@media (max-width: 640px) {
+  .rounds-topbar {
+    padding: var(--space-3) var(--space-4);
+  }
 }
 
 .rounds-brand {
@@ -48,105 +65,36 @@ body {
   max-width: 34em;
 }
 
-/* Flag signup — SPEC.md §14.1, mocked in Rounds Screens 1a. The stepper
- * itself stays mobile-first and narrow (that's still correct for a
- * phone in hand); on wide viewports it now sits inside the app's normal
- * topbar chrome next to a summary side panel, instead of floating alone
- * in empty gutters with no way back to the rest of the app. */
+/* Flag signup — SPEC.md §14.1, mocked in Rounds Screens 1a. Just the
+ * signup: no side panel repeating information the stepper's own steps
+ * already show. `.signup-page` centers the stepper and gives it room to
+ * breathe on any viewport; `.signup-shell` is the stepper card itself,
+ * wider than the original mobile-only 480px so it actually uses a
+ * desktop-size screen instead of floating in a narrow column with dead
+ * space on both sides — while still comfortably narrow enough to read
+ * on a phone, where it fills the full width edge to edge. */
 .signup-page {
+  width: 100%;
+  box-sizing: border-box;
   display: flex;
   justify-content: center;
-  gap: var(--space-8);
-  max-width: 1100px;
-  margin: 0 auto;
-  padding: 0 var(--space-4);
-}
-
-.signup-side {
-  display: none;
-  flex-direction: column;
-  gap: var(--space-3);
-  flex: 1;
-  max-width: 380px;
-  padding: var(--space-10) 0;
-}
-
-.signup-side h2 {
-  margin: 0;
-  font-size: var(--text-2xl);
-  font-weight: var(--weight-semibold);
-  letter-spacing: -0.02em;
-}
-
-.signup-sideBody {
-  color: var(--text-secondary);
-  margin: 0 0 var(--space-2);
-}
-
-.signup-sideList {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.signup-sideList li {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-2);
-  padding: var(--space-2) 0;
-  border-bottom: 1px solid var(--border-default);
-  font-size: var(--text-sm);
-}
-
-.signup-sideList li > span:first-child {
-  flex: 1;
-  font-weight: var(--weight-medium);
-  color: var(--text-primary);
-}
-
-.signup-sideDate {
-  color: var(--text-secondary);
-}
-
-.signup-sidePrice {
-  color: var(--text-muted);
-}
-
-.signup-main {
-  flex: none;
-}
-
-@media (min-width: 900px) {
-  .signup-side {
-    display: flex;
-  }
+  padding: var(--space-6) var(--space-4) var(--space-16);
 }
 
 .signup-shell {
-  max-width: 480px;
-  margin: 0 auto;
+  width: 100%;
+  max-width: 640px;
   display: flex;
   flex-direction: column;
   background: var(--surface-page);
 }
 
-@media (min-width: 900px) {
+@media (min-width: 640px) {
   .signup-shell {
-    min-height: auto;
-    margin: var(--space-8) 0;
     border-radius: var(--radius-lg);
     border: 1px solid var(--border-default);
     box-shadow: var(--shadow-md);
     overflow: hidden;
-  }
-}
-
-@media (max-width: 899px) {
-  .signup-shell {
-    min-height: 100vh;
   }
 }
 
@@ -155,32 +103,6 @@ body {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-}
-
-.signup-brandRow {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-}
-
-.signup-brandMark {
-  width: 26px;
-  height: 26px;
-  border-radius: var(--radius-sm);
-  background: var(--color-accent-500);
-  color: var(--text-on-accent);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: var(--weight-bold);
-  font-size: 13px;
-  flex: none;
-}
-
-.signup-brandName {
-  font-weight: var(--weight-semibold);
-  font-size: 13px;
-  color: var(--color-gray-700);
 }
 
 .signup-stepperTrack {

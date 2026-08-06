@@ -14,9 +14,9 @@ export default async function WelcomePage() {
   if (session.user.onboardedAt) redirect("/");
 
   return (
-    <main className="rounds-shell">
+    <>
       <AppTopbar section={t("welcome.title")} />
-
+      <main className="rounds-shell">
       <section className="rounds-hero">
         <h1>{t("welcome.title")}</h1>
         <p>{t("welcome.subtitle")}</p>
@@ -47,6 +47,7 @@ export default async function WelcomePage() {
           </form>
         </Card>
       </div>
-    </main>
+      </main>
+    </>
   );
 }

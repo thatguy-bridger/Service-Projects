@@ -33,7 +33,6 @@ export interface InitialHousehold {
 
 export function SignupFlow({
   orgId,
-  orgName,
   seasonId,
   holidays,
   signedIn = false,
@@ -41,7 +40,6 @@ export function SignupFlow({
   initialHousehold,
 }: {
   orgId: string;
-  orgName: string;
   seasonId: string;
   holidays: HolidayOption[];
   signedIn?: boolean;
@@ -138,32 +136,26 @@ export function SignupFlow({
 
   return (
     <div className="signup-shell">
-      <div className="signup-header">
-        <div className="signup-brandRow">
-          <div className="signup-brandMark">{orgName.charAt(0).toUpperCase()}</div>
-          <span className="signup-brandName">{orgName}</span>
+      {step !== "done" && (
+        <div className="signup-header">
+          <div className="signup-stepperTrack">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className={`signup-stepperFill${i <= stepIndex ? " signup-stepperFill--active" : ""}`} />
+            ))}
+          </div>
+          <div className="signup-stepperLabels">
+            <span className={stepIndex === 0 ? "signup-stepperLabel--active" : undefined}>
+              {t("signup.stepper.holidays")}
+            </span>
+            <span className={stepIndex === 1 ? "signup-stepperLabel--active" : undefined}>
+              {t("signup.stepper.address")}
+            </span>
+            <span className={stepIndex === 2 ? "signup-stepperLabel--active" : undefined}>
+              {t("signup.stepper.pay")}
+            </span>
+          </div>
         </div>
-        {step !== "done" && (
-          <>
-            <div className="signup-stepperTrack">
-              {[0, 1, 2].map((i) => (
-                <div key={i} className={`signup-stepperFill${i <= stepIndex ? " signup-stepperFill--active" : ""}`} />
-              ))}
-            </div>
-            <div className="signup-stepperLabels">
-              <span className={stepIndex === 0 ? "signup-stepperLabel--active" : undefined}>
-                {t("signup.stepper.holidays")}
-              </span>
-              <span className={stepIndex === 1 ? "signup-stepperLabel--active" : undefined}>
-                {t("signup.stepper.address")}
-              </span>
-              <span className={stepIndex === 2 ? "signup-stepperLabel--active" : undefined}>
-                {t("signup.stepper.pay")}
-              </span>
-            </div>
-          </>
-        )}
-      </div>
+      )}
 
       {step === "holidays" && (
         <>

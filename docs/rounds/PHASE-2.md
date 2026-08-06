@@ -153,3 +153,39 @@ auto-split, 2-opt ordering, assignment — none of it needs Stripe or a
 pricing decision either. Phase 1's Stripe piece and Phase 2's renewal
 campaign both stay on the backburner until pricing, the legal entity,
 and Stripe test keys are available (`docs/rounds/OPEN-QUESTIONS.md`).
+
+## Update — topbar consistency + signup duplication fix
+
+Direct user report: signup's topbar had no padding and looked
+inconsistent with the rest of the app, and the desktop layout was
+showing duplicate information.
+
+Root causes, both real bugs:
+
+- **Topbar padding/width**: `.rounds-topbar`'s horizontal padding came
+  entirely from whatever shell it happened to be nested inside —
+  `.rounds-shell` (720px), `.admin-shell` (1180px), or, on `/signup`,
+  nothing at all, since `AppTopbar` sat outside any shell there. That's
+  why it looked broken specifically on signup and subtly different width
+  everywhere else. Fixed by making `.rounds-topbar` itself a full-bleed
+  bar with its own fixed padding, a bottom border, and a background —
+  and moving `<AppTopbar>` to render *before* each page's shell (as a
+  sibling, not a child) on every page: home, welcome, admin, register,
+  signup, self-service. Same component, same markup, now genuinely
+  pixel-identical everywhere instead of inheriting five different
+  parent widths.
+- **Duplicate content**: the signup page's desktop layout (added
+  last session) put a side panel next to the stepper repeating the
+  exact season name, holiday list, and prices that step one of the
+  stepper itself already shows — plus the stepper's own header row
+  displayed the org's brand mark/name a second time, right below the
+  now-present `AppTopbar` doing the same thing. Removed both: the side
+  panel is gone entirely, and the stepper's inline brand row is gone
+  (the topbar is the one place brand shows now). `SignupFlow`'s now-
+  unused `orgName` prop was removed too.
+
+**"Full advantage of the screen"**: rather than filling extra width
+with a second copy of the holiday list, the stepper card itself widened
+(480px → 640px, was needlessly narrow before) and fills the viewport
+edge-to-edge on a phone, centered with breathing room on anything
+wider — using the space without inventing content to fill it with.

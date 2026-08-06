@@ -2,7 +2,6 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@service-projects/core-auth";
 import { defaultOrganization, currentSeasonForOrg, householdForUser } from "@service-projects/database";
 import { t } from "@/copy";
-import { formatCentsShort, formatHolidayDate } from "@/lib/format";
 import { AppTopbar } from "../../AppTopbar";
 import { SignupFlow } from "./SignupFlow";
 
@@ -41,51 +40,36 @@ export default async function SignupPage() {
     mostPopular: ev.slug.startsWith("pioneer_day"),
   }));
 
-  // Wide viewports get the app's normal chrome plus a summary side panel
-  // instead of a lone centered card floating in empty gutters — the
-  // stepper itself stays exactly as narrow/mobile-first as before, since
-  // that's still correct for the phone-in-hand case it's designed for.
+  // Just the signup — no side panel repeating the holiday list the
+  // stepper's own first step already shows. The stepper card itself
+  // widens on larger viewports (see .signup-shell in globals.css)
+  // instead of sharing the screen with a second copy of the same
+  // information.
   return (
     <>
       <AppTopbar section={t("signup.stepper.holidays")} />
       <div className="signup-page">
-        <aside className="signup-side">
-          <h2>{season.name}</h2>
-          <p className="signup-sideBody">{t("signup.side.body", { org: org.name })}</p>
-          <ul className="signup-sideList">
-            {holidays.map((h) => (
-              <li key={h.id}>
-                <span>{h.name}</span>
-                <span className="signup-sideDate">{formatHolidayDate(new Date(h.date))}</span>
-                <span className="signup-sidePrice">{formatCentsShort(h.priceCents)}</span>
-              </li>
-            ))}
-          </ul>
-        </aside>
-        <div className="signup-main">
-          <SignupFlow
-            orgId={org.id}
-            orgName={org.name}
-            seasonId={season.id}
-            holidays={holidays}
-            signedIn={!!session?.user}
-            userId={session?.user?.id}
-            initialHousehold={
-              linkedHousehold
-                ? {
-                    contactName: linkedHousehold.contactName,
-                    contactEmail: linkedHousehold.contactEmail,
-                    contactPhone: linkedHousehold.contactPhone,
-                    placementNote: linkedHousehold.placementNote,
-                    accessNotes: linkedHousehold.accessNotes,
-                    addressInput: linkedHousehold.addressInput,
-                    lat: linkedHousehold.lat,
-                    lng: linkedHousehold.lng,
-                  }
-                : null
-            }
-          />
-        </div>
+        <SignupFlow
+          orgId={org.id}
+          seasonId={season.id}
+          holidays={holidays}
+          signedIn={!!session?.user}
+          userId={session?.user?.id}
+          initialHousehold={
+            linkedHousehold
+              ? {
+                  contactName: linkedHousehold.contactName,
+                  contactEmail: linkedHousehold.contactEmail,
+                  contactPhone: linkedHousehold.contactPhone,
+                  placementNote: linkedHousehold.placementNote,
+                  accessNotes: linkedHousehold.accessNotes,
+                  addressInput: linkedHousehold.addressInput,
+                  lat: linkedHousehold.lat,
+                  lng: linkedHousehold.lng,
+                }
+              : null
+          }
+        />
       </div>
     </>
   );

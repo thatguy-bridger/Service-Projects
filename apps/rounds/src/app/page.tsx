@@ -22,9 +22,9 @@ export default async function HomePage({
 
   if (!session?.user) {
     return (
-      <main className="rounds-shell">
+      <>
         <AppTopbar />
-
+        <main className="rounds-shell">
         <section className="rounds-hero">
           <h1>{t("previewer.landing.title")}</h1>
           <p>{t("previewer.landing.subtitle")}</p>
@@ -77,7 +77,8 @@ export default async function HomePage({
             </Card>
           </div>
         </section>
-      </main>
+        </main>
+      </>
     );
   }
 
@@ -97,9 +98,9 @@ export default async function HomePage({
   const isOwnerOrAdmin = can(role, "users.manageRoles");
 
   return (
-    <main className="rounds-shell">
+    <>
       <AppTopbar />
-
+      <main className="rounds-shell">
       {searchParams.welcomed === "volunteer" && (
         <Card style={{ marginBottom: "var(--space-6)", background: "var(--color-accent-100)" }}>
           <p style={{ margin: 0, color: "var(--color-accent-700)", fontSize: "var(--text-sm)" }}>
@@ -150,6 +151,7 @@ export default async function HomePage({
         </h2>
         <p style={{ color: "var(--text-secondary)", margin: 0 }}>{t("previewer.emptyState.body")}</p>
       </Card>
-    </main>
+      </main>
+    </>
   );
 }

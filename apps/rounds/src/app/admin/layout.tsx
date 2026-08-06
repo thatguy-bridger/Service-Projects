@@ -21,35 +21,38 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   if (!can(role, "users.manageRoles")) {
     return (
-      <main className="admin-shell">
+      <>
         <AppTopbar section={t("admin.tabs.nav")} />
-        <Card>
-          <h1 style={{ margin: "0 0 4px", fontSize: "var(--text-xl)", fontWeight: "var(--weight-semibold)" }}>
-            {t("preview.forbidden.title", { role })}
-          </h1>
-          <p style={{ color: "var(--text-secondary)" }}>{t("preview.forbidden.body", { role })}</p>
-          <a href="/">
-            <Button variant="secondary">{t("preview.forbidden.backHome", { role })}</Button>
-          </a>
-        </Card>
-      </main>
+        <main className="admin-shell">
+          <Card>
+            <h1 style={{ margin: "0 0 4px", fontSize: "var(--text-xl)", fontWeight: "var(--weight-semibold)" }}>
+              {t("preview.forbidden.title", { role })}
+            </h1>
+            <p style={{ color: "var(--text-secondary)" }}>{t("preview.forbidden.body", { role })}</p>
+            <a href="/">
+              <Button variant="secondary">{t("preview.forbidden.backHome", { role })}</Button>
+            </a>
+          </Card>
+        </main>
+      </>
     );
   }
 
   return (
-    <main className="admin-shell">
+    <>
       <AppTopbar section={t("admin.tabs.nav")} />
+      <main className="admin-shell">
+        {isPreviewing && (
+          <Card style={{ marginBottom: "var(--space-6)", background: "var(--color-accent-100)" }}>
+            <p style={{ margin: 0, color: "var(--color-accent-700)", fontSize: "var(--text-sm)" }}>
+              {t("preview.banner", { role })}
+            </p>
+          </Card>
+        )}
 
-      {isPreviewing && (
-        <Card style={{ marginBottom: "var(--space-6)", background: "var(--color-accent-100)" }}>
-          <p style={{ margin: 0, color: "var(--color-accent-700)", fontSize: "var(--text-sm)" }}>
-            {t("preview.banner", { role })}
-          </p>
-        </Card>
-      )}
-
-      <AdminTabs />
-      {children}
-    </main>
+        <AdminTabs />
+        {children}
+      </main>
+    </>
   );
 }

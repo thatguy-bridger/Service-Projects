@@ -4,9 +4,11 @@ import { RegisterForm } from "./RegisterForm";
 
 export default function RegisterPage() {
   return (
-    <main className="rounds-shell">
+    <>
       <AppTopbar section={t("register.title")} />
-      <RegisterForm />
-    </main>
+      <main className="rounds-shell">
+        <RegisterForm />
+      </main>
+    </>
   );
 }

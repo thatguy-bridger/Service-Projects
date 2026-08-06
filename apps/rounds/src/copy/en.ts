@@ -29,7 +29,6 @@ export const en = {
     "When an organizer publishes an event, it'll show up here. Have an invite key? Look for \"Have a key?\" once events are live.",
 
   "signup.stepper.holidays": "Holidays",
-  "signup.side.body": "{{org}} volunteers place and collect flags on the mornings shown below. Pick as many as you'd like — you can always change your mind later from the link in your confirmation email.",
   "signup.stepper.address": "Address",
   "signup.stepper.pay": "Pay",
   "signup.holidays.title": "Which holidays this year?",
