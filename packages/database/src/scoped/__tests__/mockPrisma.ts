@@ -53,7 +53,10 @@ export function createPrismaMock() {
     },
     stop: {
       findFirst: vi.fn().mockResolvedValue(null),
+      findMany: vi.fn().mockResolvedValue([]),
       create: vi.fn().mockResolvedValue({ id: "stop-mock" }),
+      update: vi.fn(),
+      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
     },
     $queryRaw: vi.fn().mockResolvedValue([]),
     season: {

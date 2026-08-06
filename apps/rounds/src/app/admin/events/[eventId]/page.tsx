@@ -7,6 +7,7 @@ import {
   householdsForEvent,
   membershipsForEvent,
   categoriesForOrg,
+  routesForEvent,
 } from "@service-projects/database";
 import { Card, Badge } from "@service-projects/ui";
 import { t } from "@/copy";
@@ -38,6 +39,7 @@ export default async function AdminEventDetailPage({ params }: { params: { event
   const totalCents = rows.filter((r) => !r.skipped).reduce((sum, r) => sum + r.amountCents, 0);
   const people = await membershipsForEvent(session, params.eventId);
   const categories = await categoriesForOrg(org.id);
+  const routes = await routesForEvent(session, params.eventId);
 
   return (
     <>
@@ -96,6 +98,7 @@ export default async function AdminEventDetailPage({ params }: { params: { event
         people={people}
         categories={categories.map((c) => ({ id: c.id, name: c.name }))}
         currentCategoryId={event.categoryId}
+        routes={routes}
       />
 
       <p style={{ marginTop: "var(--space-4)" }}>

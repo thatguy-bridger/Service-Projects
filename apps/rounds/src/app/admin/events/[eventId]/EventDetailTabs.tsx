@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Card, Button, DataTable, type DataTableColumn } from "@service-projects/ui";
 import { formatCentsFull } from "@/lib/format";
-import type { HouseholdForEvent, EventStatus, EventMembership } from "@service-projects/database";
+import type { HouseholdForEvent, EventStatus, EventMembership, RouteRow } from "@service-projects/database";
 import {
   saveSignupRowAction,
   deleteSignupsAction,
@@ -14,8 +14,9 @@ import {
 } from "./tableActions";
 import { PeopleForm } from "./PeopleForm";
 import { GenerateStopsButton } from "./GenerateStopsButton";
+import { RoutesTab } from "./RoutesTab";
 
-const TABS = ["Event Dates", "Service Sign Ups", "Member Purchases", "Settings"] as const;
+const TABS = ["Event Dates", "Service Sign Ups", "Member Purchases", "Routes", "Settings"] as const;
 type Tab = (typeof TABS)[number];
 
 interface SignupRow {
@@ -95,6 +96,7 @@ export function EventDetailTabs({
   people,
   categories,
   currentCategoryId,
+  routes,
 }: {
   eventId: string;
   seasonId: string | null;
@@ -103,6 +105,7 @@ export function EventDetailTabs({
   people: EventMembership[];
   categories: { id: string; name: string }[];
   currentCategoryId: string | null;
+  routes: RouteRow[];
 }) {
   const [tab, setTab] = useState<Tab>("Service Sign Ups");
   const [deleting, setDeleting] = useState(false);
@@ -162,6 +165,8 @@ export function EventDetailTabs({
           onSaveRow={(id, patch) => saveSignupRowAction(eventId, id, patch)}
         />
       )}
+
+      {tab === "Routes" && <RoutesTab eventId={eventId} routes={routes} />}
 
       {tab === "Settings" && (
         <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)", maxWidth: 480 }}>
