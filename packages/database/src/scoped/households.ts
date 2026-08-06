@@ -130,6 +130,33 @@ export async function browseHouseholds(
   return { households, total, page, pageSize };
 }
 
+// Admin-created household, straight into the org's library -- no
+// signup flow, no geocoding (lat/lng stay null, same as a manual signup
+// entry). Staff-only, unlike submitSignup which is intentionally public.
+export async function createHouseholdAdmin(
+  session: SessionLike | null | undefined,
+  orgId: string,
+  input: { contactName: string; contactEmail?: string; contactPhone?: string; addressInput: string }
+): Promise<UpdateHouseholdResult> {
+  const membership = await resolveMembership(session);
+  if (!membership || !isStaff(membership.role)) return { ok: false, error: "Forbidden" };
+  if (!input.contactName.trim() || !input.addressInput.trim()) {
+    return { ok: false, error: "Name and address are required." };
+  }
+
+  await prisma.household.create({
+    data: {
+      orgId,
+      contactName: input.contactName.trim(),
+      contactEmail: input.contactEmail?.trim() || undefined,
+      contactPhone: input.contactPhone?.trim() || undefined,
+      addressInput: input.addressInput.trim(),
+      address: { raw: input.addressInput.trim(), source: "admin-created" } as Prisma.InputJsonValue,
+    },
+  });
+  return { ok: true };
+}
+
 export interface UpdateHouseholdInput {
   contactName?: string;
   contactEmail?: string | null;
@@ -702,4 +729,18 @@ export async function markHouseholdReviewed(
   });
   if (result.count === 0) return { ok: false, error: "Household not found." };
   return { ok: true };
+}
+
+export async function markHouseholdsReviewedBulk(
+  session: SessionLike | null | undefined,
+  orgId: string,
+  householdIds: string[]
+): Promise<{ deleted: number }> {
+  const membership = await resolveMembership(session);
+  if (!membership || !isStaff(membership.role)) return { deleted: 0 };
+  const result = await prisma.household.updateMany({
+    where: { id: { in: householdIds }, orgId, deletedAt: null },
+    data: { needsReview: false, needsReviewReason: null },
+  });
+  return { deleted: result.count };
 }

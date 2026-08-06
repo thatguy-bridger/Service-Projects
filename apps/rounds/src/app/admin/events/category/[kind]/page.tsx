@@ -32,11 +32,7 @@ export default async function AdminEventCategoryPage({ params }: { params: { kin
           {t("admin.events.category.subtitle")}
         </p>
 
-        {opportunities.length === 0 ? (
-          <p style={{ color: "var(--text-secondary)" }}>{t("admin.events.category.empty")}</p>
-        ) : (
-          <OpportunitiesTable opportunities={opportunities} />
-        )}
+        <OpportunitiesTable opportunities={opportunities} fixedKind={kind} />
       </Card>
     </>
   );

@@ -40,11 +40,10 @@ export default async function AdminEventsByCategoryPage({ params }: { params: { 
           {t("admin.events.category.subtitle")}
         </p>
 
-        {opportunities.length === 0 ? (
-          <p style={{ color: "var(--text-secondary)" }}>{t("admin.events.category.empty")}</p>
-        ) : (
-          <OpportunitiesTable opportunities={opportunities} />
-        )}
+        <OpportunitiesTable
+          opportunities={opportunities}
+          fixedCategoryId={category ? category.id : null}
+        />
       </Card>
     </>
   );

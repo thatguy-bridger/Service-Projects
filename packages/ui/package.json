@@ -5,6 +5,7 @@
   "main": "src/index.ts",
   "types": "src/index.ts",
   "peerDependencies": {
-    "react": "^18.3.0"
+    "react": "^18.3.0",
+    "next": "^14.0.0"
   }
 }

@@ -114,3 +114,77 @@ export async function deleteUsers(_prevState: DeleteUsersResult, formData: FormD
   revalidatePath("/admin/users");
   return { deleted, errors };
 }
+
+// DataTable-compatible variants (plain args, not FormData) -- same
+// underlying logic as updateUserAction/deleteUsers/setUserRole above,
+// just callable outside a <form>.
+
+export async function saveUserRowAction(userId: string, patch: Record<string, string>): Promise<UpdateUserResult> {
+  const session = await getServerSession(authOptions);
+  await requireRole(session, ["OWNER", "ADMIN"]);
+
+  const name = (patch.name ?? "").trim();
+  const role = (patch.role ?? "") as Role;
+  if (!ROLES.includes(role)) return { ok: false, error: "Invalid role." };
+
+  const target = await prisma.user.findUnique({ where: { id: userId } });
+  if (!target) return { ok: false, error: "User not found." };
+  if (role === "OWNER" && session?.user.role !== "OWNER") {
+    return { ok: false, error: "Only an Owner can grant the Owner role." };
+  }
+  if (target.role === "OWNER" && role !== "OWNER" && session?.user.role !== "OWNER") {
+    return { ok: false, error: "Only an Owner can change an Owner's role." };
+  }
+  if (!can(session?.user.role, "users.manageRoles")) {
+    return { ok: false, error: "Forbidden" };
+  }
+
+  await prisma.user.update({ where: { id: userId }, data: { name: name || null, role } });
+  revalidatePath("/admin/users");
+  return { ok: true };
+}
+
+export async function deleteUsersAction(userIds: string[]): Promise<{ deleted: number }> {
+  const session = await getServerSession(authOptions);
+  await requireRole(session, ["OWNER", "ADMIN"]);
+
+  let deleted = 0;
+  for (const id of userIds) {
+    if (id === session?.user.id) continue;
+    const target = await prisma.user.findUnique({ where: { id } });
+    if (!target) continue;
+    if (target.role === "OWNER" && session?.user.role !== "OWNER") continue;
+    try {
+      await prisma.user.delete({ where: { id } });
+      deleted++;
+    } catch {
+      // still referenced elsewhere -- skipped, not fatal to the batch
+    }
+  }
+  revalidatePath("/admin/users");
+  return { deleted };
+}
+
+export async function addUserAction(values: Record<string, string>): Promise<UpdateUserResult> {
+  const session = await getServerSession(authOptions);
+  await requireRole(session, ["OWNER", "ADMIN"]);
+
+  const email = (values.email ?? "").trim().toLowerCase();
+  const role = (values.role ?? "PREVIEWER") as Role;
+  if (!email) return { ok: false, error: "Email is required." };
+  if (!ROLES.includes(role)) return { ok: false, error: "Invalid role." };
+  if (role === "OWNER" && session?.user.role !== "OWNER") {
+    return { ok: false, error: "Only an Owner can grant the Owner role." };
+  }
+  if (!can(session?.user.role, "users.manageRoles")) {
+    return { ok: false, error: "Forbidden" };
+  }
+
+  await prisma.user.upsert({
+    where: { email },
+    update: { role },
+    create: { email, role, name: values.name?.trim() || null },
+  });
+  revalidatePath("/admin/users");
+  return { ok: true };
+}
