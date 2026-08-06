@@ -9,8 +9,16 @@ vi.mock("../../client", async () => {
 const { prisma } = await import("../../client");
 const prismaMock = prisma as unknown as PrismaMock;
 
-const { householdsForSession, browseHouseholds, updateHousehold, deleteHouseholds, removeHouseholdsFromEvent } =
-  await import("../households");
+const {
+  householdsForSession,
+  browseHouseholds,
+  updateHousehold,
+  deleteHouseholds,
+  removeHouseholdsFromEvent,
+  householdsNeedingReview,
+  markHouseholdReviewed,
+  findNearbyHouseholds,
+} = await import("../households");
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -114,5 +122,52 @@ describe("removeHouseholdsFromEvent", () => {
     expect(prismaMock.subscriptionEvent.deleteMany).toHaveBeenCalledWith({
       where: { id: { in: ["se-1", "se-2"] }, eventId: "event-1" },
     });
+  });
+});
+
+describe("householdsNeedingReview", () => {
+  it("returns nothing for a non-staff session", async () => {
+    const result = await householdsNeedingReview(VOLUNTEER, "org-1");
+    expect(result).toEqual([]);
+    expect(prismaMock.household.findMany).not.toHaveBeenCalled();
+  });
+
+  it("scopes to the caller's org and needsReview=true", async () => {
+    await householdsNeedingReview(OWNER, "org-1");
+    expect(prismaMock.household.findMany).toHaveBeenCalledWith({
+      where: { orgId: "org-1", deletedAt: null, needsReview: true },
+      orderBy: { createdAt: "asc" },
+    });
+  });
+});
+
+describe("markHouseholdReviewed", () => {
+  it("blocks a non-staff caller", async () => {
+    const result = await markHouseholdReviewed(VOLUNTEER, "org-1", "hh-1");
+    expect(result).toEqual({ ok: false, error: "Forbidden" });
+    expect(prismaMock.household.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("clears needsReview scoped to the caller's org", async () => {
+    await markHouseholdReviewed(OWNER, "org-1", "hh-in-another-org");
+    expect(prismaMock.household.updateMany).toHaveBeenCalledWith({
+      where: { id: "hh-in-another-org", orgId: "org-1", deletedAt: null },
+      data: { needsReview: false, needsReviewReason: null },
+    });
+  });
+
+  it("reports not-found when the org-scoped update matches nothing", async () => {
+    prismaMock.household.updateMany.mockResolvedValueOnce({ count: 0 });
+    const result = await markHouseholdReviewed(OWNER, "org-1", "hh-1");
+    expect(result).toEqual({ ok: false, error: "Household not found." });
+  });
+});
+
+describe("findNearbyHouseholds", () => {
+  it("excludes the given household id and scopes to the org via the raw query", async () => {
+    prismaMock.$queryRaw.mockResolvedValueOnce([{ id: "hh-2", contactName: "Neighbor" }]);
+    const result = await findNearbyHouseholds("org-1", 40.5, -111.8, "hh-1");
+    expect(result).toEqual([{ id: "hh-2", contactName: "Neighbor" }]);
+    expect(prismaMock.$queryRaw).toHaveBeenCalledTimes(1);
   });
 });

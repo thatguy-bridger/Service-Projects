@@ -9,6 +9,7 @@ import { ImportCsvForm } from "./ImportCsvForm";
 import { PeopleForm } from "./PeopleForm";
 import { HouseholdsTable } from "./HouseholdsTable";
 import { EditEventForm } from "./EditEventForm";
+import { GenerateStopsButton } from "./GenerateStopsButton";
 
 // This is the point of the whole admin flow: click an event, land on
 // *that event's* dataset — households/signups scoped to just this one
@@ -100,6 +101,16 @@ export default async function AdminEventDetailPage({ params }: { params: { event
           </h2>
           <p style={{ color: "var(--text-secondary)" }}>{t("admin.eventDetail.import.subtitle")}</p>
           <ImportCsvForm eventId={event.id} />
+        </Card>
+      )}
+
+      {event.seasonId && (
+        <Card style={{ marginBottom: "var(--space-6)" }}>
+          <h2 style={{ margin: "0 0 4px", fontSize: "var(--text-lg)", fontWeight: "var(--weight-medium)" }}>
+            {t("admin.eventDetail.stops.title")}
+          </h2>
+          <p style={{ color: "var(--text-secondary)" }}>{t("admin.eventDetail.stops.subtitle")}</p>
+          <GenerateStopsButton eventId={event.id} />
         </Card>
       )}
 

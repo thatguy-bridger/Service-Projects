@@ -5,6 +5,7 @@ import { t } from "@/copy";
 
 const TABS = [
   { href: "/admin/events", label: t("admin.tabs.events") },
+  { href: "/admin/review", label: t("admin.tabs.review") },
   { href: "/admin/library", label: t("admin.tabs.library") },
   { href: "/admin/users", label: t("admin.tabs.users") },
   { href: "/admin/settings", label: t("admin.tabs.settings") },

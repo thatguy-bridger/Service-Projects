@@ -5,7 +5,7 @@ import { Badge, Button } from "@service-projects/ui";
 import { t } from "@/copy";
 import { formatCentsFull, formatCentsShort, formatHolidayDate } from "@/lib/format";
 import { submitSignup } from "./actions";
-import { AddressPicker, type PlaceResult } from "./AddressPicker";
+import { AddressPicker, type PlaceResult } from "@/components/address/AddressPicker";
 
 export interface HolidayOption {
   id: string;
@@ -68,6 +68,8 @@ export function SignupFlow({
   const [submitting, startSubmit] = useTransition();
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submittedHouseholdId, setSubmittedHouseholdId] = useState<string | null>(null);
+  const [selfServiceLink, setSelfServiceLink] = useState<string | null>(null);
+  const [linkCopied, setLinkCopied] = useState(false);
 
   const selectedHolidays = useMemo(() => holidays.filter((h) => selected.has(h.key)), [holidays, selected]);
   const totalCents = useMemo(() => selectedHolidays.reduce((sum, h) => sum + h.priceCents, 0), [selectedHolidays]);
@@ -121,6 +123,7 @@ export function SignupFlow({
           accessNotes: accessNotes.trim() || undefined,
         });
         setSubmittedHouseholdId(result.householdId);
+        setSelfServiceLink(`${window.location.origin}/h/${result.selfServiceToken}`);
         setStep("done");
       } catch (err) {
         const message = err instanceof Error ? err.message : "";
@@ -329,6 +332,36 @@ export function SignupFlow({
         <div className="signup-intro" style={{ padding: "var(--space-12) var(--space-5)", textAlign: "center" }}>
           <h1>{t("signup.done.title")}</h1>
           <p>{t("signup.done.body", { count: selectedHolidays.length })}</p>
+
+          {selfServiceLink && (
+            <div className="signup-reviewBox" style={{ textAlign: "left" }}>
+              <h2 className="signup-reviewTitle">{t("signup.done.selfService.title")}</h2>
+              <p style={{ color: "var(--text-secondary)", fontSize: "var(--text-sm)", margin: "0 0 var(--space-3)" }}>
+                {t("signup.done.selfService.body")}
+              </p>
+              <div style={{ display: "flex", gap: "var(--space-2)", alignItems: "center", flexWrap: "wrap" }}>
+                <input
+                  className="signup-input"
+                  readOnly
+                  value={selfServiceLink}
+                  onFocus={(e) => e.currentTarget.select()}
+                  style={{ flex: 1, minWidth: 220 }}
+                />
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => {
+                    navigator.clipboard.writeText(selfServiceLink).then(() => {
+                      setLinkCopied(true);
+                      setTimeout(() => setLinkCopied(false), 2000);
+                    });
+                  }}
+                >
+                  {linkCopied ? t("signup.done.selfService.copied") : t("signup.done.selfService.copy")}
+                </Button>
+              </div>
+            </div>
+          )}
 
           {!signedIn && submittedHouseholdId && (
             <div className="signup-accountCta">

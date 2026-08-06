@@ -1,6 +1,51 @@
+import { randomBytes, createHash } from "node:crypto";
 import { Prisma, type SubStatus } from "@prisma/client";
 import { prisma } from "../client";
 import { isStaff, resolveMembership, type SessionLike } from "./membership";
+
+const SELF_SERVICE_TOKEN_DAYS = 400; // SPEC.md §4.4
+
+export function hashToken(raw: string): string {
+  return createHash("sha256").update(raw).digest("hex");
+}
+
+/** Raw token to hand to the household (once, never stored) + its hash (stored). */
+function issueSelfServiceToken(): { raw: string; hash: string; expiresAt: Date } {
+  const raw = randomBytes(32).toString("base64url");
+  const expiresAt = new Date(Date.now() + SELF_SERVICE_TOKEN_DAYS * 24 * 60 * 60 * 1000);
+  return { raw, hash: hashToken(raw), expiresAt };
+}
+
+/**
+ * Households within `radiusMeters` of the given point, in the same org
+ * — SPEC.md §8's duplicate detection ("compare within 25m using
+ * ST_DWithin"). PostGIS is enabled (see schema.prisma's
+ * `extensions = [postgis]`) but Household stores plain lat/lng floats
+ * rather than a `geography` column, so the points are cast on the fly
+ * rather than needing a schema change. Surfaced as a review flag, never
+ * auto-merged — SPEC.md is explicit that auto-merge on address strings
+ * eventually merges two units of a duplex.
+ */
+export async function findNearbyHouseholds(
+  orgId: string,
+  lat: number,
+  lng: number,
+  excludeHouseholdId: string,
+  radiusMeters = 25
+): Promise<{ id: string; contactName: string }[]> {
+  return prisma.$queryRaw<{ id: string; contactName: string }[]>`
+    SELECT id, "contactName" FROM "Household"
+    WHERE "orgId" = ${orgId}
+      AND id != ${excludeHouseholdId}
+      AND "deletedAt" IS NULL
+      AND lat IS NOT NULL AND lng IS NOT NULL
+      AND ST_DWithin(
+        ST_SetSRID(ST_MakePoint(lng, lat), 4326)::geography,
+        ST_SetSRID(ST_MakePoint(${lng}::float, ${lat}::float), 4326)::geography,
+        ${radiusMeters}
+      )
+  `;
+}
 
 // SPEC.md §6: household data (home addresses, access notes) never goes
 // through a raw `prisma.household` call in app code — see the ESLint rule
@@ -92,6 +137,8 @@ export interface UpdateHouseholdInput {
   addressInput?: string;
   placementNote?: string | null;
   accessNotes?: string | null;
+  needsReview?: boolean;
+  needsReviewReason?: string | null;
 }
 
 export interface UpdateHouseholdResult {
@@ -460,8 +507,35 @@ export interface SignupSubmission {
  * created Subscription is left in PENDING_PAYMENT rather than ACTIVE —
  * an honest reflection of what actually happened, not a shortcut around
  * the missing payment step.
+ *
+ * Sets `needsReview` for anything other than a Google-picked address —
+ * neither picker returns a real geocodeConfidence score (see
+ * AddressPicker.tsx), so "google" is the only source trusted without a
+ * human check; a manually-typed or OSM-picked address, or one within 25m
+ * of an existing household (SPEC.md §8's duplicate detection), always
+ * lands in the review queue rather than silently becoming a stop later.
+ * Also issues a self-service token (SPEC.md §4.4) — no email service is
+ * configured in this environment, so the raw token is returned here for
+ * the caller to show/copy on the confirmation screen rather than mailed.
  */
 export async function submitSignup(input: SignupSubmission) {
+  let needsReview = input.geocodeSource !== "google";
+  let needsReviewReason = needsReview
+    ? input.geocodeSource === "manual"
+      ? "Address entered manually, no map pin."
+      : "Address picked from the free OSM/Nominatim search, not Google."
+    : null;
+
+  if (input.lat !== undefined && input.lng !== undefined) {
+    const nearby = await findNearbyHouseholds(input.orgId, input.lat, input.lng, "");
+    if (nearby.length > 0) {
+      needsReview = true;
+      needsReviewReason = `Possible duplicate — within 25m of ${nearby.map((h) => h.contactName).join(", ")}.`;
+    }
+  }
+
+  const selfServiceToken = issueSelfServiceToken();
+
   const household = await prisma.household.create({
     data: {
       orgId: input.orgId,
@@ -477,6 +551,10 @@ export async function submitSignup(input: SignupSubmission) {
       geocodeSource: input.geocodeSource,
       placementNote: input.placementNote,
       accessNotes: input.accessNotes,
+      needsReview,
+      needsReviewReason,
+      selfServiceTokenHash: selfServiceToken.hash,
+      selfServiceTokenExpiresAt: selfServiceToken.expiresAt,
     },
   });
 
@@ -492,7 +570,7 @@ export async function submitSignup(input: SignupSubmission) {
     },
   });
 
-  return { householdId: household.id, subscriptionId: subscription.id };
+  return { householdId: household.id, subscriptionId: subscription.id, selfServiceToken: selfServiceToken.raw };
 }
 
 /**
@@ -531,6 +609,41 @@ export async function linkHouseholdToUser(
   const result = await prisma.household.updateMany({
     where: { id: householdId, orgId, deletedAt: null },
     data: { userId },
+  });
+  if (result.count === 0) return { ok: false, error: "Household not found." };
+  return { ok: true };
+}
+
+// SPEC.md §8: "a review queue with approve / reject / merge duplicate /
+// fix address" — this v1 covers approve (mark reviewed once the address
+// is confirmed or corrected via the existing household edit page) and
+// surfaces the reason; reject/merge stay manual (delete or edit) rather
+// than dedicated actions until the queue is actually used and it's clear
+// which shortcuts are worth building.
+export async function householdsNeedingReview(session: SessionLike | null | undefined, orgId: string) {
+  const membership = await resolveMembership(session);
+  if (!membership || !isStaff(membership.role)) return [];
+  return prisma.household.findMany({
+    where: { orgId, deletedAt: null, needsReview: true },
+    orderBy: { createdAt: "asc" },
+  });
+}
+
+export interface MarkReviewedResult {
+  ok: boolean;
+  error?: string;
+}
+
+export async function markHouseholdReviewed(
+  session: SessionLike | null | undefined,
+  orgId: string,
+  householdId: string
+): Promise<MarkReviewedResult> {
+  const membership = await resolveMembership(session);
+  if (!membership || !isStaff(membership.role)) return { ok: false, error: "Forbidden" };
+  const result = await prisma.household.updateMany({
+    where: { id: householdId, orgId, deletedAt: null },
+    data: { needsReview: false, needsReviewReason: null },
   });
   if (result.count === 0) return { ok: false, error: "Household not found." };
   return { ok: true };

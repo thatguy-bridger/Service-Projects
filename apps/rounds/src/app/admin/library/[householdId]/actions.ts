@@ -26,6 +26,13 @@ export async function updateHouseholdAction(
     addressInput: String(formData.get("addressInput") ?? "").trim(),
     placementNote: String(formData.get("placementNote") ?? "").trim() || null,
     accessNotes: String(formData.get("accessNotes") ?? "").trim() || null,
+    // An admin editing this record from the review queue (or anywhere
+    // else) and saving it IS the review — clears whatever flagged it,
+    // so fixing an address here is enough; no separate "mark reviewed"
+    // step needed on top of a save that already changed the thing that
+    // needed checking.
+    needsReview: false,
+    needsReviewReason: null,
   });
 
   revalidatePath("/admin/library");

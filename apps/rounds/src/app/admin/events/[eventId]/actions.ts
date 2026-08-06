@@ -14,10 +14,12 @@ import {
   copyHouseholdsToEvent,
   updateEvent,
   updateEventMembershipRole,
+  generateStopsFromSubscriptions,
   type ImportResult,
   type DeleteResult,
   type CopyToEventResult,
   type UpdateEventResult,
+  type GenerateStopsResult,
   type EventStatus,
   type Role,
 } from "@service-projects/database";
@@ -226,6 +228,19 @@ export async function importEventCsv(
     csvText,
   });
 
+  revalidatePath(`/admin/events/${eventId}`);
+  return result;
+}
+
+export async function generateStopsAction(
+  eventId: string,
+  _prevState: GenerateStopsResult,
+  _formData: FormData
+): Promise<GenerateStopsResult> {
+  const session = await getServerSession(authOptions);
+  await requireRole(session, ["OWNER", "ADMIN", "COORDINATOR"], { eventId });
+
+  const result = await generateStopsFromSubscriptions(session, eventId);
   revalidatePath(`/admin/events/${eventId}`);
   return result;
 }

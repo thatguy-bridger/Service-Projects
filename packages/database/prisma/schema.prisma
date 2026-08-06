@@ -246,10 +246,19 @@ model Household {
   geocodeConfidence    Float?
   geocodeSource        String? // "ugrc" | "manual_pin"
   needsReview          Boolean      @default(false)
+  // Freeform, admin-facing only — why this landed in the review queue
+  // ("manual address entry", "possible duplicate of <id>", etc.) so the
+  // queue is actually actionable instead of just a flag with no reason.
+  needsReviewReason    String?
   placementNote        String? // "left of the driveway"
   accessNotes          String? // dog, stairs, sprinklers
   language             String       @default("en")
   selfServiceTokenHash String?
+  // SPEC.md §4.4: 400-day expiry on the self-service link. Null means no
+  // token has been issued yet (pre-Phase-2 households, or ones that
+  // opted for account-linking instead — see householdForUser/
+  // linkHouseholdToUser — and never got a token).
+  selfServiceTokenExpiresAt DateTime?
 
   stops         Stop[]
   subscriptions Subscription[]
