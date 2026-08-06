@@ -704,3 +704,22 @@ had to change. `geocodeSource` on the submitted household records which
 path actually produced the pin (`google` / `osm` / `manual`), so Library
 rows stay honest about provenance regardless of which key is configured
 in a given environment.
+
+## Update — standardized on Places API (New)
+
+The key's API restrictions only listed Places API (New), which broke
+autocomplete with `ApiTargetBlockedMapError` — the classic
+`google.maps.places.Autocomplete` widget this app used depends on the
+legacy "Places API", a separate API from "(New)" despite the name.
+Rather than also enabling the legacy API (which Google has deprecated
+for new projects since March 2025 anyway), `GoogleAddressPicker.tsx`
+now uses `google.maps.places.PlaceAutocompleteElement` — the
+`gmp-select` custom-element replacement that runs on Places API (New).
+It isn't wrapped by `@vis.gl/react-google-maps` yet, so it's built with
+the DOM directly (create the element, append it, listen for
+`gmp-select`, `event.placePrediction.toPlace().fetchFields(...)` for
+the formatted address + lat/lng) inside a `useEffect`, the same pattern
+`OSMAddressPicker.tsx`'s Leaflet map already uses for a non-React
+widget. The draggable-pin reverse-geocode still uses
+`google.maps.Geocoder` (the plain Geocoding API, which was never split
+into legacy/new) — no change needed there.
