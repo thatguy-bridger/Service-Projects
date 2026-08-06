@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { Button, DataTable, type DataTableColumn } from "@service-projects/ui";
 import { t } from "@/copy";
 import {
@@ -67,6 +68,11 @@ export function LibraryResults({
   const [targetEventId, setTargetEventId] = useState("");
   const [copying, setCopying] = useState(false);
   const [copyMessage, setCopyMessage] = useState<string | null>(null);
+  const router = useRouter();
+  // startTransition keeps these navigations client-side (no full page
+  // reload) -- App Router still re-fetches the RSC payload for the new
+  // sort/page, but the browser never does a hard navigation.
+  const [, startTransition] = useTransition();
 
   function sortHref(field: HouseholdSortField) {
     const nextDir = sortBy === field && sortDir === "asc" ? "desc" : "asc";
@@ -91,9 +97,22 @@ export function LibraryResults({
       <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-3)", marginBottom: "var(--space-3)", fontSize: "var(--text-xs)" }}>
         <span style={{ color: "var(--text-muted)" }}>Sort:</span>
         {SORT_COLUMNS.map((col) => (
-          <a key={col.key} href={sortHref(col.sortField)} style={{ color: "inherit", textDecoration: "none" }}>
+          <button
+            key={col.key}
+            type="button"
+            onClick={() => startTransition(() => router.push(sortHref(col.sortField)))}
+            style={{
+              color: "inherit",
+              textDecoration: "none",
+              background: "none",
+              border: "none",
+              padding: 0,
+              font: "inherit",
+              cursor: "pointer",
+            }}
+          >
             {t(col.label)} {sortBy === col.sortField ? (sortDir === "asc" ? "▲" : "▼") : ""}
-          </a>
+          </button>
         ))}
       </div>
 
@@ -114,11 +133,27 @@ export function LibraryResults({
 
       {totalPages > 1 && (
         <div style={{ display: "flex", gap: "var(--space-2)", marginTop: "var(--space-3)", fontSize: "var(--text-sm)" }}>
-          {page > 1 && <a href={pageHref(page - 1)}>{t("admin.library.pagination.prev")}</a>}
+          {page > 1 && (
+            <button
+              type="button"
+              onClick={() => startTransition(() => router.push(pageHref(page - 1)))}
+              style={{ background: "none", border: "none", padding: 0, font: "inherit", color: "inherit", cursor: "pointer" }}
+            >
+              {t("admin.library.pagination.prev")}
+            </button>
+          )}
           <span style={{ color: "var(--text-muted)" }}>
             {t("admin.library.pagination.status", { page, totalPages })}
           </span>
-          {page < totalPages && <a href={pageHref(page + 1)}>{t("admin.library.pagination.next")}</a>}
+          {page < totalPages && (
+            <button
+              type="button"
+              onClick={() => startTransition(() => router.push(pageHref(page + 1)))}
+              style={{ background: "none", border: "none", padding: 0, font: "inherit", color: "inherit", cursor: "pointer" }}
+            >
+              {t("admin.library.pagination.next")}
+            </button>
+          )}
         </div>
       )}
 
