@@ -1,6 +1,6 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@service-projects/core-auth";
-import { defaultOrganization, currentSeasonForOrg, householdForUser } from "@service-projects/database";
+import { defaultOrganization, openEventsForSignup, householdForUser } from "@service-projects/database";
 import { t } from "@/copy";
 import { AppTopbar } from "../../AppTopbar";
 import { SignupFlow } from "./SignupFlow";
@@ -15,11 +15,11 @@ export const dynamic = "force-dynamic";
 export default async function SignupPage() {
   const session = await getServerSession(authOptions);
   const org = await defaultOrganization();
-  const season = org ? await currentSeasonForOrg(org.id) : null;
+  const events = org ? await openEventsForSignup(org.id) : [];
   const linkedHousehold =
     session?.user?.id && org ? await householdForUser(session.user.id, org.id) : null;
 
-  if (!org || !season || season.events.length === 0) {
+  if (!org || events.length === 0) {
     return (
       <>
         <AppTopbar section={t("signup.stepper.holidays")} />
@@ -31,12 +31,14 @@ export default async function SignupPage() {
     );
   }
 
-  const holidays = season.events.map((ev) => ({
+  const holidays = events.map((ev) => ({
     id: ev.id,
-    key: ev.slug.replace(`-${season.year}`, ""),
-    name: ev.name.replace(` ${season.year} — Flag Set-Out`, ""),
+    key: ev.slug,
+    name: ev.name,
     date: ev.serviceStartsAt.toISOString(),
-    priceCents: season.pricingMode === "per_holiday" ? season.priceCents : 0,
+    priceCents: ev.priceCents,
+    categoryId: ev.categoryId,
+    categoryBundlePriceCents: ev.category?.priceCents ?? null,
     mostPopular: ev.slug.startsWith("pioneer_day"),
   }));
 
@@ -51,7 +53,6 @@ export default async function SignupPage() {
       <div className="signup-page">
         <SignupFlow
           orgId={org.id}
-          seasonId={season.id}
           holidays={holidays}
           signedIn={!!session?.user}
           userId={session?.user?.id}

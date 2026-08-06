@@ -17,6 +17,7 @@ export interface OpportunityRow {
   name: string;
   serviceStartsAt: Date;
   status: string;
+  priceCents: number;
   categoryId?: string | null;
 }
 
@@ -76,6 +77,7 @@ export function OpportunitiesTable({
       editable: true,
       selectOptions: ["DRAFT", "OPEN", "CLOSED", "ARCHIVED"],
     },
+    { key: "priceCents", label: "Price ($)", getValue: (r) => (r.priceCents / 100).toFixed(2), editable: true, inputType: "number" },
     // Category is editable per-row here too, not just via the bulk move
     // control below -- either one calls the same scoped setEventCategory.
     {

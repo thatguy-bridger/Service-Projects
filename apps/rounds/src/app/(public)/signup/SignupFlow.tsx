@@ -15,6 +15,11 @@ export interface HolidayOption {
    * server/client component boundary. */
   date: string;
   priceCents: number;
+  categoryId: string | null;
+  /** Set on every event that shares a category with one -- when set,
+   * selecting any subset of that category's events charges this flat
+   * price once instead of summing each event's own priceCents. */
+  categoryBundlePriceCents: number | null;
   mostPopular?: boolean;
 }
 
@@ -33,14 +38,12 @@ export interface InitialHousehold {
 
 export function SignupFlow({
   orgId,
-  seasonId,
   holidays,
   signedIn = false,
   userId,
   initialHousehold,
 }: {
   orgId: string;
-  seasonId: string;
   holidays: HolidayOption[];
   signedIn?: boolean;
   userId?: string;
@@ -70,7 +73,37 @@ export function SignupFlow({
   const [linkCopied, setLinkCopied] = useState(false);
 
   const selectedHolidays = useMemo(() => holidays.filter((h) => selected.has(h.key)), [holidays, selected]);
-  const totalCents = useMemo(() => selectedHolidays.reduce((sum, h) => sum + h.priceCents, 0), [selectedHolidays]);
+
+  // Bundle-aware total: any category with a flat bundle price charges
+  // that price once for however many of its events are selected;
+  // everything else (uncategorized, or a category with no bundle price
+  // set) just sums each selected event's own priceCents.
+  const totalCents = useMemo(() => {
+    const byCategory = new Map<string, HolidayOption[]>();
+    let sum = 0;
+    for (const h of selectedHolidays) {
+      if (h.categoryId) {
+        const group = byCategory.get(h.categoryId) ?? [];
+        group.push(h);
+        byCategory.set(h.categoryId, group);
+      } else {
+        sum += h.priceCents;
+      }
+    }
+    for (const group of byCategory.values()) {
+      const bundlePrice = group[0].categoryBundlePriceCents;
+      sum += bundlePrice !== null ? bundlePrice : group.reduce((s, h) => s + h.priceCents, 0);
+    }
+    return sum;
+  }, [selectedHolidays]);
+
+  // Only set when every selected event shares exactly one category --
+  // a mixed selection across categories (or none at all) leaves this
+  // null, and the Subscription is created without a bundle FK.
+  const selectionCategoryId = useMemo(() => {
+    const ids = new Set(selectedHolidays.map((h) => h.categoryId).filter((id): id is string => id !== null));
+    return ids.size === 1 ? [...ids][0] : null;
+  }, [selectedHolidays]);
 
   function toggleHoliday(key: string) {
     setSelected((prev) => {
@@ -100,7 +133,7 @@ export function SignupFlow({
       try {
         const result = await submitSignup({
           orgId,
-          seasonId,
+          categoryId: selectionCategoryId,
           eventIds: selectedHolidays.map((h) => h.id),
           amountCents: totalCents,
           contactName: contactName.trim(),

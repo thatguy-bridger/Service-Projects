@@ -5,9 +5,10 @@ import { getServerSession } from "next-auth";
 import { authOptions, requireRole } from "@service-projects/core-auth";
 import {
   getOrCreateDefaultOrganization,
-  createSeason,
-  seasonForYear,
   createEvent,
+  createCategory,
+  setEventCategory,
+  categoriesForOrg,
   type EventKind,
 } from "@service-projects/database";
 import { FLAG_HOLIDAYS } from "@/lib/holidays";
@@ -19,13 +20,12 @@ export interface ActionResult {
 }
 
 // One click, matches exactly what packages/database/prisma/seed.mjs does
-// by hand: an org (created if this is the very first season), a Season,
-// and the 7 standard holiday Events, real calendar dates via
-// FLAG_HOLIDAYS. Naming (slug `${key}-${year}`, name
-// `${label} ${year} — Flag Set-Out`) intentionally matches the seed
-// script exactly — apps/rounds/.../signup/page.tsx strips those exact
-// strings back off to display the holiday name.
-export async function generateFlagSeason(_prevState: ActionResult, formData: FormData): Promise<ActionResult> {
+// by hand: an org (created if this is the very first run), a Category
+// for the year (so the 7 events are grouped and can share a bundle
+// price later from /admin/categories), and the 7 standard holiday
+// Events, real calendar dates via FLAG_HOLIDAYS. Each Event gets its own
+// priceCents — no separate Season model.
+export async function generateFlagEvents(_prevState: ActionResult, formData: FormData): Promise<ActionResult> {
   const session = await getServerSession(authOptions);
   await requireRole(session, ["OWNER", "ADMIN"]);
 
@@ -39,19 +39,17 @@ export async function generateFlagSeason(_prevState: ActionResult, formData: For
 
   const org = await getOrCreateDefaultOrganization(orgName);
 
-  const existingSeason = await seasonForYear(org.id, year);
-  if (existingSeason) {
-    return { error: `A season for ${year} already exists.` };
+  const categoryName = `${year} Flag Events`;
+  const existingCategories = await categoriesForOrg(org.id);
+  if (existingCategories.some((c) => c.name === categoryName)) {
+    return { error: `${categoryName} already exists.` };
   }
 
   const priceCents = Math.round(priceDollars * 100);
-  const season = await createSeason({
-    orgId: org.id,
-    year,
-    name: `${year} Flag Season`,
-    priceCents,
-    pricingMode: "per_holiday",
-  });
+  const categoryResult = await createCategory(session, org.id, categoryName);
+  if (!categoryResult.ok || !categoryResult.categoryId) {
+    return { error: categoryResult.error ?? "Could not create a category for this year." };
+  }
 
   const kind: EventKind = "FLAG_SETOUT";
   for (const holiday of FLAG_HOLIDAYS) {
@@ -60,28 +58,30 @@ export async function generateFlagSeason(_prevState: ActionResult, formData: For
     const serviceEndsAt = new Date(serviceStartsAt);
     serviceEndsAt.setUTCHours(serviceStartsAt.getUTCHours() + 4);
 
-    await createEvent({
+    const event = await createEvent({
       orgId: org.id,
-      seasonId: season.id,
       kind,
       name: `${holiday.name} ${year} — Flag Set-Out`,
       slug: `${holiday.key}-${year}`,
       status: "OPEN",
+      priceCents,
       serviceStartsAt,
       serviceEndsAt,
       modules: MODULE_DEFAULTS[kind] as unknown as Record<string, unknown>,
       outcomeSet: { outcomes: OUTCOME_SETS[kind] } as unknown as Record<string, unknown>,
       createdBy: session!.user.id,
     });
+    await setEventCategory(session, org.id, event.id, categoryResult.categoryId);
   }
 
   revalidatePath("/admin/events");
+  revalidatePath("/admin/categories");
   revalidatePath("/signup");
   return { ok: true };
 }
 
 // A single custom event of any kind, for anything outside the standard
-// flag-holiday season (e.g. a one-off fundraiser). Module matrix and
+// flag-holiday year (e.g. a one-off fundraiser). Module matrix and
 // outcome set are always the kind's default — SPEC.md §2.1 lets an admin
 // override either later; there's no override UI yet, so this creates
 // with the sensible default rather than blocking on that.

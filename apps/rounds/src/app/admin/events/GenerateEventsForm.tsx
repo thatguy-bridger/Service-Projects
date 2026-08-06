@@ -3,7 +3,7 @@
 import { useFormState, useFormStatus } from "react-dom";
 import { Button } from "@service-projects/ui";
 import { t } from "@/copy";
-import { generateFlagSeason, type ActionResult } from "./actions";
+import { generateFlagEvents, type ActionResult } from "./actions";
 
 const initialState: ActionResult = {};
 
@@ -16,8 +16,8 @@ function SubmitButton() {
   );
 }
 
-export function GenerateSeasonForm({ defaultOrgName, defaultYear }: { defaultOrgName: string; defaultYear: number }) {
-  const [state, formAction] = useFormState(generateFlagSeason, initialState);
+export function GenerateEventsForm({ defaultOrgName, defaultYear }: { defaultOrgName: string; defaultYear: number }) {
+  const [state, formAction] = useFormState(generateFlagEvents, initialState);
 
   return (
     <form action={formAction} className="admin-formRow">

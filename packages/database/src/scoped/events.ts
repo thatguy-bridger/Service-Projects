@@ -32,17 +32,30 @@ export async function eventForSession(
 
 export interface CreateEventInput {
   orgId: string;
-  seasonId?: string;
   kind: EventKind;
   name: string;
   slug: string;
   status?: EventStatus;
+  priceCents?: number;
   serviceStartsAt: Date;
   serviceEndsAt: Date;
   timezone?: string;
   modules: Record<string, unknown>;
   outcomeSet: Record<string, unknown>;
   createdBy: string;
+}
+
+// Public, unauthenticated read -- the whole point of signup is no
+// account required (SPEC.md §3.2). Every currently-open Event across the
+// org, with its own price and (if it has one) its Category's bundle
+// price -- the replacement for the old "current Season" lookup, which
+// only ever showed one year's flag holidays at a time.
+export async function openEventsForSignup(orgId: string) {
+  return prisma.event.findMany({
+    where: { orgId, deletedAt: null, status: "OPEN" },
+    orderBy: { serviceStartsAt: "asc" },
+    include: { category: { select: { id: true, name: true, priceCents: true } } },
+  });
 }
 
 export interface DeleteEventsResult {
@@ -71,6 +84,7 @@ export async function deleteEvents(
 export interface UpdateEventInput {
   name?: string;
   status?: EventStatus;
+  priceCents?: number;
   serviceStartsAt?: Date;
   serviceEndsAt?: Date;
 }
@@ -103,11 +117,11 @@ export async function createEvent(input: CreateEventInput) {
   return prisma.event.create({
     data: {
       orgId: input.orgId,
-      seasonId: input.seasonId,
       kind: input.kind,
       name: input.name,
       slug: input.slug,
       status: input.status ?? "DRAFT",
+      priceCents: input.priceCents ?? 0,
       serviceStartsAt: input.serviceStartsAt,
       serviceEndsAt: input.serviceEndsAt,
       timezone: input.timezone ?? "America/Denver",

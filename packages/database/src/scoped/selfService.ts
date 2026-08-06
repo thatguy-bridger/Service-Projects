@@ -33,8 +33,7 @@ export interface SelfServiceHolidayRow {
 
 export interface SelfServiceSubscriptionRow {
   subscriptionId: string;
-  seasonName: string;
-  seasonYear: number;
+  label: string;
   status: string;
   cancelledAt: Date | null;
   holidays: SelfServiceHolidayRow[];
@@ -61,7 +60,7 @@ export async function selfServiceView(orgId: string, rawToken: string): Promise<
     where: { householdId: household.id },
     orderBy: { createdAt: "desc" },
     include: {
-      season: true,
+      category: true,
       events: { include: { event: true }, orderBy: { event: { serviceStartsAt: "asc" } } },
     },
   });
@@ -77,8 +76,7 @@ export async function selfServiceView(orgId: string, rawToken: string): Promise<
     },
     subscriptions: subscriptions.map((s) => ({
       subscriptionId: s.id,
-      seasonName: s.season.name,
-      seasonYear: s.season.year,
+      label: s.category?.name ?? "Signup",
       status: s.status,
       cancelledAt: s.cancelledAt,
       holidays: s.events.map((se) => ({

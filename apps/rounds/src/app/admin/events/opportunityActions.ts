@@ -35,6 +35,7 @@ export async function saveOpportunityRowAction(eventId: string, patch: Record<st
   const result = await updateEvent(session, org.id, eventId, {
     name: patch.name,
     status: patch.status as EventStatus | undefined,
+    priceCents: patch.priceCents ? Math.round(Number(patch.priceCents) * 100) : undefined,
     serviceStartsAt,
   });
   revalidatePath("/admin/events");
@@ -92,12 +93,15 @@ export async function addOpportunityAction(
 
   const slug = `${name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")}-${serviceStartsAt.getUTCFullYear()}-${Date.now().toString(36)}`;
 
+  const priceCents = values.priceCents ? Math.round(Number(values.priceCents) * 100) : 0;
+
   const event = await createEvent({
     orgId: org.id,
     kind,
     name,
     slug,
     status: "OPEN",
+    priceCents,
     serviceStartsAt,
     serviceEndsAt: serviceStartsAt,
     modules: MODULE_DEFAULTS[kind] as unknown as Record<string, unknown>,

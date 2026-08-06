@@ -16,7 +16,7 @@ export async function defaultOrganization() {
 /**
  * Bootstraps the one organization this app's real-world scope needs
  * (see the note above) if it doesn't exist yet. Called from the admin
- * "generate a season" flow — gating who can call this is the caller's
+ * "generate this year's flag events" flow — gating who can call this is the caller's
  * job (requireRole against the real session), same convention as
  * setUserRole in apps/rounds/.../admin/users/actions.ts.
  */

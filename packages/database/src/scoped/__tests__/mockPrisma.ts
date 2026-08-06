@@ -42,13 +42,15 @@ export function createPrismaMock() {
       findMany: vi.fn().mockResolvedValue([]),
       findFirst: vi.fn().mockResolvedValue(null),
       updateMany: vi.fn().mockResolvedValue({ count: 1 }),
-      create: vi.fn(),
+      create: vi.fn().mockResolvedValue({ id: "category-mock" }),
       aggregate: vi.fn().mockResolvedValue({ _max: { sortOrder: 0 } }),
     },
     $transaction: vi.fn().mockResolvedValue([]),
     subscription: {
       create: vi.fn(),
+      findFirst: vi.fn().mockResolvedValue(null),
       findUnique: vi.fn().mockResolvedValue(null),
+      update: vi.fn(),
       updateMany: vi.fn().mockResolvedValue({ count: 1 }),
     },
     stop: {
@@ -59,11 +61,6 @@ export function createPrismaMock() {
       updateMany: vi.fn().mockResolvedValue({ count: 1 }),
     },
     $queryRaw: vi.fn().mockResolvedValue([]),
-    season: {
-      findUnique: vi.fn().mockResolvedValue(null),
-      findMany: vi.fn().mockResolvedValue([]),
-      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
-    },
     organization: {
       findFirst: vi.fn().mockResolvedValue(null),
       updateMany: vi.fn().mockResolvedValue({ count: 1 }),

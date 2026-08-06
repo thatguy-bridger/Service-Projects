@@ -96,7 +96,7 @@ async function main() {
     },
   });
 
-  // Clean reseed: wipe this org's previously seeded season/events/stops/
+  // Clean reseed: wipe this org's previously seeded category/events/stops/
   // households instead of accumulating duplicates on repeated runs.
   const previousEvents = await prisma.event.findMany({ where: { orgId: org.id }, select: { id: true } });
   const previousEventIds = previousEvents.map((e) => e.id);
@@ -107,7 +107,7 @@ async function main() {
   }
   await prisma.subscription.deleteMany({ where: { household: { orgId: org.id } } });
   await prisma.household.deleteMany({ where: { orgId: org.id } });
-  await prisma.season.deleteMany({ where: { orgId: org.id } });
+  await prisma.category.deleteMany({ where: { orgId: org.id } });
 
   // SPEC.md §4.2's default holiday list, dated for real using standard US
   // federal-holiday-style rules (see apps/rounds/src/lib/holidays.ts for
@@ -137,15 +137,14 @@ async function main() {
     { key: "veterans_day", name: "Veterans Day", date: new Date(Date.UTC(SEASON_YEAR, 10, 11)) },
   ];
 
-  const season = await prisma.season.create({
+  const category = await prisma.category.create({
     data: {
       orgId: org.id,
-      year: SEASON_YEAR,
-      name: `${SEASON_YEAR} Flag Season`,
-      priceCents: 1200,
-      pricingMode: "per_holiday",
+      name: `${SEASON_YEAR} Flag Events`,
+      slug: `${SEASON_YEAR}-flag-events`,
     },
   });
+  const HOLIDAY_PRICE_CENTS = 1200;
 
   const FLAG_SETOUT_MODULES = {
     publicSignupForm: true,
@@ -174,11 +173,12 @@ async function main() {
     const ev = await prisma.event.create({
       data: {
         orgId: org.id,
-        seasonId: season.id,
+        categoryId: category.id,
         kind: "FLAG_SETOUT",
         name: `${h.name} ${SEASON_YEAR} — Flag Set-Out`,
         slug: `${h.key}-${SEASON_YEAR}`,
         status: "OPEN",
+        priceCents: HOLIDAY_PRICE_CENTS,
         serviceStartsAt,
         serviceEndsAt,
         timezone: "America/Denver",
@@ -190,7 +190,7 @@ async function main() {
     holidayEvents.push({ ...h, event: ev });
   }
 
-  console.log(`Created season ${season.name} with ${holidayEvents.length} holiday events.`);
+  console.log(`Created category ${category.name} with ${holidayEvents.length} holiday events.`);
 
   // Seeded stops attach to Pioneer Day — SPEC.md's own worked example
   // ("Admin opens the Memorial Day event") and the beachhead this org

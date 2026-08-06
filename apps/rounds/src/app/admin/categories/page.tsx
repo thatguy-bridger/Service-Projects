@@ -27,6 +27,7 @@ export default async function CategoriesPage() {
           name: c.name,
           slug: c.slug,
           eventCount: c._count.events,
+          priceCents: c.priceCents,
         }))}
       />
     </Card>

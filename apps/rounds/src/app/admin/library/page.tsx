@@ -31,7 +31,7 @@ export default async function AdminLibraryPage({
     : { households: [], total: 0, page: 1, pageSize: PAGE_SIZE };
 
   const events = org ? await eventsForSession(session, org.id) : [];
-  const eventOptions = events.filter((ev) => ev.seasonId).map((ev) => ({ id: ev.id, name: ev.name }));
+  const eventOptions = events.map((ev) => ({ id: ev.id, name: ev.name }));
   const totalPages = Math.max(1, Math.ceil(result.total / result.pageSize));
 
   return (

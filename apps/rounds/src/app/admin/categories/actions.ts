@@ -7,6 +7,7 @@ import {
   defaultOrganization,
   createCategory,
   renameCategory,
+  setCategoryPrice,
   deleteCategories,
   type CategoryActionResult,
 } from "@service-projects/database";
@@ -28,7 +29,22 @@ export async function saveCategoryRowAction(
   const session = await getServerSession(authOptions);
   const org = await defaultOrganization();
   if (!org) return { ok: false, error: "No organization." };
+
   const result = await renameCategory(session, org.id, id, patch.name ?? "");
+  if (!result.ok) {
+    revalidatePath("/admin/categories");
+    revalidatePath("/admin/events");
+    return result;
+  }
+
+  if (patch.priceCents !== undefined) {
+    const priceCents = patch.priceCents.trim() === "" ? null : Math.round(Number(patch.priceCents) * 100);
+    const priceResult = await setCategoryPrice(session, org.id, id, priceCents);
+    revalidatePath("/admin/categories");
+    revalidatePath("/admin/events");
+    return priceResult;
+  }
+
   revalidatePath("/admin/categories");
   revalidatePath("/admin/events");
   return result;
