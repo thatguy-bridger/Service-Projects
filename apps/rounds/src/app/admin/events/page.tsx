@@ -1,6 +1,6 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@service-projects/core-auth";
-import { defaultOrganization, eventsForSession } from "@service-projects/database";
+import { defaultOrganization, eventsForSession, categoriesForOrg } from "@service-projects/database";
 import { Card, Badge } from "@service-projects/ui";
 import { t } from "@/copy";
 import { EVENT_KINDS, EVENT_KIND_LABELS } from "@/lib/eventKinds";
@@ -23,6 +23,9 @@ export default async function AdminEventsPage() {
   for (const ev of events) {
     counts.set(ev.kind, (counts.get(ev.kind) ?? 0) + 1);
   }
+
+  const categories = org ? await categoriesForOrg(org.id) : [];
+  const uncategorizedCount = events.filter((ev) => !ev.categoryId).length;
 
   return (
     <>
@@ -71,6 +74,37 @@ export default async function AdminEventsPage() {
             </Card>
           </a>
         ))}
+      </div>
+
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "var(--space-6) 0 var(--space-3)" }}>
+        <h2 style={{ margin: 0, fontSize: "var(--text-lg)", fontWeight: "var(--weight-medium)" }}>Your categories</h2>
+        <a href="/admin/categories" style={{ color: "var(--color-accent-600)", fontSize: "var(--text-sm)" }}>
+          Manage categories
+        </a>
+      </div>
+      <div className="admin-columns">
+        {categories.map((cat) => (
+          <a key={cat.id} href={`/admin/events/by-category/${cat.id}`} style={{ textDecoration: "none" }}>
+            <Card>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <h3 style={{ margin: 0, fontSize: "var(--text-base)", fontWeight: "var(--weight-medium)", color: "var(--text-primary)" }}>
+                  {cat.name}
+                </h3>
+                <Badge tone="accent">{cat._count.events}</Badge>
+              </div>
+            </Card>
+          </a>
+        ))}
+        <a href="/admin/events/by-category/uncategorized" style={{ textDecoration: "none" }}>
+          <Card>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <h3 style={{ margin: 0, fontSize: "var(--text-base)", fontWeight: "var(--weight-medium)", color: "var(--text-primary)" }}>
+                Uncategorized
+              </h3>
+              <Badge tone="neutral">{uncategorizedCount}</Badge>
+            </div>
+          </Card>
+        </a>
       </div>
     </>
   );
