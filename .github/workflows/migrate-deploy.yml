@@ -20,6 +20,26 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           DATABASE_URL_UNPOOLED: ${{ secrets.DATABASE_URL_UNPOOLED }}
+      # Baseline: these 7 migrations' schema is already live in production
+      # (the database was never initialized via `migrate deploy`, so Prisma's
+      # own bookkeeping table has no record of them) -- mark them applied
+      # without re-running their SQL, so only the two genuinely new
+      # migrations below get executed for real.
+      - name: Baseline pre-existing migrations
+        run: |
+          for m in \
+            20260805052351_init \
+            20260805063000_five_role_migration_and_phase0_models \
+            20260805063500_nextauth_adapter_tables \
+            20260805071500_flag_subscription_model \
+            20260805144002_drop_route_assignments \
+            20260805153028_add_password_hash \
+            20260805193313_add_onboarded_at; do
+            npx prisma migrate resolve --applied "$m"
+          done
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DATABASE_URL_UNPOOLED: ${{ secrets.DATABASE_URL_UNPOOLED }}
       - run: npx prisma migrate deploy
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
