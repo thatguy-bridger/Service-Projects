@@ -183,6 +183,53 @@ h1, h2, h3, h4 {
   gap: var(--space-3);
 }
 
+/* Category-picker step only: big square tiles instead of the compact
+   list rows used everywhere else in the flow -- there are usually just
+   a couple of categories, so making each one a large, obvious tap
+   target beats a dense list. */
+.signup-categoryGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: var(--space-4);
+}
+
+.signup-categoryCard {
+  aspect-ratio: 1 / 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: var(--space-2);
+  padding: var(--space-5);
+  background: var(--gradient-accent);
+  color: var(--text-on-accent);
+  border: none;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-accent-sm);
+  cursor: pointer;
+  font-family: var(--font-sans);
+  transition: box-shadow var(--duration-fast) var(--ease-standard),
+    transform var(--duration-fast) var(--ease-standard);
+}
+
+.signup-categoryCard:hover {
+  box-shadow: var(--shadow-accent-md);
+  transform: translateY(var(--lift-hover));
+}
+
+.signup-categoryCardName {
+  font-size: var(--text-xl);
+  font-weight: var(--weight-semibold);
+  letter-spacing: -0.01em;
+  line-height: var(--leading-tight);
+}
+
+.signup-categoryCardCount {
+  font-size: var(--text-sm);
+  color: color-mix(in srgb, var(--text-on-accent) 82%, transparent);
+}
+
 .signup-holidayCard {
   display: flex;
   align-items: center;

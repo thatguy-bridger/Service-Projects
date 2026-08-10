@@ -211,24 +211,20 @@ export function SignupFlow({
             <p>Pick a category to see what&apos;s open for signup.</p>
           </div>
 
-          <div className="signup-list">
+          <div className="signup-categoryGrid" style={{ padding: "var(--space-4) var(--space-5)" }}>
             {categoryBuckets.map((cat) => (
               <button
                 key={cat.key}
                 type="button"
-                className="signup-holidayCard"
+                className="signup-categoryCard"
                 onClick={() => {
                   setSelectedCategoryKey(cat.key);
                   setStep("holidays");
                 }}
               >
-                <span className="signup-holidayText">
-                  <span className="signup-holidayNameRow">
-                    <span className="signup-holidayName">{cat.name}</span>
-                  </span>
-                  <span className="signup-holidayDate">
-                    {cat.count} event{cat.count === 1 ? "" : "s"}
-                  </span>
+                <span className="signup-categoryCardName">{cat.name}</span>
+                <span className="signup-categoryCardCount">
+                  {cat.count} event{cat.count === 1 ? "" : "s"}
                 </span>
               </button>
             ))}
