@@ -96,10 +96,16 @@ describe("deleteCategories", () => {
     expect(prismaMock.category.updateMany).not.toHaveBeenCalled();
   });
 
-  it("soft-deletes (sets deletedAt) scoped to the caller's org", async () => {
-    await deleteCategories(ADMIN, "org-1", ["cat-1", "cat-2"]);
+  it("soft-deletes (sets deletedAt) scoped to the caller's org, and cascades to its events", async () => {
+    prismaMock.$transaction.mockResolvedValueOnce([{ count: 2 }, { count: 5 }]);
+    const result = await deleteCategories(ADMIN, "org-1", ["cat-1", "cat-2"]);
+    expect(result).toEqual({ deleted: 2 });
     expect(prismaMock.category.updateMany).toHaveBeenCalledWith({
       where: { id: { in: ["cat-1", "cat-2"] }, orgId: "org-1" },
+      data: { deletedAt: expect.any(Date) },
+    });
+    expect(prismaMock.event.updateMany).toHaveBeenCalledWith({
+      where: { categoryId: { in: ["cat-1", "cat-2"] }, orgId: "org-1", deletedAt: null },
       data: { deletedAt: expect.any(Date) },
     });
   });
