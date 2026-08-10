@@ -320,6 +320,14 @@ model Subscription {
 
   createdAt DateTime @default(now())
 
+  // A real DB-level uniqueness rule also exists here, enforced by a raw
+  // migration (20260806150000_subscription_category_unique) rather than
+  // this @@index: a partial unique index on (householdId, categoryId)
+  // WHERE categoryId IS NOT NULL. Prisma's schema DSL can't express
+  // "unique, but only when non-null" directly, so it isn't declared as
+  // @@unique here -- but it's real at the database level and is what
+  // actually prevents two concurrent requests from creating duplicate
+  // Subscriptions for the same household + category.
   @@index([householdId, categoryId])
 }
 

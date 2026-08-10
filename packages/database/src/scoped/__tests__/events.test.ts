@@ -9,7 +9,7 @@ vi.mock("../../client", async () => {
 const { prisma } = await import("../../client");
 const prismaMock = prisma as unknown as PrismaMock;
 
-const { eventsForSession, deleteEvents, updateEvent } = await import("../events");
+const { eventsForSession, deleteEvents, updateEvent, openEventsForSignup } = await import("../events");
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -41,6 +41,17 @@ describe("eventsForSession", () => {
     expect(prismaMock.event.findMany).toHaveBeenCalledWith({
       where: { orgId: "org-1", deletedAt: null, status: "OPEN" },
       orderBy: { serviceStartsAt: "asc" },
+    });
+  });
+});
+
+describe("openEventsForSignup", () => {
+  it("is public — no session, no membership check — and only ever asks for OPEN, non-deleted events", async () => {
+    await openEventsForSignup("org-1");
+    expect(prismaMock.event.findMany).toHaveBeenCalledWith({
+      where: { orgId: "org-1", deletedAt: null, status: "OPEN" },
+      orderBy: { serviceStartsAt: "asc" },
+      include: { category: { select: { id: true, name: true, priceCents: true } } },
     });
   });
 });

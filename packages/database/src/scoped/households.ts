@@ -293,6 +293,37 @@ export interface CopyToEventResult {
 
 // The other half of the library: copy already-known households straight
 // into an event — no CSV in the middle. Same underlying write as
+// Prisma's composite-unique upsert doesn't handle a nullable key field
+// well (categoryId is null for uncategorized subscriptions), so this
+// can't use `prisma.subscription.upsert` on (householdId, categoryId)
+// directly. Instead: try to create, and if a concurrent request already
+// created the same household+category Subscription first, the database's
+// partial unique index (categoryId IS NOT NULL -- see migration
+// 20260806150000_subscription_category_unique) raises Postgres error
+// 23505, which Prisma surfaces as P2002; catch that and fetch/update the
+// row the other request just created. This is race-safe for a real
+// category; a null category has no such constraint by design (a
+// household may have several separate uncategorized Subscriptions), so
+// concurrent null-category calls each just create their own row, which
+// is the intended behavior there.
+async function findOrCreateSubscription(
+  householdId: string,
+  categoryId: string | null,
+  initial: { status: SubStatus; amountCents: number }
+) {
+  try {
+    return await prisma.subscription.create({
+      data: { householdId, categoryId, status: initial.status, amountCents: initial.amountCents },
+    });
+  } catch (err) {
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+      const existing = await prisma.subscription.findFirst({ where: { householdId, categoryId } });
+      if (existing) return existing;
+    }
+    throw err;
+  }
+}
+
 // importHouseholdsForEvent (upsert Subscription + SubscriptionEvent),
 // just addressed by existing Household id instead of parsed CSV rows.
 export async function copyHouseholdsToEvent(
@@ -308,18 +339,10 @@ export async function copyHouseholdsToEvent(
     const household = await prisma.household.findFirst({ where: { id: householdId, orgId: input.orgId } });
     if (!household) continue; // skip anything that doesn't belong to this org
 
-    // Prisma's composite-unique upsert doesn't handle a nullable key
-    // field well (categoryId is null for uncategorized events), so this
-    // finds/creates manually rather than upserting on
-    // (householdId, categoryId) directly.
-    let subscription = await prisma.subscription.findFirst({
-      where: { householdId, categoryId: input.categoryId },
+    const subscription = await findOrCreateSubscription(householdId, input.categoryId, {
+      status: "PENDING_PAYMENT",
+      amountCents: input.amountCents,
     });
-    if (!subscription) {
-      subscription = await prisma.subscription.create({
-        data: { householdId, categoryId: input.categoryId, status: "PENDING_PAYMENT", amountCents: input.amountCents },
-      });
-    }
 
     await prisma.subscriptionEvent.upsert({
       where: { subscriptionId_eventId: { subscriptionId: subscription.id, eventId: input.eventId } },
@@ -546,20 +569,12 @@ export async function importHouseholdsForEvent(
           },
         });
 
-    // Same nullable-composite-key workaround as copyHouseholdsToEvent.
-    let subscription = await prisma.subscription.findFirst({
-      where: { householdId: household.id, categoryId: input.categoryId },
-    });
-    if (subscription) {
-      subscription = await prisma.subscription.update({
-        where: { id: subscription.id },
-        data: { status, amountCents },
-      });
-    } else {
-      subscription = await prisma.subscription.create({
-        data: { householdId: household.id, categoryId: input.categoryId, status, amountCents },
-      });
-    }
+    // findOrCreateSubscription races safely (see its own comment) but
+    // doesn't apply this row's status/amountCents to an existing match
+    // the way an upsert would -- a re-import should overwrite those, so
+    // that's applied as a second, explicit update here.
+    const subscription = await findOrCreateSubscription(household.id, input.categoryId, { status, amountCents });
+    await prisma.subscription.update({ where: { id: subscription.id }, data: { status, amountCents } });
 
     await prisma.subscriptionEvent.upsert({
       where: { subscriptionId_eventId: { subscriptionId: subscription.id, eventId: input.eventId } },
