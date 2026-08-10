@@ -51,11 +51,17 @@ export interface CreateEventInput {
 // price -- the replacement for the old "current Season" lookup, which
 // only ever showed one year's flag holidays at a time.
 export async function openEventsForSignup(orgId: string) {
-  return prisma.event.findMany({
+  const events = await prisma.event.findMany({
     where: { orgId, deletedAt: null, status: "OPEN" },
     orderBy: { serviceStartsAt: "asc" },
-    include: { category: { select: { id: true, name: true, priceCents: true } } },
+    include: { category: { select: { id: true, name: true, priceCents: true, deletedAt: true } } },
   });
+  // Prisma's `include` doesn't filter by the related row's own
+  // deletedAt -- a soft-deleted Category (categoriesForOrg already
+  // hides it from every admin list) would otherwise still show its
+  // name/bundle price here, letting a deleted category leak back into
+  // the public signup grouping through an event that still points at it.
+  return events.map((e) => (e.category?.deletedAt ? { ...e, category: null, categoryId: null } : e));
 }
 
 export interface DeleteEventsResult {
