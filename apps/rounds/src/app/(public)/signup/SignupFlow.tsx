@@ -4,7 +4,7 @@ import { useMemo, useState, useTransition } from "react";
 import { Badge, Button } from "@service-projects/ui";
 import { t } from "@/copy";
 import { formatCentsFull, formatCentsShort, formatHolidayDate } from "@/lib/format";
-import { submitSignup } from "./actions";
+import { submitSignup, sendSelfServiceLinkAction } from "./actions";
 import { AddressPicker, type PlaceResult } from "@/components/address/AddressPicker";
 
 export interface HolidayOption {
@@ -16,6 +16,7 @@ export interface HolidayOption {
   date: string;
   priceCents: number;
   categoryId: string | null;
+  categoryName: string | null;
   /** Set on every event that shares a category with one -- when set,
    * selecting any subset of that category's events charges this flat
    * price once instead of summing each event's own priceCents. */
@@ -23,7 +24,13 @@ export interface HolidayOption {
   mostPopular?: boolean;
 }
 
-type Step = "holidays" | "address" | "contact" | "done";
+const UNCATEGORIZED_KEY = "__uncategorized__";
+
+function categoryKey(h: HolidayOption): string {
+  return h.categoryId ?? UNCATEGORIZED_KEY;
+}
+
+type Step = "category" | "holidays" | "address" | "contact" | "done";
 
 export interface InitialHousehold {
   contactName: string;
@@ -49,8 +56,32 @@ export function SignupFlow({
   userId?: string;
   initialHousehold?: InitialHousehold | null;
 }) {
-  const [step, setStep] = useState<Step>("holidays");
+  // Every distinct category among the open events, in first-seen order
+  // ("Uncategorized" bucket included whenever at least one event has no
+  // category). A single bucket means there's nothing real to choose
+  // between, so that case skips straight to the holidays step instead
+  // of showing a one-option screen.
+  const categoryBuckets = useMemo(() => {
+    const seen = new Map<string, { key: string; name: string; count: number }>();
+    for (const h of holidays) {
+      const key = categoryKey(h);
+      const existing = seen.get(key);
+      if (existing) existing.count++;
+      else seen.set(key, { key, name: h.categoryName ?? "Uncategorized", count: 1 });
+    }
+    return [...seen.values()];
+  }, [holidays]);
+
+  const [step, setStep] = useState<Step>(categoryBuckets.length > 1 ? "category" : "holidays");
+  const [selectedCategoryKey, setSelectedCategoryKey] = useState<string | null>(
+    categoryBuckets.length === 1 ? categoryBuckets[0].key : null
+  );
   const [selected, setSelected] = useState<Set<string>>(new Set());
+
+  const visibleHolidays = useMemo(
+    () => (selectedCategoryKey ? holidays.filter((h) => categoryKey(h) === selectedCategoryKey) : holidays),
+    [holidays, selectedCategoryKey]
+  );
 
   // Prefilled from the signed-in household's last linked record, if any
   // — a returning, account-linked household doesn't retype this.
@@ -70,7 +101,10 @@ export function SignupFlow({
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submittedHouseholdId, setSubmittedHouseholdId] = useState<string | null>(null);
   const [selfServiceLink, setSelfServiceLink] = useState<string | null>(null);
+  const [selfServiceToken, setSelfServiceToken] = useState<string | null>(null);
   const [linkCopied, setLinkCopied] = useState(false);
+  const [sendingLink, setSendingLink] = useState(false);
+  const [sendLinkMessage, setSendLinkMessage] = useState<string | null>(null);
 
   const selectedHolidays = useMemo(() => holidays.filter((h) => selected.has(h.key)), [holidays, selected]);
 
@@ -154,6 +188,7 @@ export function SignupFlow({
           accessNotes: accessNotes.trim() || undefined,
         });
         setSubmittedHouseholdId(result.householdId);
+        setSelfServiceToken(result.selfServiceToken);
         setSelfServiceLink(`${window.location.origin}/h/${result.selfServiceToken}`);
         setStep("done");
       } catch (err) {
@@ -165,11 +200,43 @@ export function SignupFlow({
     });
   }
 
-  const stepIndex = { holidays: 0, address: 1, contact: 2, done: 2 }[step];
+  const stepIndex = { category: 0, holidays: 0, address: 1, contact: 2, done: 2 }[step];
 
   return (
     <div className="signup-shell">
-      {step !== "done" && (
+      {step === "category" && (
+        <>
+          <div className="signup-intro">
+            <h1>What kind of event?</h1>
+            <p>Pick a category to see what&apos;s open for signup.</p>
+          </div>
+
+          <div className="signup-list">
+            {categoryBuckets.map((cat) => (
+              <button
+                key={cat.key}
+                type="button"
+                className="signup-holidayCard"
+                onClick={() => {
+                  setSelectedCategoryKey(cat.key);
+                  setStep("holidays");
+                }}
+              >
+                <span className="signup-holidayText">
+                  <span className="signup-holidayNameRow">
+                    <span className="signup-holidayName">{cat.name}</span>
+                  </span>
+                  <span className="signup-holidayDate">
+                    {cat.count} event{cat.count === 1 ? "" : "s"}
+                  </span>
+                </span>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+
+      {step !== "category" && step !== "done" && (
         <div className="signup-header">
           <div className="signup-stepperTrack">
             {[0, 1, 2].map((i) => (
@@ -198,7 +265,7 @@ export function SignupFlow({
           </div>
 
           <div className="signup-list">
-            {holidays.map((h) => {
+            {visibleHolidays.map((h) => {
               const isSelected = selected.has(h.key);
               return (
                 <button
@@ -229,6 +296,18 @@ export function SignupFlow({
           </div>
 
           <div className="signup-footer">
+            {categoryBuckets.length > 1 && (
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => {
+                  setSelected(new Set());
+                  setStep("category");
+                }}
+              >
+                Change category
+              </Button>
+            )}
             <div className="signup-footerTotals">
               <span className="signup-footerPrice">{formatCentsFull(totalCents)}</span>
               <span className="signup-footerCount">
@@ -358,7 +437,7 @@ export function SignupFlow({
           <h1>{t("signup.done.title")}</h1>
           <p>{t("signup.done.body", { count: selectedHolidays.length })}</p>
 
-          {selfServiceLink && (
+          {selfServiceLink && signedIn && (
             <div className="signup-reviewBox" style={{ textAlign: "left" }}>
               <h2 className="signup-reviewTitle">{t("signup.done.selfService.title")}</h2>
               <p style={{ color: "var(--text-secondary)", fontSize: "var(--text-sm)", margin: "0 0 var(--space-3)" }}>
@@ -372,6 +451,36 @@ export function SignupFlow({
                   onFocus={(e) => e.currentTarget.select()}
                   style={{ flex: 1, minWidth: 220 }}
                 />
+                {contactEmail.trim() ? (
+                  <Button
+                    type="button"
+                    variant="primary"
+                    disabled={sendingLink || !selfServiceToken}
+                    onClick={async () => {
+                      if (!selfServiceToken) return;
+                      setSendingLink(true);
+                      setSendLinkMessage(null);
+                      const result = await sendSelfServiceLinkAction({
+                        orgId,
+                        token: selfServiceToken,
+                        channel: "email",
+                      });
+                      setSendingLink(false);
+                      setSendLinkMessage(result.ok ? "Sent — check your inbox." : result.error ?? "Could not send.");
+                    }}
+                  >
+                    {sendingLink ? "Sending…" : "Email me this link"}
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    disabled
+                    title="Text messaging isn't set up yet"
+                  >
+                    Text me this link
+                  </Button>
+                )}
                 <Button
                   type="button"
                   variant="secondary"
@@ -385,6 +494,20 @@ export function SignupFlow({
                   {linkCopied ? t("signup.done.selfService.copied") : t("signup.done.selfService.copy")}
                 </Button>
               </div>
+              {sendLinkMessage && (
+                <p style={{ color: "var(--text-secondary)", fontSize: "var(--text-sm)", marginTop: "var(--space-2)" }}>
+                  {sendLinkMessage}
+                </p>
+              )}
+            </div>
+          )}
+
+          {selfServiceLink && !signedIn && (
+            <div className="signup-reviewBox" style={{ textAlign: "left" }}>
+              <h2 className="signup-reviewTitle">{t("signup.done.selfService.title")}</h2>
+              <p style={{ color: "var(--text-secondary)", fontSize: "var(--text-sm)", margin: 0 }}>
+                Sign in or create an account below to view and manage your signup link.
+              </p>
             </div>
           )}
 
