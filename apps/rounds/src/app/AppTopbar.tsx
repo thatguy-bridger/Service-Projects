@@ -1,11 +1,12 @@
 import { cookies } from "next/headers";
 import { getServerSession } from "next-auth";
-import { authOptions } from "@service-projects/core-auth";
+import { authOptions, can } from "@service-projects/core-auth";
 import { Badge, BrandMark, Button } from "@service-projects/ui";
 import { t } from "@/copy";
 import { AccountControls } from "./AccountControls";
 import { PreviewRoleSwitcher } from "./PreviewRoleSwitcher";
 import { getEffectiveRole, PREVIEW_COOKIE } from "@/lib/previewRole";
+import { TopNavMenu, type NavCategory } from "./TopNavMenu";
 
 // The one topbar every screen renders — signed in or not, admin or
 // public. Before this, page.tsx/welcome/admin each hand-rolled their own
@@ -19,7 +20,41 @@ export async function AppTopbar({ section }: { section?: string }) {
   const role = signedIn ? getEffectiveRole(session) ?? realRole : null;
   const canPreview = signedIn && (realRole === "OWNER" || realRole === "ADMIN");
   const currentPreview = cookies().get(PREVIEW_COOKIE)?.value ?? "REAL";
-  const isStaffRole = role === "OWNER" || role === "ADMIN" || role === "COORDINATOR";
+  const isAdmin = can(role, "users.manageRoles") || realRole === "ADMIN"; // admin/layout.tsx's own gate is OWNER/ADMIN
+  const canSeeRoutes = signedIn && can(role, "route.viewAssigned");
+
+  // Every category is built unconditionally, then filtered down to
+  // items this role can actually reach -- so "someone with no
+  // permission" (signed out, or a PREVIEWER) still gets a nav bar, just
+  // a shorter one, rather than a special-cased empty state.
+  const categories: NavCategory[] = [
+    {
+      label: "Browse",
+      items: [
+        { label: "Home", href: "/" },
+        { label: "Sign up", href: "/signup" },
+      ],
+    },
+    {
+      label: "My work",
+      items: canSeeRoutes ? [{ label: "My routes", href: "/my-routes" }] : [],
+    },
+    {
+      label: "Admin",
+      items:
+        signedIn && isAdmin
+          ? [
+              { label: "Events", href: "/admin/events" },
+              { label: "Categories", href: "/admin/categories" },
+              { label: "Keys", href: "/admin/keys" },
+              { label: "Library", href: "/admin/library" },
+              { label: "Review queue", href: "/admin/review" },
+              { label: "Users", href: "/admin/users" },
+              { label: "Settings", href: "/admin/settings" },
+            ]
+          : [],
+    },
+  ];
 
   return (
     <header className="rounds-topbar" style={{ justifyContent: "space-between" }}>
@@ -39,16 +74,7 @@ export async function AppTopbar({ section }: { section?: string }) {
             <span style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)" }}>{section}</span>
           </>
         )}
-        {signedIn && isStaffRole && (
-          <a href="/admin/events" style={{ fontSize: "var(--text-sm)", color: "var(--color-accent-600)" }}>
-            {t("nav.admin")}
-          </a>
-        )}
-        {signedIn && (
-          <a href="/my-routes" style={{ fontSize: "var(--text-sm)", color: "var(--color-accent-600)" }}>
-            My routes
-          </a>
-        )}
+        <TopNavMenu categories={categories} />
         {signedIn && role && <Badge tone="accent">{role}</Badge>}
       </span>
       <span style={{ display: "flex", alignItems: "center", gap: "var(--space-4)", flexWrap: "wrap" }}>

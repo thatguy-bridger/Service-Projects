@@ -1,11 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@service-projects/ui";
 import { createEventsAction, type BulkEventInput } from "./actions";
 import { EVENT_KINDS, EVENT_KIND_LABELS } from "@/lib/eventKinds";
 import { FLAG_HOLIDAYS } from "@/lib/holidays";
+import { EventCalendar } from "./EventCalendar";
+import { generateRecurringDates, FREQUENCY_LABELS, type Frequency } from "@/lib/recurrence";
 
 const NEW_CATEGORY_VALUE = "__new__";
 const UNCATEGORIZED_VALUE = "";
@@ -30,6 +32,15 @@ export function CreateEventsForm({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+
+  // Shared by both the recurrence generator and calendar clicks -- one
+  // "what am I adding" template instead of asking twice.
+  const [template, setTemplate] = useState({ name: "", kind: "FLAG_SETOUT", priceDollars: "" });
+  const [frequency, setFrequency] = useState<Frequency>("weekly");
+  const [recurStart, setRecurStart] = useState("");
+  const [occurrences, setOccurrences] = useState("4");
+
+  const selectedDates = useMemo(() => new Set(rows.map((r) => r.serviceStartsAt).filter(Boolean)), [rows]);
 
   function updateRow(index: number, patch: Partial<BulkEventInput>) {
     setRows((prev) => prev.map((r, i) => (i === index ? { ...r, ...patch } : r)));
@@ -59,6 +70,33 @@ export function CreateEventsForm({
     setNewCategoryName(`${defaultYear} Flag Events`);
   }
 
+  // Appends -- doesn't touch rows already there, so this composes with
+  // prefill/manual rows/calendar clicks instead of overwriting them.
+  function generateRecurring() {
+    const dates = generateRecurringDates(recurStart, frequency, Number(occurrences) || 0);
+    if (dates.length === 0) return;
+    const name = template.name.trim() || "Event";
+    setRows((prev) => [
+      ...prev,
+      ...dates.map((date) => ({ name, kind: template.kind, serviceStartsAt: date, priceDollars: template.priceDollars })),
+    ]);
+  }
+
+  // Calendar click: remove this date's row(s) if it's already selected
+  // (a plain, un-annoying way to undo a click), otherwise add one row
+  // for that date using the current template.
+  function handleToggleDate(dateKey: string) {
+    setRows((prev) => {
+      const hasDate = prev.some((r) => r.serviceStartsAt === dateKey);
+      if (hasDate) return prev.filter((r) => r.serviceStartsAt !== dateKey);
+      const name = template.name.trim() || "Event";
+      const templated = { name, kind: template.kind, serviceStartsAt: dateKey, priceDollars: template.priceDollars };
+      // Replace a single leftover blank row instead of piling up empties.
+      if (prev.length === 1 && !prev[0].name && !prev[0].serviceStartsAt) return [templated];
+      return [...prev, templated];
+    });
+  }
+
   async function handleSubmit() {
     setSubmitting(true);
     setError(null);
@@ -82,7 +120,7 @@ export function CreateEventsForm({
   }
 
   return (
-    <div style={{ display: "grid", gap: "var(--space-3)" }}>
+    <div style={{ display: "grid", gap: "var(--space-4)" }}>
       <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-end", gap: "var(--space-3)" }}>
         <label className="signup-field" style={{ marginBottom: 0, minWidth: 220 }}>
           <span className="signup-fieldLabel">Category</span>
@@ -110,6 +148,90 @@ export function CreateEventsForm({
         <Button type="button" variant="secondary" onClick={prefillFlagHolidays}>
           Prefill 7 flag holidays
         </Button>
+      </div>
+
+      <div className="card" style={{ display: "grid", gap: "var(--space-3)" }}>
+        <h3 style={{ margin: 0, fontSize: "var(--text-base)", fontWeight: "var(--weight-medium)" }}>
+          Event template
+        </h3>
+        <p style={{ margin: 0, color: "var(--text-secondary)", fontSize: "var(--text-sm)" }}>
+          Used by both the recurrence generator below and clicking dates on the calendar — each event still gets
+          its own editable row, so rename or reprice any of them afterward.
+        </p>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-3)" }}>
+          <label className="signup-field" style={{ marginBottom: 0, flex: "2 1 200px" }}>
+            <span className="signup-fieldLabel">Name</span>
+            <input
+              className="signup-input"
+              type="text"
+              value={template.name}
+              onChange={(e) => setTemplate({ ...template, name: e.target.value })}
+            />
+          </label>
+          <label className="signup-field" style={{ marginBottom: 0, flex: "1 1 140px" }}>
+            <span className="signup-fieldLabel">Kind</span>
+            <select
+              className="signup-input"
+              value={template.kind}
+              onChange={(e) => setTemplate({ ...template, kind: e.target.value })}
+            >
+              {EVENT_KINDS.map((k) => (
+                <option key={k} value={k}>
+                  {EVENT_KIND_LABELS[k]}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="signup-field" style={{ marginBottom: 0, flex: "1 1 100px" }}>
+            <span className="signup-fieldLabel">Price ($)</span>
+            <input
+              className="signup-input"
+              type="number"
+              min={0}
+              step="0.01"
+              value={template.priceDollars}
+              onChange={(e) => setTemplate({ ...template, priceDollars: e.target.value })}
+            />
+          </label>
+        </div>
+
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-3)", alignItems: "flex-end" }}>
+          <label className="signup-field" style={{ marginBottom: 0 }}>
+            <span className="signup-fieldLabel">Repeats</span>
+            <select className="signup-input" value={frequency} onChange={(e) => setFrequency(e.target.value as Frequency)}>
+              {(Object.keys(FREQUENCY_LABELS) as Frequency[]).map((f) => (
+                <option key={f} value={f}>
+                  {FREQUENCY_LABELS[f]}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="signup-field" style={{ marginBottom: 0 }}>
+            <span className="signup-fieldLabel">Starting</span>
+            <input className="signup-input" type="date" value={recurStart} onChange={(e) => setRecurStart(e.target.value)} />
+          </label>
+          <label className="signup-field" style={{ marginBottom: 0, width: 100 }}>
+            <span className="signup-fieldLabel"># of events</span>
+            <input
+              className="signup-input"
+              type="number"
+              min={1}
+              max={104}
+              value={occurrences}
+              onChange={(e) => setOccurrences(e.target.value)}
+            />
+          </label>
+          <Button type="button" variant="secondary" onClick={generateRecurring} disabled={!recurStart}>
+            Generate recurring events
+          </Button>
+        </div>
+
+        <div>
+          <span className="signup-fieldLabel" style={{ display: "block", marginBottom: "var(--space-1)" }}>
+            Or click dates on the calendar to add/remove events (using the template above)
+          </span>
+          <EventCalendar selectedDates={selectedDates} onToggleDate={handleToggleDate} />
+        </div>
       </div>
 
       <div style={{ display: "grid", gap: "var(--space-2)" }}>
