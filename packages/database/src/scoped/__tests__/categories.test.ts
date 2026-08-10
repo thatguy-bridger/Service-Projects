@@ -9,7 +9,9 @@ vi.mock("../../client", async () => {
 const { prisma } = await import("../../client");
 const prismaMock = prisma as unknown as PrismaMock;
 
-const { createCategory, renameCategory, deleteCategories, setEventCategory } = await import("../categories");
+const { createCategory, renameCategory, setCategoryPrice, deleteCategories, setEventCategory } = await import(
+  "../categories"
+);
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -54,6 +56,36 @@ describe("renameCategory", () => {
       where: { id: "cat-1", orgId: "org-1", deletedAt: null },
       data: { name: "New name" },
     });
+  });
+});
+
+describe("setCategoryPrice", () => {
+  it("rejects a non-staff caller", async () => {
+    const result = await setCategoryPrice(VOLUNTEER, "org-1", "cat-1", 1200);
+    expect(result.ok).toBe(false);
+    expect(prismaMock.category.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("sets a flat bundle price, scoped to the caller's org", async () => {
+    const result = await setCategoryPrice(ADMIN, "org-1", "cat-1", 1200);
+    expect(result.ok).toBe(true);
+    expect(prismaMock.category.updateMany).toHaveBeenCalledWith({
+      where: { id: "cat-1", orgId: "org-1", deletedAt: null },
+      data: { priceCents: 1200 },
+    });
+  });
+
+  it("clears the bundle price back to null (sum-of-events pricing)", async () => {
+    await setCategoryPrice(ADMIN, "org-1", "cat-1", null);
+    expect(prismaMock.category.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { priceCents: null } })
+    );
+  });
+
+  it("reports not-found when nothing in this org matches", async () => {
+    prismaMock.category.updateMany.mockResolvedValueOnce({ count: 0 });
+    const result = await setCategoryPrice(ADMIN, "org-1", "cat-missing", 1200);
+    expect(result).toEqual({ ok: false, error: "Category not found." });
   });
 });
 

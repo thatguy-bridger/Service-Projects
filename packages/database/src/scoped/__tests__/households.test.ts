@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { Prisma } from "@prisma/client";
 import type { PrismaMock } from "./mockPrisma";
 
 vi.mock("../../client", async () => {
@@ -18,7 +19,17 @@ const {
   householdsNeedingReview,
   markHouseholdReviewed,
   findNearbyHouseholds,
+  copyHouseholdsToEvent,
+  importHouseholdsForEvent,
+  submitSignup,
 } = await import("../households");
+
+function uniqueConstraintError() {
+  return new Prisma.PrismaClientKnownRequestError("Unique constraint failed", {
+    code: "P2002",
+    clientVersion: "test",
+  });
+}
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -169,5 +180,186 @@ describe("findNearbyHouseholds", () => {
     const result = await findNearbyHouseholds("org-1", 40.5, -111.8, "hh-1");
     expect(result).toEqual([{ id: "hh-2", contactName: "Neighbor" }]);
     expect(prismaMock.$queryRaw).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("copyHouseholdsToEvent", () => {
+  it("rejects a non-staff caller", async () => {
+    const result = await copyHouseholdsToEvent(VOLUNTEER, {
+      orgId: "org-1",
+      eventId: "event-1",
+      categoryId: null,
+      amountCents: 1200,
+      householdIds: ["hh-1"],
+    });
+    expect(result).toEqual({ copied: 0, error: "Forbidden" });
+    expect(prismaMock.subscription.create).not.toHaveBeenCalled();
+  });
+
+  it("skips a household id that doesn't belong to this org", async () => {
+    prismaMock.household.findFirst.mockResolvedValueOnce(null);
+    const result = await copyHouseholdsToEvent(OWNER, {
+      orgId: "org-1",
+      eventId: "event-1",
+      categoryId: null,
+      amountCents: 1200,
+      householdIds: ["hh-other-org"],
+    });
+    expect(result).toEqual({ copied: 0 });
+    expect(prismaMock.subscription.create).not.toHaveBeenCalled();
+  });
+
+  it("creates a fresh Subscription for a new household+category pair", async () => {
+    prismaMock.household.findFirst.mockResolvedValueOnce({ id: "hh-1", orgId: "org-1" });
+    prismaMock.subscription.create.mockResolvedValueOnce({ id: "sub-1" });
+    const result = await copyHouseholdsToEvent(OWNER, {
+      orgId: "org-1",
+      eventId: "event-1",
+      categoryId: "cat-1",
+      amountCents: 1200,
+      householdIds: ["hh-1"],
+    });
+    expect(result).toEqual({ copied: 1 });
+    expect(prismaMock.subscription.create).toHaveBeenCalledWith({
+      data: { householdId: "hh-1", categoryId: "cat-1", status: "PENDING_PAYMENT", amountCents: 1200 },
+    });
+    expect(prismaMock.subscriptionEvent.upsert).toHaveBeenCalledWith({
+      where: { subscriptionId_eventId: { subscriptionId: "sub-1", eventId: "event-1" } },
+      update: {},
+      create: { subscriptionId: "sub-1", eventId: "event-1" },
+    });
+  });
+
+  it("reuses the existing Subscription when a concurrent request already created it (P2002 race)", async () => {
+    prismaMock.household.findFirst.mockResolvedValueOnce({ id: "hh-1", orgId: "org-1" });
+    prismaMock.subscription.create.mockRejectedValueOnce(uniqueConstraintError());
+    prismaMock.subscription.findFirst.mockResolvedValueOnce({ id: "sub-existing" });
+    const result = await copyHouseholdsToEvent(OWNER, {
+      orgId: "org-1",
+      eventId: "event-1",
+      categoryId: "cat-1",
+      amountCents: 1200,
+      householdIds: ["hh-1"],
+    });
+    expect(result).toEqual({ copied: 1 });
+    expect(prismaMock.subscriptionEvent.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { subscriptionId_eventId: { subscriptionId: "sub-existing", eventId: "event-1" } } })
+    );
+  });
+
+  it("re-throws a non-conflict error instead of swallowing it", async () => {
+    prismaMock.household.findFirst.mockResolvedValueOnce({ id: "hh-1", orgId: "org-1" });
+    prismaMock.subscription.create.mockRejectedValueOnce(new Error("connection lost"));
+    await expect(
+      copyHouseholdsToEvent(OWNER, {
+        orgId: "org-1",
+        eventId: "event-1",
+        categoryId: "cat-1",
+        amountCents: 1200,
+        householdIds: ["hh-1"],
+      })
+    ).rejects.toThrow("connection lost");
+  });
+});
+
+describe("importHouseholdsForEvent", () => {
+  const baseInput = { orgId: "org-1", categoryId: "cat-1" as string | null, eventId: "event-1" };
+
+  it("rejects a non-staff caller", async () => {
+    const result = await importHouseholdsForEvent(VOLUNTEER, { ...baseInput, csvText: "Name,Address\nA,1 Main St" });
+    expect(result.imported).toBe(0);
+    expect(result.errors[0].reason).toBe("Forbidden");
+  });
+
+  it("skips a row missing Name or Address and records why", async () => {
+    const result = await importHouseholdsForEvent(OWNER, { ...baseInput, csvText: "Name,Address\n,1 Main St" });
+    expect(result.imported).toBe(0);
+    expect(result.errors).toEqual([{ row: 2, reason: "Missing Name or Address" }]);
+  });
+
+  it("creates a household and Subscription for a valid row, applying this row's amount/status", async () => {
+    prismaMock.household.findFirst.mockResolvedValueOnce(null); // no email match
+    prismaMock.household.create.mockResolvedValueOnce({ id: "hh-new" });
+    prismaMock.subscription.create.mockResolvedValueOnce({ id: "sub-1" });
+    const result = await importHouseholdsForEvent(OWNER, {
+      ...baseInput,
+      csvText: "Name,Address,Amount,Status\nJane Doe,1 Main St,12.00,ACTIVE",
+    });
+    expect(result.imported).toBe(1);
+    expect(prismaMock.subscription.update).toHaveBeenCalledWith({
+      where: { id: "sub-1" },
+      data: { status: "ACTIVE", amountCents: 1200 },
+    });
+  });
+
+  it("reuses the Subscription a concurrent import already created (P2002 race), then applies this row's data", async () => {
+    prismaMock.household.findFirst.mockResolvedValueOnce(null);
+    prismaMock.household.create.mockResolvedValueOnce({ id: "hh-new" });
+    prismaMock.subscription.create.mockRejectedValueOnce(uniqueConstraintError());
+    prismaMock.subscription.findFirst.mockResolvedValueOnce({ id: "sub-existing" });
+    const result = await importHouseholdsForEvent(OWNER, {
+      ...baseInput,
+      csvText: "Name,Address,Amount\nJane Doe,1 Main St,12.00",
+    });
+    expect(result.imported).toBe(1);
+    expect(prismaMock.subscription.update).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "sub-existing" } })
+    );
+  });
+});
+
+describe("submitSignup", () => {
+  const baseInput = {
+    orgId: "org-1",
+    categoryId: null as string | null,
+    eventIds: ["event-1", "event-2"],
+    amountCents: 2400,
+    contactName: "Jane Doe",
+    addressInput: "1 Main St",
+    address: {},
+    lat: 40.5,
+    lng: -111.8,
+    geocodeSource: "google",
+  };
+
+  it("creates the Household and a single Subscription covering every selected event", async () => {
+    prismaMock.$queryRaw.mockResolvedValueOnce([]); // no nearby duplicates
+    prismaMock.household.create.mockResolvedValueOnce({ id: "hh-new" });
+    prismaMock.subscription.create.mockResolvedValueOnce({ id: "sub-1" });
+    const result = await submitSignup(baseInput);
+    expect(result.householdId).toBe("hh-new");
+    expect(result.subscriptionId).toBe("sub-1");
+    expect(prismaMock.subscription.create).toHaveBeenCalledWith({
+      data: {
+        householdId: "hh-new",
+        categoryId: null,
+        status: "PENDING_PAYMENT",
+        amountCents: 2400,
+        events: { create: [{ eventId: "event-1" }, { eventId: "event-2" }] },
+      },
+    });
+  });
+
+  it("flags needsReview when the address wasn't Google-picked", async () => {
+    prismaMock.household.create.mockResolvedValueOnce({ id: "hh-new" });
+    prismaMock.subscription.create.mockResolvedValueOnce({ id: "sub-1" });
+    await submitSignup({ ...baseInput, geocodeSource: "manual" });
+    expect(prismaMock.household.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ needsReview: true, needsReviewReason: "Address entered manually, no map pin." }),
+      })
+    );
+  });
+
+  it("flags needsReview when a nearby household already exists (possible duplicate)", async () => {
+    prismaMock.$queryRaw.mockResolvedValueOnce([{ id: "hh-2", contactName: "Neighbor" }]);
+    prismaMock.household.create.mockResolvedValueOnce({ id: "hh-new" });
+    prismaMock.subscription.create.mockResolvedValueOnce({ id: "sub-1" });
+    await submitSignup(baseInput);
+    expect(prismaMock.household.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ needsReview: true, needsReviewReason: expect.stringContaining("Possible duplicate") }),
+      })
+    );
   });
 });
