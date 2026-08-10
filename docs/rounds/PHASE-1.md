@@ -885,3 +885,56 @@ renamed from `generateFlagSeason`) now creates a `Category` for the year
 instead of a `Season` and assigns each of the 7 holiday events to it.
 The Settings page's dedicated "Seasons" table is gone — price is edited
 directly on each event (`/admin/events`) or bundle (`/admin/categories`).
+
+## Update — categorized top nav, recurring events + calendar picker, start of Phase 6
+
+Nav: the topbar's two hardcoded links (Admin, My routes) became a real
+categorized nav bar (`TopNavMenu`) — Browse / My work / Admin dropdowns,
+built server-side in `AppTopbar.tsx` from the same capability checks
+(`can()`, `route.viewAssigned`, `users.manageRoles`) the rest of the app
+already uses, filtered down before ever reaching the client. A signed-out
+visitor or a bare Previewer still gets a real (shorter) nav bar instead
+of a special-cased empty state.
+
+Event creator: added a template (name/kind/price) driving both a
+"Repeats" generator (weekly/biweekly/monthly/yearly × count,
+`generateRecurringDates` in `src/lib/recurrence.ts`, pure and unit
+tested) and a calendar date-picker — moved into a modal on request
+("Open calendar picker") with a short explanation, rather than sitting
+inline and taking up space unused. Also added real `.dialog*` CSS to
+`packages/ui/src/components.css` — `DataTable`'s three existing modals
+referenced those class names with no CSS ever defined for them, so they
+were rendering unstyled; now all four modals share one style.
+
+Also fixed two real bugs a self-review turned up in the Season-removal
+commit: editing only a category's bundle price silently no-opped
+(blocked by an unrelated empty-name check in `renameCategory`), and the
+nullable-composite-key workaround for `Subscription` had a real
+concurrency race (two rapid requests for the same household+category
+could each create one) — closed with a Postgres partial unique index
+(`WHERE categoryId IS NOT NULL`) plus a shared `findOrCreateSubscription`
+helper that creates-then-catches-P2002 instead of check-then-create.
+
+**Started Phase 6** (SPEC.md §21), the two pieces buildable without a
+map component or the UGRC credentials the rest of the phase needs
+(territory drawing/fill — still deferred, flagged in
+`OPEN-QUESTIONS.md`):
+- Paired event creation: `Event.pairedEventId` existed in the schema
+  since Phase 0 but was never used. `createPairedEvent` creates the
+  FLAG_SETOUT↔FLAG_PICKUP counterpart as a DRAFT one day later, links
+  both events, and clones every `Stop` onto it fresh (UNASSIGNED, no
+  route — "empty routes" per spec) with `carriedFromStopId` (also
+  existed, unused) pointing back at its source. A "Create pickup/
+  set-out event" button on the event's Settings tab.
+- "Import from last year": clones every event in an existing category
+  into a brand-new category shifted forward by N years (dates, and the
+  year inside the name if present) — same kind/price/module JSON as the
+  source (not recomputed from today's defaults, so per-event
+  customization survives), all DRAFT for review.
+
+Territory drawing/fill, the rest of Phase 6, still needs an actual map
+component (nothing in this app renders a real map yet — the Phase 3
+route builder ended up table-based, not the visual lasso-select the spec
+describes) and, for the fill step specifically, a UGRC developer key
+this environment doesn't have. Flagging both as real scope, not
+oversights, before picking this back up.
