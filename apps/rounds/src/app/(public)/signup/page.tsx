@@ -38,6 +38,7 @@ export default async function SignupPage() {
     date: ev.serviceStartsAt.toISOString(),
     priceCents: ev.priceCents,
     categoryId: ev.categoryId,
+    categoryName: ev.category?.name ?? null,
     categoryBundlePriceCents: ev.category?.priceCents ?? null,
     mostPopular: ev.slug.startsWith("pioneer_day"),
   }));
