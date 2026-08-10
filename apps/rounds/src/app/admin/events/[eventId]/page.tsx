@@ -40,6 +40,7 @@ export default async function AdminEventDetailPage({ params }: { params: { event
   const people = await membershipsForEvent(session, params.eventId);
   const categories = await categoriesForOrg(org.id);
   const routes = await routesForEvent(session, params.eventId);
+  const pairedEvent = event.pairedEventId ? await eventForSession(session, org.id, event.pairedEventId) : null;
 
   return (
     <>
@@ -99,6 +100,9 @@ export default async function AdminEventDetailPage({ params }: { params: { event
         categories={categories.map((c) => ({ id: c.id, name: c.name }))}
         currentCategoryId={event.categoryId}
         routes={routes}
+        kind={event.kind}
+        pairedEventId={event.pairedEventId}
+        pairedEventName={pairedEvent?.name ?? null}
       />
 
       <p style={{ marginTop: "var(--space-4)" }}>

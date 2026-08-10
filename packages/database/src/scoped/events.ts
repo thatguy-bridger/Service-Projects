@@ -111,6 +111,99 @@ export async function updateEvent(
   return { ok: true };
 }
 
+// SPEC.md §2.1/§6: FLAG_SETOUT <-> FLAG_PICKUP is the only pairing
+// today, in both directions -- a pickup event can be created from a
+// set-out event or vice versa.
+const PAIR_KIND: Partial<Record<EventKind, EventKind>> = {
+  FLAG_SETOUT: "FLAG_PICKUP",
+  FLAG_PICKUP: "FLAG_SETOUT",
+};
+
+export interface CreatePairedEventResult {
+  ok: boolean;
+  error?: string;
+  eventId?: string;
+}
+
+/**
+ * SPEC.md §6/Phase 6: "a Memorial Day pickup event clones its set-out
+ * stops with empty routes." Creates the paired event (same category,
+ * DRAFT so an admin reviews the date/price before it's public) and
+ * copies every Stop from the source event onto it -- fresh (UNASSIGNED,
+ * no routeId), each one's `carriedFromStopId` pointing back at the stop
+ * it came from. Modules/outcomeSet are the caller's job to resolve (the
+ * kind's default module matrix), same as createEvent -- this file
+ * doesn't hardcode app-specific module data.
+ */
+export async function createPairedEvent(
+  session: SessionLike | null | undefined,
+  orgId: string,
+  eventId: string,
+  input: {
+    name: string;
+    slug: string;
+    serviceStartsAt: Date;
+    serviceEndsAt: Date;
+    modules: Record<string, unknown>;
+    outcomeSet: Record<string, unknown>;
+    createdBy: string;
+  }
+): Promise<CreatePairedEventResult> {
+  const membership = await resolveMembership(session, eventId);
+  if (!membership || !isStaff(membership.role)) return { ok: false, error: "Forbidden" };
+
+  const source = await prisma.event.findFirst({ where: { id: eventId, orgId, deletedAt: null } });
+  if (!source) return { ok: false, error: "Event not found." };
+  if (source.pairedEventId) return { ok: false, error: "This event already has a paired event." };
+
+  const pairedKind = PAIR_KIND[source.kind];
+  if (!pairedKind) return { ok: false, error: `${source.kind} events can't be paired.` };
+
+  const paired = await prisma.event.create({
+    data: {
+      orgId,
+      categoryId: source.categoryId,
+      kind: pairedKind,
+      name: input.name,
+      slug: input.slug,
+      status: "DRAFT",
+      priceCents: 0, // the pickup is covered by the original signup, not a separate charge
+      serviceStartsAt: input.serviceStartsAt,
+      serviceEndsAt: input.serviceEndsAt,
+      timezone: source.timezone,
+      modules: input.modules as Prisma.InputJsonValue,
+      outcomeSet: input.outcomeSet as Prisma.InputJsonValue,
+      createdBy: input.createdBy,
+    },
+  });
+
+  await prisma.event.update({ where: { id: paired.id }, data: { pairedEventId: source.id } });
+  await prisma.event.update({ where: { id: source.id }, data: { pairedEventId: paired.id } });
+
+  const sourceStops = await prisma.stop.findMany({ where: { eventId: source.id } });
+  if (sourceStops.length > 0) {
+    await prisma.stop.createMany({
+      data: sourceStops.map((s) => ({
+        eventId: paired.id,
+        source: s.source,
+        householdId: s.householdId,
+        carriedFromStopId: s.id,
+        status: "UNASSIGNED" as const,
+        lat: s.lat,
+        lng: s.lng,
+        addressLine: s.addressLine,
+        label: s.label,
+        placementNote: s.placementNote,
+        accessNotes: s.accessNotes,
+        priority: s.priority,
+        estimatedMinutes: s.estimatedMinutes,
+      })),
+    });
+  }
+
+  return { ok: true, eventId: paired.id };
+}
+
 // Write side of eventsForSession above. Gating who can call this is the
 // caller's job — see apps/rounds/.../admin/events/actions.ts.
 export async function createEvent(input: CreateEventInput) {

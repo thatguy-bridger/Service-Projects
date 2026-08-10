@@ -9,7 +9,9 @@ vi.mock("../../client", async () => {
 const { prisma } = await import("../../client");
 const prismaMock = prisma as unknown as PrismaMock;
 
-const { eventsForSession, deleteEvents, updateEvent, openEventsForSignup } = await import("../events");
+const { eventsForSession, deleteEvents, updateEvent, openEventsForSignup, createPairedEvent } = await import(
+  "../events"
+);
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -90,5 +92,124 @@ describe("updateEvent — cross-org isolation", () => {
     prismaMock.event.updateMany.mockResolvedValueOnce({ count: 0 });
     const result = await updateEvent(ADMIN, "org-1", "ev-1", { name: "New name" });
     expect(result).toEqual({ ok: false, error: "Event not found." });
+  });
+});
+
+describe("createPairedEvent", () => {
+  const pairedInput = {
+    name: "Pioneer Day 2027 — Flag Pickup",
+    slug: "pioneer-day-2027-pickup",
+    serviceStartsAt: new Date("2027-07-25"),
+    serviceEndsAt: new Date("2027-07-25"),
+    modules: {},
+    outcomeSet: {},
+    createdBy: "u-admin",
+  };
+
+  it("rejects a non-staff caller", async () => {
+    const result = await createPairedEvent(VOLUNTEER, "org-1", "ev-1", pairedInput);
+    expect(result).toEqual({ ok: false, error: "Forbidden" });
+    expect(prismaMock.event.create).not.toHaveBeenCalled();
+  });
+
+  it("fails when the source event doesn't exist in this org", async () => {
+    prismaMock.event.findFirst.mockResolvedValueOnce(null);
+    const result = await createPairedEvent(ADMIN, "org-1", "ev-1", pairedInput);
+    expect(result).toEqual({ ok: false, error: "Event not found." });
+  });
+
+  it("refuses to pair an event that's already paired", async () => {
+    prismaMock.event.findFirst.mockResolvedValueOnce({
+      id: "ev-1",
+      orgId: "org-1",
+      kind: "FLAG_SETOUT",
+      pairedEventId: "ev-existing-pair",
+    });
+    const result = await createPairedEvent(ADMIN, "org-1", "ev-1", pairedInput);
+    expect(result.ok).toBe(false);
+    expect(result.error).toMatch(/already has a paired event/);
+    expect(prismaMock.event.create).not.toHaveBeenCalled();
+  });
+
+  it("refuses to pair a kind with no defined pairing (e.g. FUNDRAISER)", async () => {
+    prismaMock.event.findFirst.mockResolvedValueOnce({
+      id: "ev-1",
+      orgId: "org-1",
+      kind: "FUNDRAISER",
+      pairedEventId: null,
+    });
+    const result = await createPairedEvent(ADMIN, "org-1", "ev-1", pairedInput);
+    expect(result.ok).toBe(false);
+    expect(prismaMock.event.create).not.toHaveBeenCalled();
+  });
+
+  it("creates a FLAG_PICKUP as DRAFT with priceCents 0, links both events, and clones every stop", async () => {
+    prismaMock.event.findFirst.mockResolvedValueOnce({
+      id: "ev-setout",
+      orgId: "org-1",
+      kind: "FLAG_SETOUT",
+      categoryId: "cat-1",
+      pairedEventId: null,
+      timezone: "America/Denver",
+    });
+    prismaMock.event.create.mockResolvedValueOnce({ id: "ev-pickup" });
+    prismaMock.stop.findMany.mockResolvedValueOnce([
+      {
+        id: "stop-1",
+        source: "SUBSCRIPTION",
+        householdId: "hh-1",
+        lat: 40.5,
+        lng: -111.8,
+        addressLine: "1 Main St",
+        label: null,
+        placementNote: "left of driveway",
+        accessNotes: null,
+        priority: 0,
+        estimatedMinutes: 4,
+      },
+    ]);
+
+    const result = await createPairedEvent(ADMIN, "org-1", "ev-setout", pairedInput);
+
+    expect(result).toEqual({ ok: true, eventId: "ev-pickup" });
+    expect(prismaMock.event.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ kind: "FLAG_PICKUP", status: "DRAFT", priceCents: 0, categoryId: "cat-1" }),
+      })
+    );
+    expect(prismaMock.event.update).toHaveBeenCalledWith({
+      where: { id: "ev-pickup" },
+      data: { pairedEventId: "ev-setout" },
+    });
+    expect(prismaMock.event.update).toHaveBeenCalledWith({
+      where: { id: "ev-setout" },
+      data: { pairedEventId: "ev-pickup" },
+    });
+    expect(prismaMock.stop.createMany).toHaveBeenCalledWith({
+      data: [
+        expect.objectContaining({
+          eventId: "ev-pickup",
+          carriedFromStopId: "stop-1",
+          householdId: "hh-1",
+          status: "UNASSIGNED",
+        }),
+      ],
+    });
+  });
+
+  it("doesn't call stop.createMany when the source event has no stops", async () => {
+    prismaMock.event.findFirst.mockResolvedValueOnce({
+      id: "ev-setout",
+      orgId: "org-1",
+      kind: "FLAG_SETOUT",
+      categoryId: null,
+      pairedEventId: null,
+      timezone: "America/Denver",
+    });
+    prismaMock.event.create.mockResolvedValueOnce({ id: "ev-pickup" });
+    prismaMock.stop.findMany.mockResolvedValueOnce([]);
+
+    await createPairedEvent(ADMIN, "org-1", "ev-setout", pairedInput);
+    expect(prismaMock.stop.createMany).not.toHaveBeenCalled();
   });
 });

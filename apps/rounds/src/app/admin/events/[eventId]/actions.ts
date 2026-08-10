@@ -14,14 +14,27 @@ import {
   updateEvent,
   updateEventMembershipRole,
   generateStopsFromSubscriptions,
+  createPairedEvent,
   type ImportResult,
   type DeleteResult,
   type CopyToEventResult,
   type UpdateEventResult,
   type GenerateStopsResult,
+  type CreatePairedEventResult,
   type EventStatus,
   type Role,
+  type EventKind,
 } from "@service-projects/database";
+import { MODULE_DEFAULTS, OUTCOME_SETS } from "@/lib/eventKinds";
+
+const PAIR_KIND: Partial<Record<EventKind, EventKind>> = {
+  FLAG_SETOUT: "FLAG_PICKUP",
+  FLAG_PICKUP: "FLAG_SETOUT",
+};
+const PAIR_LABEL: Partial<Record<EventKind, string>> = {
+  FLAG_PICKUP: "Pickup",
+  FLAG_SETOUT: "Set-Out",
+};
 
 export interface MembershipActionResult {
   error?: string;
@@ -206,6 +219,46 @@ export async function importEventCsv(
   });
 
   revalidatePath(`/admin/events/${eventId}`);
+  return result;
+}
+
+export async function createPairedEventAction(eventId: string): Promise<CreatePairedEventResult> {
+  const session = await getServerSession(authOptions);
+  await requireRole(session, ["OWNER", "ADMIN"]);
+
+  const org = await defaultOrganization();
+  if (!org) return { ok: false, error: "No organization set up yet." };
+
+  const source = await eventForSession(session, org.id, eventId);
+  if (!source) return { ok: false, error: "Event not found." };
+
+  const pairedKind = PAIR_KIND[source.kind];
+  if (!pairedKind) return { ok: false, error: `${source.kind} events can't be paired.` };
+
+  const label = PAIR_LABEL[pairedKind] ?? pairedKind;
+  const sourceLabel = PAIR_LABEL[source.kind];
+  const name = sourceLabel ? source.name.replace(sourceLabel, label) : `${source.name} (${label})`;
+  const slug = `${source.slug}-${label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${Date.now().toString(36)}`;
+
+  // Pickup defaults to the day after set-out (a common real-world gap);
+  // an admin can move it from the "Event Dates" tab afterward.
+  const serviceStartsAt = new Date(source.serviceStartsAt);
+  serviceStartsAt.setUTCDate(serviceStartsAt.getUTCDate() + 1);
+  const serviceEndsAt = new Date(serviceStartsAt);
+  serviceEndsAt.setUTCHours(serviceEndsAt.getUTCHours() + 4);
+
+  const result = await createPairedEvent(session, org.id, eventId, {
+    name,
+    slug,
+    serviceStartsAt,
+    serviceEndsAt,
+    modules: MODULE_DEFAULTS[pairedKind] as unknown as Record<string, unknown>,
+    outcomeSet: { outcomes: OUTCOME_SETS[pairedKind] } as unknown as Record<string, unknown>,
+    createdBy: session!.user.id,
+  });
+
+  revalidatePath(`/admin/events/${eventId}`);
+  revalidatePath("/admin/events");
   return result;
 }
 

@@ -24,7 +24,8 @@ export function createPrismaMock() {
       findMany: vi.fn().mockResolvedValue([]),
       findFirst: vi.fn().mockResolvedValue(null),
       updateMany: vi.fn().mockResolvedValue({ count: 1 }),
-      create: vi.fn(),
+      create: vi.fn().mockResolvedValue({ id: "event-mock" }),
+      update: vi.fn(),
     },
     membership: {
       findFirst: vi.fn().mockResolvedValue(null),
@@ -59,6 +60,7 @@ export function createPrismaMock() {
       findFirst: vi.fn().mockResolvedValue(null),
       findMany: vi.fn().mockResolvedValue([]),
       create: vi.fn().mockResolvedValue({ id: "stop-mock" }),
+      createMany: vi.fn().mockResolvedValue({ count: 0 }),
       update: vi.fn(),
       updateMany: vi.fn().mockResolvedValue({ count: 1 }),
     },
