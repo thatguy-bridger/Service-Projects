@@ -97,11 +97,16 @@ export async function setCategoryPrice(
   return { ok: true };
 }
 
-// Soft delete, matching the Event/Household pattern elsewhere -- events
-// already under this category just fall back to "Uncategorized" (their
-// categoryId still points here, but every read path in this file filters
-// deleted categories out of the browsable list, and the event itself is
-// untouched, so nothing referencing it breaks).
+// Soft delete -- and, per explicit feedback, cascades to every Event
+// still in that category too. The original design left those events
+// live and just re-bucketed them as "Uncategorized" (their categoryId
+// unchanged, only the category's own name/browsability hidden), on the
+// theory that a category is just a label and deleting a label shouldn't
+// delete what it was labeling. In practice that reads as a bug: an
+// admin deleting a category (e.g. a duplicate/test batch of flag
+// events) expects those events gone from signup, not silently
+// reappearing uncategorized. Both updates run in one transaction so a
+// category is never left half-deleted with its events still live.
 export async function deleteCategories(
   session: SessionLike | null | undefined,
   orgId: string,
@@ -110,10 +115,11 @@ export async function deleteCategories(
   const membership = await resolveMembership(session);
   if (!membership || !isStaff(membership.role)) return { deleted: 0 };
 
-  const result = await prisma.category.updateMany({
-    where: { id: { in: categoryIds }, orgId },
-    data: { deletedAt: new Date() },
-  });
+  const deletedAt = new Date();
+  const [result] = await prisma.$transaction([
+    prisma.category.updateMany({ where: { id: { in: categoryIds }, orgId }, data: { deletedAt } }),
+    prisma.event.updateMany({ where: { categoryId: { in: categoryIds }, orgId, deletedAt: null }, data: { deletedAt } }),
+  ]);
   return { deleted: result.count };
 }
 
