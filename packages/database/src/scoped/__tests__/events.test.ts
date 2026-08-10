@@ -53,8 +53,20 @@ describe("openEventsForSignup", () => {
     expect(prismaMock.event.findMany).toHaveBeenCalledWith({
       where: { orgId: "org-1", deletedAt: null, status: "OPEN" },
       orderBy: { serviceStartsAt: "asc" },
-      include: { category: { select: { id: true, name: true, priceCents: true } } },
+      include: { category: { select: { id: true, name: true, priceCents: true, deletedAt: true } } },
     });
+  });
+
+  it("hides a soft-deleted category from the grouping instead of leaking its name through the join", async () => {
+    prismaMock.event.findMany.mockResolvedValueOnce([
+      {
+        id: "ev-1",
+        categoryId: "cat-deleted",
+        category: { id: "cat-deleted", name: "Old category", priceCents: null, deletedAt: new Date() },
+      },
+    ]);
+    const result = await openEventsForSignup("org-1");
+    expect(result).toEqual([expect.objectContaining({ categoryId: null, category: null })]);
   });
 });
 
