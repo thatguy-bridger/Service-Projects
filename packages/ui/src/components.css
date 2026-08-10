@@ -19,8 +19,10 @@
   border-radius: var(--radius-md);
   border: 1px solid transparent;
   cursor: pointer;
-  transition: background-color var(--duration-fast) var(--ease-standard),
-    border-color var(--duration-fast) var(--ease-standard);
+  transition: background var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard),
+    box-shadow var(--duration-fast) var(--ease-standard),
+    transform var(--duration-fast) var(--ease-standard);
 }
 .btn:focus-visible {
   outline: none;
@@ -29,6 +31,9 @@
 .btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+.btn:active:not(:disabled) {
+  transform: translateY(1px);
 }
 
 /* Every button a volunteer taps outdoors — SPEC.md §12.2. */
@@ -39,20 +44,30 @@
 }
 
 .btn-primary {
-  background: var(--color-accent-500);
+  background: var(--gradient-accent);
   color: var(--text-on-accent);
+  box-shadow: var(--shadow-accent-sm);
 }
 .btn-primary:hover:not(:disabled) {
-  background: var(--color-accent-600);
+  background: var(--gradient-accent-hover);
+  box-shadow: var(--shadow-accent-md);
+  transform: translateY(var(--lift-hover));
+}
+.btn-primary:active:not(:disabled) {
+  box-shadow: var(--shadow-accent-sm);
 }
 
 .btn-secondary {
   background: var(--surface-raised);
   color: var(--text-primary);
   border-color: var(--border-default);
+  box-shadow: var(--shadow-sm);
 }
 .btn-secondary:hover:not(:disabled) {
-  border-color: var(--border-strong);
+  border-color: var(--color-accent-400);
+  color: var(--color-accent-600);
+  box-shadow: var(--shadow-md);
+  transform: translateY(var(--lift-hover));
 }
 
 .btn-ghost {
@@ -66,9 +81,12 @@
 .btn-danger {
   background: var(--color-danger-500);
   color: #fff;
+  box-shadow: var(--shadow-sm);
 }
 .btn-danger:hover:not(:disabled) {
-  opacity: 0.9;
+  background: color-mix(in srgb, var(--color-danger-500) 85%, black);
+  box-shadow: var(--shadow-md);
+  transform: translateY(var(--lift-hover));
 }
 
 .card {
@@ -77,10 +95,26 @@
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
   padding: var(--space-6);
+  transition: box-shadow var(--duration-base) var(--ease-standard),
+    border-color var(--duration-base) var(--ease-standard),
+    transform var(--duration-base) var(--ease-standard);
 }
 .elev-sm { box-shadow: var(--shadow-sm); }
 .elev-md { box-shadow: var(--shadow-md); }
 .elev-lg { box-shadow: var(--shadow-lg); }
+
+/* Opt-in for a card that's also a clickable target (category tiles,
+   list rows) -- plain informational cards don't get this, only ones a
+   parent marks as interactive, so hover affordance always matches
+   whether the card actually does something. */
+.card--interactive {
+  cursor: pointer;
+}
+.card--interactive:hover {
+  border-color: var(--color-accent-300);
+  box-shadow: var(--shadow-md);
+  transform: translateY(var(--lift-hover));
+}
 
 .hr {
   height: 1px;
@@ -152,7 +186,7 @@
   gap: var(--space-2);
   min-height: 200px;
   border-radius: var(--radius-lg);
-  background: linear-gradient(135deg, var(--color-accent-500), var(--color-accent-700));
+  background: var(--gradient-accent-hover);
   color: white;
 }
 .image-placeholder-caption {

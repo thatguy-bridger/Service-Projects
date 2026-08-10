@@ -70,7 +70,7 @@ export default async function AdminEventsPage() {
       <div className="admin-columns">
         {categories.map((cat) => (
           <a key={cat.id} href={`/admin/events/by-category/${cat.id}`} style={{ textDecoration: "none" }}>
-            <Card>
+            <Card className="card--interactive">
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <h3 style={{ margin: 0, fontSize: "var(--text-base)", fontWeight: "var(--weight-medium)", color: "var(--text-primary)" }}>
                   {cat.name}
@@ -81,7 +81,7 @@ export default async function AdminEventsPage() {
           </a>
         ))}
         <a href="/admin/events/by-category/uncategorized" style={{ textDecoration: "none" }}>
-          <Card>
+          <Card className="card--interactive">
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <h3 style={{ margin: 0, fontSize: "var(--text-base)", fontWeight: "var(--weight-medium)", color: "var(--text-primary)" }}>
                 Uncategorized

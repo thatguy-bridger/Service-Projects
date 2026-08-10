@@ -36,7 +36,7 @@ export default async function MyRoutesPage() {
           <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
             {routes.map((r) => (
               <a key={r.id} href={`/my-routes/${r.id}`} style={{ textDecoration: "none" }}>
-                <Card>
+                <Card className="card--interactive">
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "var(--space-3)" }}>
                     <div>
                       <p style={{ margin: 0, fontWeight: "var(--weight-semibold)", color: "var(--text-primary)" }}>{r.name}</p>

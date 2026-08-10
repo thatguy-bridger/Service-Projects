@@ -45,7 +45,12 @@ h1, h2, h3, h4 {
   box-sizing: border-box;
   padding: var(--space-4) var(--space-6);
   border-bottom: 1px solid var(--border-default);
-  background: var(--surface-raised);
+  background: color-mix(in srgb, var(--surface-raised) 88%, transparent);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  position: sticky;
+  top: 0;
+  z-index: 30;
 }
 
 @media (max-width: 640px) {
@@ -61,7 +66,10 @@ h1, h2, h3, h4 {
 }
 
 .rounds-hero {
-  padding: var(--space-12) 0;
+  padding: var(--space-12) var(--space-6);
+  margin: 0 0 var(--space-4);
+  background: var(--gradient-page);
+  border-radius: var(--radius-lg);
 }
 
 .rounds-hero h1 {
@@ -188,12 +196,26 @@ h1, h2, h3, h4 {
   text-align: left;
   cursor: pointer;
   width: 100%;
+  transition: box-shadow var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard),
+    transform var(--duration-fast) var(--ease-standard);
+}
+
+.signup-holidayCard:hover {
+  border-color: var(--color-accent-300);
+  box-shadow: var(--shadow-md);
+  transform: translateY(var(--lift-hover));
 }
 
 .signup-holidayCard--selected {
   background: var(--color-accent-50);
   border: 2px solid var(--color-accent-500);
+  box-shadow: var(--shadow-accent-sm);
   padding: 14px 15px;
+}
+
+.signup-holidayCard--selected:hover {
+  transform: none;
 }
 
 .signup-checkbox {
@@ -312,6 +334,15 @@ h1, h2, h3, h4 {
   color: var(--text-primary);
   font-family: var(--font-sans);
   font-size: var(--text-base);
+  transition: border-color var(--duration-fast) var(--ease-standard),
+    box-shadow var(--duration-fast) var(--ease-standard);
+}
+
+.signup-input:focus-visible,
+.signup-input:focus {
+  outline: none;
+  border-color: var(--color-accent-500);
+  box-shadow: var(--focus-ring);
 }
 
 /* google.maps.places.PlaceAutocompleteElement (gmp-place-autocomplete,
@@ -465,15 +496,21 @@ gmp-place-autocomplete.signup-input::part(input) {
   text-decoration: none;
   border-bottom: 2px solid transparent;
   white-space: nowrap;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  transition: color var(--duration-fast) var(--ease-standard),
+    background var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard);
 }
 
 .admin-tab:hover {
   color: var(--text-primary);
+  background: var(--surface-sunken);
 }
 
 .admin-tab--active {
   color: var(--color-accent-600);
   border-bottom-color: var(--color-accent-500);
+  background: var(--color-accent-50);
 }
 
 .admin-tableWrap {
