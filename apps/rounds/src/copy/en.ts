@@ -261,6 +261,9 @@ export const en = {
   "admin.settings.orgTitle": "Organization",
   "admin.settings.orgSubtitle": "The one organization this app serves.",
   "admin.settings.orgName": "Name",
+  "admin.settings.emailFrom": "Email \"From\" address",
+  "admin.settings.emailFromHint":
+    "Used for signup-link emails sent to households. Must be a sender your email provider (Resend) will actually deliver as — leave blank to use the deployment default.",
 
   "admin.bulk.selectAll": "Select all",
 

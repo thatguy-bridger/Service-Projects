@@ -67,6 +67,7 @@ export function createPrismaMock() {
     $queryRaw: vi.fn().mockResolvedValue([]),
     organization: {
       findFirst: vi.fn().mockResolvedValue(null),
+      findUnique: vi.fn().mockResolvedValue(null),
       updateMany: vi.fn().mockResolvedValue({ count: 1 }),
     },
     user: {
