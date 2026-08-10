@@ -938,3 +938,30 @@ route builder ended up table-based, not the visual lasso-select the spec
 describes) and, for the fill step specifically, a UGRC developer key
 this environment doesn't have. Flagging both as real scope, not
 oversights, before picking this back up.
+
+## Update — real Google Maps lasso-select for the route builder
+
+Closed the map gap flagged above, at least for Phase 3's route builder
+(not yet Phase 6's territory drawing/fill, which still needs the UGRC
+key). The event's Routes tab now shows an actual Google Map
+(`StopMap.tsx`) with every stop as a pin (gray = unassigned, route
+color = already on a route).
+
+`google.maps.drawing.DrawingManager` — the obvious choice for a lasso
+tool — turned out to be deprecated as of Maps JS API 3.65 with an empty
+class body in `@types/google.maps` (no constructor, no methods), caught
+by real TS errors rather than assumed. Built the lasso by hand instead:
+click-to-place-a-vertex, a live `Polygon` for the in-progress shape,
+"Finish shape" running `geometry.poly.containsLocation` per stop
+against the closed polygon. Selecting stops offers "create a new route
+from this selection" (2-opt-ordered) or "add to an existing route" —
+`createRouteFromStops`/`assignStopsToRoute` in
+`packages/database/src/scoped/routes.ts`, which had zero test coverage
+before this (11 new tests).
+
+A self-review before merging caught a real bug: both functions
+originally reset every lassoed stop's status to `ASSIGNED`
+unconditionally, which would have silently erased a volunteer's
+already-recorded `DONE`/`SKIPPED`/`ISSUE` outcome the moment an admin
+re-lassoed their area. Fixed before it shipped — only stops still
+`UNASSIGNED` get bumped.
