@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client";
 import { prisma } from "../client";
 
 /**
@@ -13,6 +14,10 @@ export async function defaultOrganization() {
   return prisma.organization.findFirst({ where: { deletedAt: null }, orderBy: { createdAt: "asc" } });
 }
 
+export async function organizationById(orgId: string) {
+  return prisma.organization.findFirst({ where: { id: orgId, deletedAt: null } });
+}
+
 /**
  * Bootstraps the one organization this app's real-world scope needs
  * (see the note above) if it doesn't exist yet. Called from the admin
@@ -25,11 +30,40 @@ export interface UpdateOrganizationResult {
   error?: string;
 }
 
+/**
+ * Shape of the free-form `settings` JSON column that's actually read by
+ * app code (the column also holds feature flags / stripeAccountId this
+ * type doesn't model yet). `emailFrom` lets each org send its own emails
+ * ("From: Salt Lake Flag Program <flags@saltlakeflags.org>") instead of
+ * every org on this deployment sharing one hardcoded EMAIL_FROM env var
+ * — important once more than one org's events are live at once, each
+ * with a different point of contact. The address still has to be a
+ * sender Resend will actually deliver as (a verified domain, or that
+ * domain's catch-all) — this only controls what a send *asks* for, not
+ * whether Resend accepts it.
+ */
+export interface OrganizationSettings {
+  emailFrom?: string | null;
+}
+
+export function organizationSettings(org: { settings: unknown }): OrganizationSettings {
+  return (org.settings ?? {}) as OrganizationSettings;
+}
+
 export async function updateOrganization(
   orgId: string,
-  input: { name?: string }
+  input: { name?: string; emailFrom?: string | null }
 ): Promise<UpdateOrganizationResult> {
-  const result = await prisma.organization.updateMany({ where: { id: orgId, deletedAt: null }, data: input });
+  const data: { name?: string; settings?: Prisma.InputJsonValue } = {};
+  if (input.name !== undefined) data.name = input.name;
+  if (input.emailFrom !== undefined) {
+    const existing = await prisma.organization.findUnique({ where: { id: orgId }, select: { settings: true } });
+    data.settings = {
+      ...organizationSettings(existing ?? { settings: {} }),
+      emailFrom: input.emailFrom || null,
+    } as Prisma.InputJsonValue;
+  }
+  const result = await prisma.organization.updateMany({ where: { id: orgId, deletedAt: null }, data });
   if (result.count === 0) return { ok: false, error: "Organization not found." };
   return { ok: true };
 }

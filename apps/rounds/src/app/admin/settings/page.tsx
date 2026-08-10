@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { defaultOrganization } from "@service-projects/database";
+import { defaultOrganization, organizationSettings } from "@service-projects/database";
 import { Card } from "@service-projects/ui";
 import { t } from "@/copy";
 import { OrganizationForm } from "./OrganizationForm";
@@ -21,7 +21,7 @@ export default async function AdminSettingsPage() {
         {t("admin.settings.orgTitle")}
       </h1>
       <p style={{ color: "var(--text-secondary)", marginTop: 0 }}>{t("admin.settings.orgSubtitle")}</p>
-      <OrganizationForm name={org.name} />
+      <OrganizationForm name={org.name} emailFrom={organizationSettings(org).emailFrom ?? ""} />
     </Card>
   );
 }

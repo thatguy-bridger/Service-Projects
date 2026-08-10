@@ -17,7 +17,7 @@ function SaveButton() {
   );
 }
 
-export function OrganizationForm({ name }: { name: string }) {
+export function OrganizationForm({ name, emailFrom }: { name: string; emailFrom: string }) {
   const [state, formAction] = useFormState(updateOrganizationAction, initialState);
 
   return (
@@ -25,6 +25,19 @@ export function OrganizationForm({ name }: { name: string }) {
       <label className="signup-field" style={{ marginBottom: 0, flex: 1, minWidth: 240 }}>
         <span className="signup-fieldLabel">{t("admin.settings.orgName")}</span>
         <input className="signup-input" name="name" defaultValue={name} required />
+      </label>
+      <label className="signup-field" style={{ marginBottom: 0, flex: 1, minWidth: 240 }}>
+        <span className="signup-fieldLabel">{t("admin.settings.emailFrom")}</span>
+        <input
+          className="signup-input"
+          name="emailFrom"
+          type="text"
+          placeholder="Flag Program <flags@yourdomain.org>"
+          defaultValue={emailFrom}
+        />
+        <span className="signup-hint" style={{ margin: 0 }}>
+          {t("admin.settings.emailFromHint")}
+        </span>
       </label>
       <SaveButton />
       {state.ok && (

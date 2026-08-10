@@ -18,7 +18,9 @@ export async function updateOrganizationAction(
   const name = String(formData.get("name") ?? "").trim();
   if (!name) return { ok: false, error: "Name is required." };
 
-  const result = await updateOrganization(org.id, { name });
+  const emailFrom = String(formData.get("emailFrom") ?? "").trim();
+
+  const result = await updateOrganization(org.id, { name, emailFrom: emailFrom || null });
   revalidatePath("/admin/settings");
   return result;
 }

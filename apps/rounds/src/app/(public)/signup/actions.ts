@@ -1,7 +1,13 @@
 "use server";
 
 import { headers } from "next/headers";
-import { submitSignup as submitSignupToDb, selfServiceView, type SignupSubmission } from "@service-projects/database";
+import {
+  submitSignup as submitSignupToDb,
+  selfServiceView,
+  organizationById,
+  organizationSettings,
+  type SignupSubmission,
+} from "@service-projects/database";
 import { rateLimit, clientIpFromHeaders } from "@service-projects/core-auth";
 
 // The address step resolves in the browser via AddressPicker.tsx: Google
@@ -62,7 +68,16 @@ export async function sendSelfServiceLinkAction(input: {
     return { ok: false, error: "Text messaging isn't set up yet — copy the link instead." };
   }
 
-  if (!process.env.RESEND_API_KEY || !process.env.EMAIL_FROM) {
+  // The "From" address is org-configurable (admin/settings) since
+  // different orgs on this deployment may have different points of
+  // contact — falls back to the deployment-wide EMAIL_FROM when an org
+  // hasn't set its own. RESEND_API_KEY (the transport credential) stays
+  // a single deployment-wide secret; only the address shown to
+  // recipients is per-org.
+  const org = await organizationById(input.orgId);
+  const from = organizationSettings(org ?? { settings: {} }).emailFrom || process.env.EMAIL_FROM;
+
+  if (!process.env.RESEND_API_KEY || !from) {
     return { ok: false, error: "Email sending isn't configured yet — copy the link instead." };
   }
   if (!view.household.contactEmail) return { ok: false, error: "No email address on file for this signup." };
@@ -79,7 +94,7 @@ export async function sendSelfServiceLinkAction(input: {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      from: process.env.EMAIL_FROM,
+      from,
       to: view.household.contactEmail,
       subject: "Your signup link",
       html: `<p>Here's your link to manage this signup any time:</p><p><a href="${link}">${link}</a></p>`,
