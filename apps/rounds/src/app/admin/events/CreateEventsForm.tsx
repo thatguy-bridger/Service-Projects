@@ -39,6 +39,7 @@ export function CreateEventsForm({
   const [frequency, setFrequency] = useState<Frequency>("weekly");
   const [recurStart, setRecurStart] = useState("");
   const [occurrences, setOccurrences] = useState("4");
+  const [calendarOpen, setCalendarOpen] = useState(false);
 
   const selectedDates = useMemo(() => new Set(rows.map((r) => r.serviceStartsAt).filter(Boolean)), [rows]);
 
@@ -227,12 +228,30 @@ export function CreateEventsForm({
         </div>
 
         <div>
-          <span className="signup-fieldLabel" style={{ display: "block", marginBottom: "var(--space-1)" }}>
-            Or click dates on the calendar to add/remove events (using the template above)
-          </span>
-          <EventCalendar selectedDates={selectedDates} onToggleDate={handleToggleDate} />
+          <Button type="button" variant="secondary" onClick={() => setCalendarOpen(true)}>
+            Open calendar picker
+          </Button>
         </div>
       </div>
+
+      {calendarOpen && (
+        <div className="dialog-backdrop" onClick={() => setCalendarOpen(false)}>
+          <div className="dialog" onClick={(e) => e.stopPropagation()}>
+            <h2 className="dialog-title">Pick dates on the calendar</h2>
+            <p className="dialog-body">
+              Click any date to add an event there using the template above (name, kind, price) — click a
+              highlighted date again to remove it. Every date you add still shows up as its own editable row below,
+              so you can rename or reprice any of them afterward.
+            </p>
+            <EventCalendar selectedDates={selectedDates} onToggleDate={handleToggleDate} />
+            <div className="dialog-actions">
+              <Button type="button" variant="primary" onClick={() => setCalendarOpen(false)}>
+                Done
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div style={{ display: "grid", gap: "var(--space-2)" }}>
         {rows.map((row, index) => (
