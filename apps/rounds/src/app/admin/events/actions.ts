@@ -5,9 +5,12 @@ import { getServerSession } from "next-auth";
 import { authOptions, requireRole } from "@service-projects/core-auth";
 import {
   getOrCreateDefaultOrganization,
+  defaultOrganization,
   createEvent,
   createCategory,
   setEventCategory,
+  categoriesForOrg,
+  eventsForSession,
   type EventKind,
 } from "@service-projects/database";
 import { MODULE_DEFAULTS, OUTCOME_SETS, EVENT_KINDS } from "@/lib/eventKinds";
@@ -98,4 +101,77 @@ export async function createEventsAction(input: {
   revalidatePath("/admin/categories");
   revalidatePath("/signup");
   return { ok: true };
+}
+
+function shiftYearInName(name: string, yearOffset: number): string {
+  return name.replace(/\b(19|20)\d{2}\b/, (match) => String(Number(match) + yearOffset));
+}
+
+export interface ImportFromLastYearResult extends ActionResult {
+  created?: number;
+}
+
+/**
+ * SPEC.md Phase 6's "Import from last year": clone every event in an
+ * existing category into a brand-new category, each shifted forward by
+ * `yearOffset` years (dates, and the year inside the name/category name
+ * if one appears there) -- same kind, price, and module defaults, all
+ * DRAFT so an admin reviews before publishing. Doesn't touch the source
+ * category or its events at all; this only ever adds new rows.
+ */
+export async function importCategoryFromPreviousYearAction(
+  sourceCategoryId: string,
+  yearOffset: number
+): Promise<ImportFromLastYearResult> {
+  const session = await getServerSession(authOptions);
+  await requireRole(session, ["OWNER", "ADMIN"]);
+
+  const org = await defaultOrganization();
+  if (!org) return { error: "No organization set up yet." };
+  if (!Number.isInteger(yearOffset) || yearOffset === 0) return { error: "Enter a valid year offset." };
+
+  const categories = await categoriesForOrg(org.id);
+  const sourceCategory = categories.find((c) => c.id === sourceCategoryId);
+  if (!sourceCategory) return { error: "Category not found." };
+
+  const allEvents = await eventsForSession(session, org.id);
+  const sourceEvents = allEvents.filter((e) => e.categoryId === sourceCategoryId);
+  if (sourceEvents.length === 0) return { error: "That category has no events to import." };
+
+  const newCategoryName = shiftYearInName(sourceCategory.name, yearOffset);
+  const categoryResult = await createCategory(session, org.id, newCategoryName, sourceCategory.priceCents);
+  if (!categoryResult.ok || !categoryResult.categoryId) {
+    return { error: categoryResult.error ?? "Could not create the new category." };
+  }
+
+  let created = 0;
+  for (const e of sourceEvents) {
+    const serviceStartsAt = new Date(e.serviceStartsAt);
+    serviceStartsAt.setUTCFullYear(serviceStartsAt.getUTCFullYear() + yearOffset);
+    const serviceEndsAt = new Date(e.serviceEndsAt);
+    serviceEndsAt.setUTCFullYear(serviceEndsAt.getUTCFullYear() + yearOffset);
+
+    const name = shiftYearInName(e.name, yearOffset);
+    const slug = `${slugify(name)}-${serviceStartsAt.getUTCFullYear()}-${Date.now().toString(36)}-${created}`;
+
+    const event = await createEvent({
+      orgId: org.id,
+      kind: e.kind,
+      name,
+      slug,
+      status: "DRAFT",
+      priceCents: e.priceCents,
+      serviceStartsAt,
+      serviceEndsAt,
+      modules: e.modules as Record<string, unknown>,
+      outcomeSet: e.outcomeSet as Record<string, unknown>,
+      createdBy: session!.user.id,
+    });
+    await setEventCategory(session, org.id, event.id, categoryResult.categoryId);
+    created++;
+  }
+
+  revalidatePath("/admin/events");
+  revalidatePath("/admin/categories");
+  return { ok: true, created };
 }

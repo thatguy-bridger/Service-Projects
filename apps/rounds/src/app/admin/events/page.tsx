@@ -4,6 +4,7 @@ import { defaultOrganization, eventsForSession, categoriesForOrg } from "@servic
 import { Card, Badge } from "@service-projects/ui";
 import { t } from "@/copy";
 import { CreateEventsForm } from "./CreateEventsForm";
+import { ImportFromLastYearForm } from "./ImportFromLastYearForm";
 
 // The top of the directory: (Events) -> category (Flag Setup, Flag
 // Takedown, ...) -> individual opportunities (this year's Pioneer Day,
@@ -44,6 +45,19 @@ export default async function AdminEventsPage() {
           defaultYear={nextYear}
         />
       </Card>
+
+      {categories.length > 0 && (
+        <Card style={{ marginTop: "var(--space-6)" }}>
+          <h2 style={{ margin: "0 0 4px", fontSize: "var(--text-lg)", fontWeight: "var(--weight-medium)" }}>
+            Import from last year
+          </h2>
+          <p style={{ color: "var(--text-secondary)" }}>
+            Copy an existing category&apos;s events into a new category, shifted forward by however many years —
+            same kind and price, new dates, all saved as drafts to review before publishing.
+          </p>
+          <ImportFromLastYearForm categories={categories.map((c) => ({ id: c.id, name: c.name }))} />
+        </Card>
+      )}
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "var(--space-6) 0 var(--space-3)" }}>
         <h2 style={{ margin: 0, fontSize: "var(--text-lg)", fontWeight: "var(--weight-medium)" }}>

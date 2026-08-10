@@ -12,6 +12,7 @@ import {
   deleteEventAction,
   setEventCategoryAction,
 } from "./tableActions";
+import { createPairedEventAction } from "./actions";
 import { PeopleForm } from "./PeopleForm";
 import { GenerateStopsButton } from "./GenerateStopsButton";
 import { RoutesTab } from "./RoutesTab";
@@ -98,6 +99,9 @@ export function EventDetailTabs({
   categories,
   currentCategoryId,
   routes,
+  kind,
+  pairedEventId,
+  pairedEventName,
 }: {
   eventId: string;
   eventDatesRow: EventDatesRow;
@@ -106,11 +110,17 @@ export function EventDetailTabs({
   categories: { id: string; name: string }[];
   currentCategoryId: string | null;
   routes: RouteRow[];
+  kind: string;
+  pairedEventId: string | null;
+  pairedEventName: string | null;
 }) {
   const [tab, setTab] = useState<Tab>("Service Sign Ups");
   const [deleting, setDeleting] = useState(false);
   const [categoryId, setCategoryId] = useState(currentCategoryId ?? "");
   const [categorySaved, setCategorySaved] = useState(false);
+  const [pairing, setPairing] = useState(false);
+  const [pairError, setPairError] = useState<string | null>(null);
+  const canPair = kind === "FLAG_SETOUT" || kind === "FLAG_PICKUP";
 
   const rows = toSignupRows(signupRows);
 
@@ -203,6 +213,50 @@ export function EventDetailTabs({
             </h2>
             <GenerateStopsButton eventId={eventId} />
           </div>
+
+          {canPair && (
+            <div>
+              <h2 style={{ fontSize: "var(--text-lg)", fontWeight: "var(--weight-medium)", marginBottom: "var(--space-1)" }}>
+                Paired event
+              </h2>
+              {pairedEventId ? (
+                <p style={{ color: "var(--text-secondary)", fontSize: "var(--text-sm)" }}>
+                  Paired with{" "}
+                  <a href={`/admin/events/${pairedEventId}`} style={{ color: "var(--color-accent-500)" }}>
+                    {pairedEventName ?? pairedEventId}
+                  </a>
+                  .
+                </p>
+              ) : (
+                <>
+                  <p style={{ color: "var(--text-secondary)", fontSize: "var(--text-sm)" }}>
+                    Create the {kind === "FLAG_SETOUT" ? "pickup" : "set-out"} event for this one, cloning every
+                    stop here onto it (unassigned, no routes yet) — saved as a draft one day later so you can
+                    review the date before publishing.
+                  </p>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    disabled={pairing}
+                    onClick={async () => {
+                      setPairing(true);
+                      setPairError(null);
+                      const result = await createPairedEventAction(eventId);
+                      setPairing(false);
+                      if (!result.ok) {
+                        setPairError(result.error ?? "Could not create the paired event.");
+                        return;
+                      }
+                      if (result.eventId) window.location.href = `/admin/events/${result.eventId}`;
+                    }}
+                  >
+                    {pairing ? "Creating…" : `Create ${kind === "FLAG_SETOUT" ? "pickup" : "set-out"} event`}
+                  </Button>
+                  {pairError && <p className="signup-error">{pairError}</p>}
+                </>
+              )}
+            </div>
+          )}
 
           <div>
             <h2 style={{ fontSize: "var(--text-lg)", fontWeight: "var(--weight-medium)", marginBottom: "var(--space-1)" }}>
