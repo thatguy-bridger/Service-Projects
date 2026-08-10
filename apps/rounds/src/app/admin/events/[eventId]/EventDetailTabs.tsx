@@ -15,7 +15,7 @@ import {
 import { createPairedEventAction } from "./actions";
 import { PeopleForm } from "./PeopleForm";
 import { GenerateStopsButton } from "./GenerateStopsButton";
-import { RoutesTab } from "./RoutesTab";
+import { RoutesTab, type MapStop } from "./RoutesTab";
 
 const TABS = ["Event Dates", "Service Sign Ups", "Member Purchases", "Routes", "Settings"] as const;
 type Tab = (typeof TABS)[number];
@@ -99,6 +99,7 @@ export function EventDetailTabs({
   categories,
   currentCategoryId,
   routes,
+  stops,
   kind,
   pairedEventId,
   pairedEventName,
@@ -110,6 +111,7 @@ export function EventDetailTabs({
   categories: { id: string; name: string }[];
   currentCategoryId: string | null;
   routes: RouteRow[];
+  stops: MapStop[];
   kind: string;
   pairedEventId: string | null;
   pairedEventName: string | null;
@@ -176,7 +178,7 @@ export function EventDetailTabs({
         />
       )}
 
-      {tab === "Routes" && <RoutesTab eventId={eventId} routes={routes} />}
+      {tab === "Routes" && <RoutesTab eventId={eventId} routes={routes} stops={stops} />}
 
       {tab === "Settings" && (
         <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)", maxWidth: 480 }}>

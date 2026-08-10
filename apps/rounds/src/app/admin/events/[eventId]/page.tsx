@@ -8,6 +8,7 @@ import {
   membershipsForEvent,
   categoriesForOrg,
   routesForEvent,
+  stopsForSession,
 } from "@service-projects/database";
 import { Card, Badge } from "@service-projects/ui";
 import { t } from "@/copy";
@@ -41,6 +42,7 @@ export default async function AdminEventDetailPage({ params }: { params: { event
   const categories = await categoriesForOrg(org.id);
   const routes = await routesForEvent(session, params.eventId);
   const pairedEvent = event.pairedEventId ? await eventForSession(session, org.id, event.pairedEventId) : null;
+  const stops = await stopsForSession(session, params.eventId);
 
   return (
     <>
@@ -100,6 +102,14 @@ export default async function AdminEventDetailPage({ params }: { params: { event
         categories={categories.map((c) => ({ id: c.id, name: c.name }))}
         currentCategoryId={event.categoryId}
         routes={routes}
+        stops={stops.map((s) => ({
+          id: s.id,
+          lat: s.lat,
+          lng: s.lng,
+          status: s.status,
+          routeId: s.routeId,
+          addressLine: s.addressLine,
+        }))}
         kind={event.kind}
         pairedEventId={event.pairedEventId}
         pairedEventName={pairedEvent?.name ?? null}

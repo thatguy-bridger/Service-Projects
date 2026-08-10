@@ -147,6 +147,98 @@ export async function autoSplitStopsIntoRoutes(
   return { routesCreated: groups.length, stopsAssigned };
 }
 
+export interface AssignStopsResult {
+  assigned: number;
+  error?: string;
+}
+
+// The write side of the map's lasso-select: a polygon drawn on the
+// client already picked out which stop ids are inside it (point-in-
+// polygon is a client-side geometry check, not something worth a round
+// trip for) -- this just does the actual reassignment, scoped to the
+// event so a stop id from another event can't be reached.
+//
+// A lasso can sweep over stops that already have a volunteer-recorded
+// outcome (DONE/SKIPPED/ISSUE) or are IN_PROGRESS, not just UNASSIGNED
+// ones -- the map colors every stop for the event, it doesn't filter by
+// status. Only bump status to ASSIGNED for stops that were still
+// UNASSIGNED; stops with a real status keep it so re-routing an area
+// doesn't silently erase a volunteer's completed work.
+export async function assignStopsToRoute(
+  session: SessionLike | null | undefined,
+  eventId: string,
+  routeId: string,
+  stopIds: string[]
+): Promise<AssignStopsResult> {
+  const membership = await resolveMembership(session, eventId);
+  if (!membership || !isStaff(membership.role)) return { assigned: 0, error: "Forbidden" };
+  if (stopIds.length === 0) return { assigned: 0, error: "No stops selected." };
+
+  const route = await prisma.route.findFirst({ where: { id: routeId, eventId, deletedAt: null } });
+  if (!route) return { assigned: 0, error: "Route not found." };
+
+  const [bumped, moved] = await Promise.all([
+    prisma.stop.updateMany({
+      where: { id: { in: stopIds }, eventId, status: "UNASSIGNED" },
+      data: { routeId, status: "ASSIGNED" },
+    }),
+    prisma.stop.updateMany({
+      where: { id: { in: stopIds }, eventId, status: { not: "UNASSIGNED" } },
+      data: { routeId },
+    }),
+  ]);
+  return { assigned: bumped.count + moved.count };
+}
+
+export interface CreateRouteFromStopsResult extends ActionResult {
+  routeId?: string;
+  stopsAssigned?: number;
+}
+
+// Same lasso-select, but for "these stops become a brand-new route"
+// instead of joining an existing one -- 2-opt-orders the selection into
+// a real short path the same way autoSplitStopsIntoRoutes does, rather
+// than leaving sequence unset.
+export async function createRouteFromStops(
+  session: SessionLike | null | undefined,
+  eventId: string,
+  name: string,
+  stopIds: string[]
+): Promise<CreateRouteFromStopsResult> {
+  const membership = await resolveMembership(session, eventId);
+  if (!membership || !isStaff(membership.role)) return { ok: false, error: "Forbidden" };
+  if (!name.trim()) return { ok: false, error: "Name is required." };
+  if (stopIds.length === 0) return { ok: false, error: "No stops selected." };
+
+  const stops = await prisma.stop.findMany({
+    where: { id: { in: stopIds }, eventId },
+    select: { id: true, lat: true, lng: true, status: true },
+  });
+  if (stops.length === 0) return { ok: false, error: "No stops selected." };
+
+  // Same reasoning as assignStopsToRoute: only stops that were still
+  // UNASSIGNED get bumped to ASSIGNED. A stop already DONE/SKIPPED/ISSUE/
+  // IN_PROGRESS keeps that status when it's swept into a brand-new route.
+  const statusById = new Map(stops.map((s) => [s.id, s.status] as const));
+  const ordered = orderRouteStops(stops);
+  const route = await prisma.route.create({
+    data: { eventId, name: name.trim(), createdBy: session!.user!.id },
+  });
+  for (let seq = 0; seq < ordered.length; seq++) {
+    const current = statusById.get(ordered[seq].id);
+    await prisma.stop.update({
+      where: { id: ordered[seq].id },
+      data: {
+        routeId: route.id,
+        sequence: seq,
+        ...(current === "UNASSIGNED" ? { status: "ASSIGNED" as const } : {}),
+      },
+    });
+  }
+
+  return { ok: true, routeId: route.id, stopsAssigned: ordered.length };
+}
+
 export async function routeDistancePreview(
   session: SessionLike | null | undefined,
   eventId: string,

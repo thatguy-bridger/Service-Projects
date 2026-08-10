@@ -4,7 +4,25 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button, DataTable, type DataTableColumn } from "@service-projects/ui";
 import type { RouteRow } from "@service-projects/database";
-import { saveRouteRowAction, deleteRoutesAction, addRouteAction, autoSplitAction, assignVolunteerAction } from "./routeActions";
+import {
+  saveRouteRowAction,
+  deleteRoutesAction,
+  addRouteAction,
+  autoSplitAction,
+  assignVolunteerAction,
+  assignSelectedStopsAction,
+  createRouteFromSelectedStopsAction,
+} from "./routeActions";
+import { StopMap } from "./StopMap";
+
+export interface MapStop {
+  id: string;
+  lat: number;
+  lng: number;
+  status: string;
+  routeId: string | null;
+  addressLine: string;
+}
 
 const columns: DataTableColumn<RouteRow>[] = [
   { key: "name", label: "Name", getValue: (r) => r.name, editable: true },
@@ -14,7 +32,7 @@ const columns: DataTableColumn<RouteRow>[] = [
   { key: "assignedTo", label: "Assigned to", getValue: (r) => r.assignedTo.join(", ") },
 ];
 
-export function RoutesTab({ eventId, routes }: { eventId: string; routes: RouteRow[] }) {
+export function RoutesTab({ eventId, routes, stops }: { eventId: string; routes: RouteRow[]; stops: MapStop[] }) {
   const router = useRouter();
   const [routeCount, setRouteCount] = useState(3);
   const [splitting, setSplitting] = useState(false);
@@ -25,8 +43,42 @@ export function RoutesTab({ eventId, routes }: { eventId: string; routes: RouteR
   const [assigning, setAssigning] = useState(false);
   const [assignMessage, setAssignMessage] = useState<string | null>(null);
 
+  const [mapMessage, setMapMessage] = useState<string | null>(null);
+  const mapsApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API;
+
   return (
     <div>
+      <div style={{ marginBottom: "var(--space-5)" }}>
+        <h2 style={{ fontSize: "var(--text-lg)", fontWeight: "var(--weight-medium)", marginBottom: "var(--space-1)" }}>
+          Map — lasso-select stops into routes
+        </h2>
+        {mapsApiKey ? (
+          <StopMap
+            apiKey={mapsApiKey}
+            stops={stops}
+            routes={routes}
+            onAssignToRoute={async (routeId, stopIds) => {
+              const result = await assignSelectedStopsAction(eventId, routeId, stopIds);
+              setMapMessage(result.error ?? `Added ${result.assigned} stop${result.assigned === 1 ? "" : "s"} to the route.`);
+              router.refresh();
+            }}
+            onCreateRoute={async (name, stopIds) => {
+              const result = await createRouteFromSelectedStopsAction(eventId, name, stopIds);
+              const count = result.stopsAssigned ?? stopIds.length;
+              setMapMessage(result.error ?? `Created "${name}" with ${count} stop${count === 1 ? "" : "s"}.`);
+              router.refresh();
+            }}
+          />
+        ) : (
+          <p style={{ color: "var(--text-secondary)", fontSize: "var(--text-sm)" }}>
+            Set NEXT_PUBLIC_GOOGLE_MAPS_API to show the map and lasso-select tool here.
+          </p>
+        )}
+        {mapMessage && (
+          <p style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)", marginTop: "var(--space-2)" }}>{mapMessage}</p>
+        )}
+      </div>
+
       <div style={{ marginBottom: "var(--space-5)" }}>
         <h2 style={{ fontSize: "var(--text-lg)", fontWeight: "var(--weight-medium)", marginBottom: "var(--space-1)" }}>
           Auto-split unassigned stops
