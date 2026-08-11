@@ -1008,3 +1008,54 @@ as other capabilities already in that table.
 `tsc --noEmit` clean in both packages, `next lint` clean, `next build`
 clean, full `turbo run test` green (139 database + 18 rounds + 28
 core-auth = 185 tests).
+
+## Update — publishing moved from Event to Category, per explicit request
+
+"Open" wasn't actually meaning "published" from the admin's point of
+view — an admin had to flip every individual event's status to `OPEN`
+by hand for it to show on `/signup`, and there was no single "go live"
+action for a whole batch of holidays/events at once. Per explicit
+request, publishing is now a **Category**-level action:
+
+- New `Category.publishedAt` (nullable timestamp, additive migration).
+  `null` = not visible on signup, regardless of what any of its events'
+  own `status` says.
+- `openEventsForSignup` now requires **both**: the event's own
+  `status === "OPEN"` *and* its category's `publishedAt` is set (and
+  the category isn't soft-deleted). An event with no category
+  (`categoryId` null) can never appear on signup any more — there's no
+  category to publish, so "categorize it" is now a prerequisite for
+  going live, not optional. This is a real behavior change from before
+  this update, called out here rather than left implicit.
+- `publishCategory` (new scoped helper) is the one bulk action: sets
+  `publishedAt` and, in the same transaction, bulk-opens every `DRAFT`
+  event still in that category (a freshly-created category's events
+  default to `DRAFT`, so publishing without this would go live with
+  nothing actually open). It only touches `DRAFT` events — one an
+  admin already explicitly `CLOSED` or `ARCHIVED` stays that way,
+  same "don't clobber an explicit state" rule as the route lasso only
+  ever bumping `UNASSIGNED` stops.
+- `unpublishCategory` only clears `publishedAt` — deliberately leaves
+  every event's own `status` untouched, so a later re-publish doesn't
+  need to re-derive which events were meant to be open.
+- `/admin/categories` gets a new "Signup status" column
+  (Published/Not published) using the same inline select-to-edit UX as
+  every other column — `saveCategoryRowAction` now handles `published`
+  alongside `name`/`priceCents` in the one patch object DataTable
+  always sends (its row editor bundles every editable column's current
+  value on every save, not just the one that changed — worth noting
+  since it's easy to assume otherwise and split this into a second
+  action, which would silently no-op on `published` every time a plain
+  rename/price-edit patch arrived without that key).
+
+Volunteer/route functionality (`myRoutesForSession`, the route
+builder, visit recording) was already independent of `Event.status`
+before this change and needed no updates — a volunteer's assigned
+route stays reachable regardless of whether its event's category is
+published, same as today.
+
+4 new tests (`publishCategory`/`unpublishCategory` in
+`categories.test.ts`), 1 test updated (`openEventsForSignup`'s query
+shape). `tsc --noEmit` clean in both packages, `next lint` clean,
+`next build` clean, full `turbo run test` green (143 database + 18
+rounds + 28 core-auth = 189 tests).

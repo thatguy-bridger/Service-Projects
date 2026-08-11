@@ -48,25 +48,18 @@ describe("eventsForSession", () => {
 });
 
 describe("openEventsForSignup", () => {
-  it("is public — no session, no membership check — and only ever asks for OPEN, non-deleted events", async () => {
+  it("is public — no session, no membership check — and only ever asks for OPEN events in a published, non-deleted category", async () => {
     await openEventsForSignup("org-1");
     expect(prismaMock.event.findMany).toHaveBeenCalledWith({
-      where: { orgId: "org-1", deletedAt: null, status: "OPEN" },
+      where: {
+        orgId: "org-1",
+        deletedAt: null,
+        status: "OPEN",
+        category: { is: { orgId: "org-1", deletedAt: null, publishedAt: { not: null } } },
+      },
       orderBy: { serviceStartsAt: "asc" },
       include: { category: { select: { id: true, name: true, priceCents: true, deletedAt: true } } },
     });
-  });
-
-  it("hides a soft-deleted category from the grouping instead of leaking its name through the join", async () => {
-    prismaMock.event.findMany.mockResolvedValueOnce([
-      {
-        id: "ev-1",
-        categoryId: "cat-deleted",
-        category: { id: "cat-deleted", name: "Old category", priceCents: null, deletedAt: new Date() },
-      },
-    ]);
-    const result = await openEventsForSignup("org-1");
-    expect(result).toEqual([expect.objectContaining({ categoryId: null, category: null })]);
   });
 });
 
