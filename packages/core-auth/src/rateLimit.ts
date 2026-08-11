@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 // Best-effort, in-memory sliding-window rate limiter. Honest caveat:
 // Vercel serverless functions don't guarantee the same instance (and
 // therefore the same in-memory Map) handles consecutive requests, so
@@ -45,4 +47,11 @@ export function clientIpFromHeaders(headers: Headers): string {
   const forwarded = headers.get("x-forwarded-for");
   if (forwarded) return forwarded.split(",")[0].trim();
   return headers.get("x-real-ip") ?? "unknown";
+}
+
+// SPEC.md §20: "Hash IPs" -- for anything that gets persisted (an
+// AuditLog row's ipHash), never the raw address. Not used for the
+// in-memory rate-limit buckets above, which never touch the database.
+export function hashIp(ip: string): string {
+  return createHash("sha256").update(ip).digest("hex");
 }

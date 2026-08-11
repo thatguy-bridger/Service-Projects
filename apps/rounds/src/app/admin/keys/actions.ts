@@ -1,8 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import { getServerSession } from "next-auth";
-import { authOptions } from "@service-projects/core-auth";
+import { authOptions, clientIpFromHeaders, hashIp } from "@service-projects/core-auth";
 import {
   defaultOrganization,
   createInviteKey,
@@ -29,6 +30,7 @@ export async function createInviteKeyAction(input: {
     maxUses: input.maxUses,
     expiresAt: input.expiresAt ? new Date(input.expiresAt) : undefined,
     note: input.note || undefined,
+    ipHash: hashIp(clientIpFromHeaders(headers())),
   });
   revalidatePath("/admin/keys");
   return result;
@@ -38,7 +40,7 @@ export async function revokeInviteKeysAction(ids: string[]): Promise<{ deleted: 
   const session = await getServerSession(authOptions);
   const org = await defaultOrganization();
   if (!org) return { deleted: 0 };
-  const result = await revokeInviteKeys(session, org.id, ids);
+  const result = await revokeInviteKeys(session, org.id, ids, hashIp(clientIpFromHeaders(headers())));
   revalidatePath("/admin/keys");
   return result;
 }

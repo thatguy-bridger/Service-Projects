@@ -59,6 +59,7 @@ export async function createInviteKey(
     maxUses?: number;
     expiresAt?: Date;
     note?: string;
+    ipHash?: string;
   }
 ): Promise<CreateInviteKeyResult> {
   const membership = await resolveMembership(session, input.eventId ?? undefined);
@@ -91,6 +92,7 @@ export async function createInviteKey(
       entity: "InviteKey",
       entityId: key.id,
       after: { grantsRole: input.grantsRole, eventId: input.eventId ?? null, maxUses: input.maxUses ?? 1 },
+      ipHash: input.ipHash,
     },
   });
 
@@ -100,7 +102,8 @@ export async function createInviteKey(
 export async function revokeInviteKeys(
   session: SessionLike | null | undefined,
   orgId: string,
-  keyIds: string[]
+  keyIds: string[],
+  ipHash?: string
 ): Promise<{ deleted: number }> {
   const membership = await resolveMembership(session);
   if (!membership || !isStaff(membership.role)) return { deleted: 0 };
@@ -112,7 +115,7 @@ export async function revokeInviteKeys(
 
   for (const keyId of keyIds) {
     await prisma.auditLog.create({
-      data: { orgId, actorId: session!.user!.id, action: "invite_key.revoked", entity: "InviteKey", entityId: keyId },
+      data: { orgId, actorId: session!.user!.id, action: "invite_key.revoked", entity: "InviteKey", entityId: keyId, ipHash },
     });
   }
 
@@ -126,6 +129,12 @@ export interface RedeemKeyResult {
   eventId?: string | null;
 }
 
+// SPEC.md §3.3: "deliberately vague failure messages" -- a code that
+// doesn't exist, one that's revoked, and one that's expired or used up
+// all read identically to the caller, so trying codes can't be used to
+// enumerate which ones are/were real.
+const INVALID_KEY_MESSAGE = "That key isn't valid, or has already been used.";
+
 // Public-facing (the caller only needs to be signed in, not staff) --
 // possession of the raw code plus a real account is what grants the
 // role, exactly like Household's self-service token. Every failure
@@ -134,20 +143,24 @@ export interface RedeemKeyResult {
 // changes nothing.
 export async function redeemInviteKey(
   session: SessionLike | null | undefined,
-  rawCode: string
+  rawCode: string,
+  ipHash?: string
 ): Promise<RedeemKeyResult> {
   const userId = session?.user?.id;
   if (!userId) return { ok: false, error: "Sign in first." };
 
   const key = await prisma.inviteKey.findUnique({ where: { codeHash: hashToken(rawCode) } });
-  if (!key) return { ok: false, error: "That key doesn't exist, or the link is wrong." };
-  if (key.revokedAt) return { ok: false, error: "This key has been revoked." };
-  if (key.expiresAt && key.expiresAt < new Date()) return { ok: false, error: "This key has expired." };
-  if (key.useCount >= key.maxUses) return { ok: false, error: "This key has already been fully redeemed." };
+  if (!key) return { ok: false, error: INVALID_KEY_MESSAGE };
+  if (key.revokedAt) return { ok: false, error: INVALID_KEY_MESSAGE };
+  if (key.expiresAt && key.expiresAt < new Date()) return { ok: false, error: INVALID_KEY_MESSAGE };
+  if (key.useCount >= key.maxUses) return { ok: false, error: INVALID_KEY_MESSAGE };
 
   const already = await prisma.keyRedemption.findUnique({
     where: { keyId_userId: { keyId: key.id, userId } },
   });
+  // Distinct from INVALID_KEY_MESSAGE on purpose -- reaching this branch
+  // already requires a valid code the caller personally redeemed before,
+  // so there's no new enumeration value being handed out here.
   if (already) return { ok: false, error: "You've already redeemed this key." };
 
   // Prisma's composite unique (orgId, userId, role, eventId) can't be used
@@ -181,6 +194,7 @@ export async function redeemInviteKey(
         entity: "InviteKey",
         entityId: key.id,
         after: { role: key.grantsRole, eventId: key.eventId },
+        ipHash,
       },
     }),
   ]);

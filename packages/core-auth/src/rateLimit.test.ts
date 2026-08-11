@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { rateLimit, clientIpFromHeaders } from "./rateLimit";
+import { rateLimit, clientIpFromHeaders, hashIp } from "./rateLimit";
 
 afterEach(() => {
   vi.useRealTimers();
@@ -57,5 +57,23 @@ describe("clientIpFromHeaders", () => {
   it('falls back to "unknown" when neither header is present', () => {
     const headers = new Headers();
     expect(clientIpFromHeaders(headers)).toBe("unknown");
+  });
+});
+
+describe("hashIp", () => {
+  it("never returns the raw address", () => {
+    expect(hashIp("203.0.113.5")).not.toContain("203.0.113.5");
+  });
+
+  it("is deterministic for the same input", () => {
+    expect(hashIp("203.0.113.5")).toBe(hashIp("203.0.113.5"));
+  });
+
+  it("differs for different inputs", () => {
+    expect(hashIp("203.0.113.5")).not.toBe(hashIp("203.0.113.6"));
+  });
+
+  it("returns a hex-encoded sha256 digest (64 chars)", () => {
+    expect(hashIp("203.0.113.5")).toMatch(/^[0-9a-f]{64}$/);
   });
 });

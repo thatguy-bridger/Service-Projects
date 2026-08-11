@@ -11,3 +11,4 @@ export * from "./inviteKeys";
 export * from "./territories";
 export * from "./copyOverrides";
 export * from "./addressPoints";
+export * from "./auditLog";
