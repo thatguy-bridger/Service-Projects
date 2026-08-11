@@ -9,7 +9,9 @@ vi.mock("../../client", async () => {
 const { prisma } = await import("../../client");
 const prismaMock = prisma as unknown as PrismaMock;
 
-const { importAddressPointsCsv, addressPointSources, deleteAddressPointSource } = await import("../addressPoints");
+const { importAddressPointsCsv, importAddressPointBatch, addressPointSources, deleteAddressPointSource } = await import(
+  "../addressPoints"
+);
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -140,6 +142,48 @@ describe("importAddressPointsCsv — newline-delimited GeoJSON", () => {
 
     const noSource = await importAddressPointsCsv(ADMIN, OPENADDRESSES_NDJSON, "  ");
     expect(noSource.ok).toBe(false);
+  });
+});
+
+describe("importAddressPointBatch", () => {
+  const ROW = { lat: 40.7, lng: -111.9, fullAddress: "123 Main St", city: "Sandy", zip: null };
+
+  it("rejects a non-staff caller", async () => {
+    const result = await importAddressPointBatch(VOLUNTEER, [ROW], "Sandy", true);
+    expect(result.ok).toBe(false);
+    expect(prismaMock.addressPoint.createMany).not.toHaveBeenCalled();
+  });
+
+  it("rejects an empty source label", async () => {
+    const result = await importAddressPointBatch(ADMIN, [ROW], "  ", true);
+    expect(result.ok).toBe(false);
+    expect(prismaMock.addressPoint.createMany).not.toHaveBeenCalled();
+  });
+
+  it("deletes the existing source and inserts in one transaction on the first batch", async () => {
+    const result = await importAddressPointBatch(ADMIN, [ROW], "Sandy", true);
+    expect(result).toEqual({ ok: true, imported: 1 });
+    expect(prismaMock.$transaction).toHaveBeenCalledWith([expect.anything(), expect.anything()]);
+    expect(prismaMock.addressPoint.deleteMany).toHaveBeenCalledWith({ where: { source: "Sandy" } });
+    expect(prismaMock.addressPoint.createMany).toHaveBeenCalledWith({
+      data: [{ ...ROW, source: "Sandy" }],
+    });
+  });
+
+  it("appends without deleting on a later batch", async () => {
+    const result = await importAddressPointBatch(ADMIN, [ROW], "Sandy", false);
+    expect(result).toEqual({ ok: true, imported: 1 });
+    expect(prismaMock.$transaction).not.toHaveBeenCalled();
+    expect(prismaMock.addressPoint.deleteMany).not.toHaveBeenCalled();
+    expect(prismaMock.addressPoint.createMany).toHaveBeenCalledWith({
+      data: [{ ...ROW, source: "Sandy" }],
+    });
+  });
+
+  it("handles an empty batch as a no-op success", async () => {
+    const result = await importAddressPointBatch(ADMIN, [], "Sandy", false);
+    expect(result).toEqual({ ok: true, imported: 0 });
+    expect(prismaMock.addressPoint.createMany).not.toHaveBeenCalled();
   });
 });
 
