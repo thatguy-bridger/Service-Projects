@@ -14,6 +14,7 @@ import { Card, Badge } from "@service-projects/ui";
 import { t } from "@/copy";
 import { formatCentsFull, formatHolidayDate } from "@/lib/format";
 import { EventDetailTabs } from "./EventDetailTabs";
+import { ExportLink } from "./ExportLink";
 
 // This is the point of the whole admin flow: click an event, land on
 // *that event's* dataset — households/signups scoped to just this one
@@ -116,9 +117,7 @@ export default async function AdminEventDetailPage({ params }: { params: { event
       />
 
       <p style={{ marginTop: "var(--space-4)" }}>
-        <a href={`/admin/events/${event.id}/export`} style={{ color: "var(--color-accent-600)", fontSize: "var(--text-sm)" }}>
-          {t("admin.eventDetail.export")}
-        </a>
+        <ExportLink href={`/admin/events/${event.id}/export`} />
       </p>
     </>
   );

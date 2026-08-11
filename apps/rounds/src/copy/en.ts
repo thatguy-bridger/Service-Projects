@@ -166,6 +166,7 @@ export const en = {
   "admin.eventDetail.stats.skipped": "Skipped",
   "admin.eventDetail.stats.total": "Total",
   "admin.eventDetail.export": "Export CSV",
+  "admin.eventDetail.export.confirm": "This downloads every household's name, contact info, and address for this event as a CSV file. Continue?",
   "admin.eventDetail.list.title": "Households",
   "admin.eventDetail.list.empty": "No one has signed up for this event yet.",
   "admin.eventDetail.list.name": "Name",

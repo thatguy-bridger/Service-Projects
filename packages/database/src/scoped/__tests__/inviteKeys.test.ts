@@ -54,6 +54,14 @@ describe("createInviteKey", () => {
     expect(prismaMock.auditLog.create).toHaveBeenCalledTimes(1);
   });
 
+  it("passes an ipHash through to the audit log when given one", async () => {
+    prismaMock.inviteKey.create.mockResolvedValueOnce({ id: "key-1" });
+    await createInviteKey(OWNER, { orgId: "org-1", grantsRole: "VOLUNTEER" as never, ipHash: "abc123" });
+    expect(prismaMock.auditLog.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ ipHash: "abc123" }) })
+    );
+  });
+
   it("a coordinator can issue a lower-privilege key and it stores a hash, not the raw code", async () => {
     prismaMock.inviteKey.create.mockResolvedValueOnce({ id: "key-2" });
     const result = await createInviteKey(COORDINATOR, { orgId: "org-1", grantsRole: "VOLUNTEER" as never });
@@ -79,6 +87,14 @@ describe("revokeInviteKeys", () => {
     );
     expect(prismaMock.auditLog.create).toHaveBeenCalledTimes(2);
   });
+
+  it("passes an ipHash through to each audit log row when given one", async () => {
+    prismaMock.inviteKey.updateMany.mockResolvedValueOnce({ count: 1 });
+    await revokeInviteKeys(OWNER, "org-1", ["key-1"], "abc123");
+    expect(prismaMock.auditLog.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ ipHash: "abc123" }) })
+    );
+  });
 });
 
 describe("redeemInviteKey", () => {
@@ -95,52 +111,37 @@ describe("redeemInviteKey", () => {
     expect(prismaMock.$transaction).not.toHaveBeenCalled();
   });
 
-  it("fails on a revoked key", async () => {
-    prismaMock.inviteKey.findUnique.mockResolvedValueOnce({
-      id: "key-1",
-      orgId: "org-1",
-      eventId: null,
-      grantsRole: "VOLUNTEER",
-      maxUses: 1,
-      useCount: 0,
-      expiresAt: null,
-      revokedAt: new Date(),
-    });
-    const result = await redeemInviteKey(VOLUNTEER, "raw-code");
-    expect(result.ok).toBe(false);
-    expect(prismaMock.$transaction).not.toHaveBeenCalled();
-  });
+  // SPEC.md §3.3: "deliberately vague failure messages" -- a
+  // nonexistent, revoked, expired, and fully-redeemed code must all
+  // fail with the exact same message, so trying codes can't be used to
+  // learn which ones are/were real.
+  it("gives the same vague message for a nonexistent, revoked, expired, or fully-redeemed code", async () => {
+    prismaMock.inviteKey.findUnique.mockResolvedValueOnce(null);
+    const notFound = await redeemInviteKey(VOLUNTEER, "bad-code");
 
-  it("fails on an expired key", async () => {
     prismaMock.inviteKey.findUnique.mockResolvedValueOnce({
-      id: "key-1",
-      orgId: "org-1",
-      eventId: null,
-      grantsRole: "VOLUNTEER",
-      maxUses: 1,
-      useCount: 0,
-      expiresAt: new Date("2000-01-01"),
-      revokedAt: null,
+      id: "key-1", orgId: "org-1", eventId: null, grantsRole: "VOLUNTEER",
+      maxUses: 1, useCount: 0, expiresAt: null, revokedAt: new Date(),
     });
-    const result = await redeemInviteKey(VOLUNTEER, "raw-code");
-    expect(result.ok).toBe(false);
-    expect(prismaMock.$transaction).not.toHaveBeenCalled();
-  });
+    const revoked = await redeemInviteKey(VOLUNTEER, "raw-code");
 
-  it("fails once maxUses is reached", async () => {
     prismaMock.inviteKey.findUnique.mockResolvedValueOnce({
-      id: "key-1",
-      orgId: "org-1",
-      eventId: null,
-      grantsRole: "VOLUNTEER",
-      maxUses: 1,
-      useCount: 1,
-      expiresAt: null,
-      revokedAt: null,
+      id: "key-1", orgId: "org-1", eventId: null, grantsRole: "VOLUNTEER",
+      maxUses: 1, useCount: 0, expiresAt: new Date("2000-01-01"), revokedAt: null,
     });
-    const result = await redeemInviteKey(VOLUNTEER, "raw-code");
-    expect(result.ok).toBe(false);
-    expect(prismaMock.$transaction).not.toHaveBeenCalled();
+    const expired = await redeemInviteKey(VOLUNTEER, "raw-code");
+
+    prismaMock.inviteKey.findUnique.mockResolvedValueOnce({
+      id: "key-1", orgId: "org-1", eventId: null, grantsRole: "VOLUNTEER",
+      maxUses: 1, useCount: 1, expiresAt: null, revokedAt: null,
+    });
+    const exhausted = await redeemInviteKey(VOLUNTEER, "raw-code");
+
+    expect(notFound.ok).toBe(false);
+    expect(revoked.ok).toBe(false);
+    expect(expired.ok).toBe(false);
+    expect(exhausted.ok).toBe(false);
+    expect(new Set([notFound.error, revoked.error, expired.error, exhausted.error]).size).toBe(1);
   });
 
   it("fails if this user already redeemed the key", async () => {
@@ -176,5 +177,29 @@ describe("redeemInviteKey", () => {
     const result = await redeemInviteKey(VOLUNTEER, "raw-code");
     expect(result).toEqual({ ok: true, grantedRole: "VOLUNTEER", eventId: null });
     expect(prismaMock.$transaction).toHaveBeenCalledTimes(1);
+  });
+
+  it("includes the given ipHash in the redemption's audit log entry", async () => {
+    prismaMock.inviteKey.findUnique.mockResolvedValueOnce({
+      id: "key-1",
+      orgId: "org-1",
+      eventId: null,
+      grantsRole: "VOLUNTEER",
+      maxUses: 5,
+      useCount: 1,
+      expiresAt: null,
+      revokedAt: null,
+    });
+    prismaMock.keyRedemption.findUnique.mockResolvedValueOnce(null);
+    prismaMock.membership.findFirst.mockResolvedValueOnce(null);
+    await redeemInviteKey(VOLUNTEER, "raw-code", "abc123");
+    const transactionCalls = prismaMock.$transaction.mock.calls[0][0];
+    // The transaction is an array of Prisma operation promises built via
+    // prisma.auditLog.create(...) -- confirm that call happened with the
+    // ipHash, same way the create/revoke tests check auditLog.create.
+    expect(prismaMock.auditLog.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ ipHash: "abc123", action: "invite_key.redeemed" }) })
+    );
+    expect(transactionCalls).toHaveLength(4);
   });
 });
