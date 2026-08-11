@@ -10,9 +10,8 @@ vi.mock("../../client", async () => {
 const { prisma } = await import("../../client");
 const prismaMock = prisma as unknown as PrismaMock;
 
-const { territoriesForOrg, createTerritory, renameTerritory, deleteTerritory, previewTerritoryFill } = await import(
-  "../territories"
-);
+const { territoriesForOrg, createTerritory, renameTerritory, deleteTerritory, previewTerritoryFill, previewPolygonFill } =
+  await import("../territories");
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -123,6 +122,31 @@ describe("previewTerritoryFill", () => {
       where: { id: "terr-1" },
       data: { addressPointCount: 1847, lastFilledAt: expect.any(Date) },
     });
+  });
+});
+
+describe("previewPolygonFill", () => {
+  it("rejects a non-staff caller", async () => {
+    const result = await previewPolygonFill(VOLUNTEER, SQUARE);
+    expect(result.ok).toBe(false);
+    expect(prismaMock.$queryRaw).not.toHaveBeenCalled();
+  });
+
+  it("rejects a shape with fewer than 3 points", async () => {
+    const result = await previewPolygonFill(ADMIN, {
+      type: "Polygon",
+      coordinates: [[[-111.9, 40.7], [-111.8, 40.7]]],
+    });
+    expect(result.ok).toBe(false);
+    expect(prismaMock.$queryRaw).not.toHaveBeenCalled();
+  });
+
+  it("counts address points inside an unsaved polygon, without touching any Territory row", async () => {
+    prismaMock.$queryRaw.mockResolvedValueOnce([{ count: 342n }]);
+    const result = await previewPolygonFill(ADMIN, SQUARE);
+    expect(result).toEqual({ ok: true, count: 342 });
+    expect(prismaMock.territory.update).not.toHaveBeenCalled();
+    expect(prismaMock.territory.findFirst).not.toHaveBeenCalled();
   });
 });
 

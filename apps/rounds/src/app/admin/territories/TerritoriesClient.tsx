@@ -23,6 +23,7 @@ export function TerritoriesClient({ initialRows, apiKey }: { initialRows: Territ
         {apiKey ? (
           <TerritoryDrawer
             apiKey={apiKey}
+            existingTerritories={initialRows}
             onSave={async (name, polygon: TerritoryPolygon) => {
               const result = await createTerritoryAction(name, polygon);
               setMessage(result.error ?? `Saved "${name}".`);
