@@ -8,3 +8,4 @@ export * from "./events";
 export * from "./stops";
 export * from "./selfService";
 export * from "./inviteKeys";
+export * from "./territories";

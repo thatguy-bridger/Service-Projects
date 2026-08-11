@@ -145,9 +145,8 @@ model VerificationToken {
 
 // =========================================================================
 // Rounds (apps/rounds) — Phase 0 + Phase 1 (flag subscription model)
-// See SPEC.md §5. Still not added: Signup, FormSchema, Territory, Route,
-// RouteAssignment, Visit, VolunteerAvailability, InviteKey, KeyRedemption,
-// Notification — they land with the phases that need them.
+// See SPEC.md §5. Still not added: Signup, FormSchema, Notification —
+// they land with the phases that need them.
 // =========================================================================
 
 model Organization {
@@ -162,9 +161,30 @@ model Organization {
   households  Household[]
   categories  Category[]
   inviteKeys  InviteKey[]
+  territories Territory[]
 
   createdAt DateTime  @default(now())
   deletedAt DateTime?
+}
+
+// SPEC.md §5.1, §9.2. A saved, reusable polygon (drawn on the Google Map
+// added for Phase 3's route builder) — the "drawing/saving" half of
+// Phase 6's territory work. `addressPointCount`/`lastFilledAt` stay null
+// until the fill step (UGRC address-point import) lands; that needs a
+// UGRC developer key this environment doesn't have — see
+// docs/rounds/OPEN-QUESTIONS.md.
+model Territory {
+  id                String       @id @default(cuid())
+  orgId             String
+  org               Organization @relation(fields: [orgId], references: [id])
+  name              String
+  polygon           Json // GeoJSON-shaped: { type: "Polygon", coordinates: [[[lng, lat], ...]] }
+  addressPointCount Int?
+  lastFilledAt      DateTime?
+  createdAt         DateTime     @default(now())
+  deletedAt         DateTime?
+
+  @@index([orgId])
 }
 
 // User-managed replacement for the old hardcoded EventKind directory

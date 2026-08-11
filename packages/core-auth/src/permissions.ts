@@ -31,6 +31,7 @@ export const PERMISSIONS: Capability[] = [
   },
   { id: "stops.editAddress", label: "Edit a stop's address", roles: ["OWNER", "ADMIN", "COORDINATOR"] },
   { id: "route.manage", label: "Create / edit route", roles: ["OWNER", "ADMIN", "COORDINATOR"] },
+  { id: "territory.manage", label: "Draw / save territories", roles: ["OWNER", "ADMIN", "COORDINATOR"] },
   { id: "route.assignVolunteers", label: "Assign volunteers", roles: ["OWNER", "ADMIN", "COORDINATOR"] },
   {
     id: "route.viewAssigned",
