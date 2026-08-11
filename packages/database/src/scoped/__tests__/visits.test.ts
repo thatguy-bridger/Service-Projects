@@ -59,6 +59,7 @@ describe("myRouteDetail", () => {
       id: "route-1",
       name: "Route A",
       event: { id: "ev-1", name: "Pioneer Day", outcomeSet: { outcomes: [] }, layoutBlocks: null },
+      briefingMd: null,
       stops: [
         {
           id: "stop-1",
@@ -88,6 +89,7 @@ describe("myRouteDetail", () => {
       id: "route-1",
       name: "Route A",
       event: { id: "ev-1", name: "Pioneer Day", outcomeSet: { outcomes: [] }, layoutBlocks: null },
+      briefingMd: null,
       stops: [
         {
           id: "stop-1",
@@ -106,6 +108,39 @@ describe("myRouteDetail", () => {
     const result = await myRouteDetail(VOLUNTEER, "route-1");
     expect(result?.stops[0].householdName).toBeNull();
     expect(result?.stops[0].phone).toBeNull();
+  });
+
+  it("resolves the route briefing, route-screen layout, and this event's active Coordinator as the contact", async () => {
+    prismaMock.route.findFirst.mockResolvedValueOnce({
+      id: "route-1",
+      name: "Route A",
+      event: { id: "ev-1", name: "Pioneer Day", outcomeSet: { outcomes: [] }, layoutBlocks: null },
+      briefingMd: "Park at the church lot.",
+      stops: [],
+    });
+    prismaMock.membership.findFirst.mockResolvedValueOnce({
+      user: { name: "Jane Doe", email: "jane@example.com" },
+    });
+    const result = await myRouteDetail(VOLUNTEER, "route-1");
+    expect(result?.briefingMd).toBe("Park at the church lot.");
+    expect(result?.coordinatorContact).toEqual({ name: "Jane Doe", email: "jane@example.com" });
+    expect(result?.routeScreenLayout.slots.header.some((b) => b.blockId === "progress_bar" && b.visible)).toBe(true);
+    expect(prismaMock.membership.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { eventId: "ev-1", role: "COORDINATOR", status: "active" } })
+    );
+  });
+
+  it("falls back to the coordinator's email when they have no display name", async () => {
+    prismaMock.route.findFirst.mockResolvedValueOnce({
+      id: "route-1",
+      name: "Route A",
+      event: { id: "ev-1", name: "Pioneer Day", outcomeSet: { outcomes: [] }, layoutBlocks: null },
+      briefingMd: null,
+      stops: [],
+    });
+    prismaMock.membership.findFirst.mockResolvedValueOnce({ user: { name: null, email: "jane@example.com" } });
+    const result = await myRouteDetail(VOLUNTEER, "route-1");
+    expect(result?.coordinatorContact).toEqual({ name: "jane@example.com", email: "jane@example.com" });
   });
 });
 

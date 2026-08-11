@@ -28,6 +28,7 @@ const columns: DataTableColumn<RouteRow>[] = [
   { key: "name", label: "Name", getValue: (r) => r.name, editable: true },
   { key: "status", label: "Status", getValue: (r) => r.status, editable: true, selectOptions: ["draft", "published", "in_progress", "complete"] },
   { key: "color", label: "Color", getValue: (r) => r.color, editable: true },
+  { key: "briefingMd", label: "Briefing", getValue: (r) => r.briefingMd ?? "", editable: true },
   { key: "stopCount", label: "Stops", getValue: (r) => String(r.stopCount) },
   { key: "assignedTo", label: "Assigned to", getValue: (r) => r.assignedTo.join(", ") },
 ];

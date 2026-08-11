@@ -471,6 +471,10 @@ model Route {
   name      String
   color     String    @default("#6f4ef0")
   status    String    @default("draft") // draft|published|in_progress|complete
+  // SPEC.md §11.3's volunteer route screen "route briefing" block --
+  // free text a coordinator sets per route (parking, check-in, safety
+  // notes), rendered read-only for the assigned volunteer(s).
+  briefingMd String?
   createdBy String
   createdAt DateTime  @default(now())
   deletedAt DateTime?

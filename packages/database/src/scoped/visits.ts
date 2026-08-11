@@ -1,7 +1,7 @@
 import { prisma } from "../client";
 import type { SessionLike } from "./membership";
 import type { Disposition, StopStatus } from "@prisma/client";
-import { normalizeStopCardLayout, type ScreenLayout } from "../layoutBlocks";
+import { normalizeStopCardLayout, normalizeRouteScreenLayout, type ScreenLayout } from "../layoutBlocks";
 
 // Phase 4: the volunteer-facing "my routes" surface. Deliberately not
 // staff-gated the way the admin scoped helpers are -- this is a
@@ -73,17 +73,26 @@ export interface MyRouteStop {
   lastVisitOutcome: string | null;
 }
 
+export interface RouteCoordinatorContact {
+  name: string;
+  email: string;
+}
+
 export interface MyRouteDetail {
   id: string;
   name: string;
   eventId: string;
   eventName: string;
+  briefingMd: string | null;
   outcomeOptions: { key: string; disposition: Disposition }[];
   stops: MyRouteStop[];
-  // SPEC.md §11.3's stop-card layout, resolved (Event.layoutBlocks or
-  // the hard-coded default, normalized either way) -- RouteRunner.tsx
-  // renders each stop's card from this instead of a fixed layout.
+  // SPEC.md §11.3's stop-card/route-screen layouts, resolved
+  // (Event.layoutBlocks or each screen's hard-coded default,
+  // normalized either way) -- RouteRunner.tsx renders from these
+  // instead of fixed JSX.
   stopCardLayout: ScreenLayout;
+  routeScreenLayout: ScreenLayout;
+  coordinatorContact: RouteCoordinatorContact | null;
 }
 
 // Real query-level redaction, per SPEC.md §6/§7.2's eventual intent:
@@ -120,11 +129,21 @@ export async function myRouteDetail(
 
   const outcomeSet = route.event.outcomeSet as { outcomes?: { key: string; disposition: Disposition }[] } | null;
 
+  // Event-scoped Coordinator only (not an org-wide one) -- keeps this
+  // query simple (no need to also thread orgId through) and matches
+  // how coordinators are actually assigned in this app today: per
+  // event, from the event detail page's People tab.
+  const coordinatorMembership = await prisma.membership.findFirst({
+    where: { eventId: route.event.id, role: "COORDINATOR", status: "active" },
+    include: { user: { select: { name: true, email: true } } },
+  });
+
   return {
     id: route.id,
     name: route.name,
     eventId: route.event.id,
     eventName: route.event.name,
+    briefingMd: route.briefingMd,
     outcomeOptions: outcomeSet?.outcomes ?? [],
     stops: route.stops.map((s) => ({
       id: s.id,
@@ -141,6 +160,10 @@ export async function myRouteDetail(
       lastVisitOutcome: lastOutcomeByStop.get(s.id) ?? null,
     })),
     stopCardLayout: normalizeStopCardLayout(route.event.layoutBlocks),
+    routeScreenLayout: normalizeRouteScreenLayout(route.event.layoutBlocks),
+    coordinatorContact: coordinatorMembership
+      ? { name: coordinatorMembership.user.name ?? coordinatorMembership.user.email, email: coordinatorMembership.user.email }
+      : null,
   };
 }
 

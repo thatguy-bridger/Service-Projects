@@ -27,6 +27,7 @@ export async function saveRouteRowAction(
     name: patch.name,
     status: patch.status,
     color: patch.color,
+    briefingMd: patch.briefingMd,
   });
   revalidatePath(`/admin/events/${eventId}`);
   return result;
