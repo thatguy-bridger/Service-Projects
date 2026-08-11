@@ -12,10 +12,14 @@ import {
   previewTerritoryFill,
   previewPolygonFill,
   addressPointsInBounds,
+  addressPointsInPolygon,
+  signedUpHouseholdsInBounds,
+  signedUpHouseholdsInPolygon,
   type TerritoryActionResult,
   type TerritoryFillResult,
   type TerritoryPolygon,
   type AddressPointBoundsResult,
+  type SignedUpHouseholdPinsResult,
 } from "@service-projects/database";
 
 export async function createTerritoryAction(name: string, polygon: TerritoryPolygon): Promise<TerritoryActionResult> {
@@ -96,4 +100,35 @@ export async function addressPointsInBoundsAction(bounds: {
 }): Promise<AddressPointBoundsResult> {
   const session = await getServerSession(authOptions);
   return addressPointsInBounds(session, bounds);
+}
+
+// Read-only, called while a territory is selected/being edited -- narrows
+// the map down to that shape's own addresses instead of whatever the
+// viewport happens to show, so it isn't limited by the zoom-gated bounds
+// lookup above. No org needed.
+export async function addressPointsInPolygonAction(polygon: TerritoryPolygon): Promise<AddressPointBoundsResult> {
+  const session = await getServerSession(authOptions);
+  return addressPointsInPolygon(session, polygon);
+}
+
+// Signed-up households (Household.lat/lng) are org-scoped, unlike
+// AddressPoint -- needs defaultOrganization() the same way the rest of
+// this file's org-scoped actions do.
+export async function signedUpHouseholdsInBoundsAction(bounds: {
+  minLat: number;
+  maxLat: number;
+  minLng: number;
+  maxLng: number;
+}): Promise<SignedUpHouseholdPinsResult> {
+  const session = await getServerSession(authOptions);
+  const org = await defaultOrganization();
+  if (!org) return { points: [], truncated: false };
+  return signedUpHouseholdsInBounds(session, org.id, bounds);
+}
+
+export async function signedUpHouseholdsInPolygonAction(polygon: TerritoryPolygon): Promise<SignedUpHouseholdPinsResult> {
+  const session = await getServerSession(authOptions);
+  const org = await defaultOrganization();
+  if (!org) return { points: [], truncated: false };
+  return signedUpHouseholdsInPolygon(session, org.id, polygon);
 }

@@ -22,6 +22,8 @@ const {
   copyHouseholdsToEvent,
   importHouseholdsForEvent,
   submitSignup,
+  signedUpHouseholdsInBounds,
+  signedUpHouseholdsInPolygon,
 } = await import("../households");
 
 function uniqueConstraintError() {
@@ -179,6 +181,59 @@ describe("findNearbyHouseholds", () => {
     prismaMock.$queryRaw.mockResolvedValueOnce([{ id: "hh-2", contactName: "Neighbor" }]);
     const result = await findNearbyHouseholds("org-1", 40.5, -111.8, "hh-1");
     expect(result).toEqual([{ id: "hh-2", contactName: "Neighbor" }]);
+    expect(prismaMock.$queryRaw).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("signedUpHouseholdsInBounds", () => {
+  const BOUNDS = { minLat: 40.5, maxLat: 40.6, minLng: -111.9, maxLng: -111.8 };
+
+  it("returns nothing for a non-staff caller", async () => {
+    const result = await signedUpHouseholdsInBounds(VOLUNTEER, "org-1", BOUNDS);
+    expect(result).toEqual({ points: [], truncated: false });
+    expect(prismaMock.household.findMany).not.toHaveBeenCalled();
+  });
+
+  it("scopes to the org and the lat/lng box", async () => {
+    prismaMock.household.findMany.mockResolvedValueOnce([
+      { id: "hh-1", lat: 40.55, lng: -111.85, contactName: "Jane Doe", addressInput: "123 Main St" },
+    ]);
+    const result = await signedUpHouseholdsInBounds(OWNER, "org-1", BOUNDS);
+    expect(result).toEqual({
+      points: [{ id: "hh-1", lat: 40.55, lng: -111.85, contactName: "Jane Doe", addressInput: "123 Main St" }],
+      truncated: false,
+    });
+    expect(prismaMock.household.findMany).toHaveBeenCalledWith({
+      where: {
+        orgId: "org-1",
+        deletedAt: null,
+        lat: { gte: 40.5, lte: 40.6 },
+        lng: { gte: -111.9, lte: -111.8 },
+      },
+      select: { id: true, lat: true, lng: true, contactName: true, addressInput: true },
+      take: 1001,
+    });
+  });
+});
+
+describe("signedUpHouseholdsInPolygon", () => {
+  const SQUARE = { type: "Polygon" as const, coordinates: [[[-111.9, 40.7], [-111.8, 40.7], [-111.8, 40.6], [-111.9, 40.6]]] };
+
+  it("returns nothing for a non-staff caller", async () => {
+    const result = await signedUpHouseholdsInPolygon(VOLUNTEER, "org-1", SQUARE);
+    expect(result).toEqual({ points: [], truncated: false });
+    expect(prismaMock.$queryRaw).not.toHaveBeenCalled();
+  });
+
+  it("runs the ST_Contains query scoped to the org", async () => {
+    prismaMock.$queryRaw.mockResolvedValueOnce([
+      { id: "hh-1", lat: 40.65, lng: -111.85, contactName: "Jane Doe", addressInput: "123 Main St" },
+    ]);
+    const result = await signedUpHouseholdsInPolygon(OWNER, "org-1", SQUARE);
+    expect(result).toEqual({
+      points: [{ id: "hh-1", lat: 40.65, lng: -111.85, contactName: "Jane Doe", addressInput: "123 Main St" }],
+      truncated: false,
+    });
     expect(prismaMock.$queryRaw).toHaveBeenCalledTimes(1);
   });
 });
