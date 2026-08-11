@@ -1,5 +1,6 @@
 import { Analytics } from "@vercel/analytics/next";
 import { brand } from "@/config/brand";
+import { OfflineBanner } from "./OfflineBanner";
 import "./globals.css";
 
 export const metadata = {
@@ -26,6 +27,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body>
+        <OfflineBanner />
         {children}
         <Analytics />
       </body>

@@ -130,7 +130,12 @@ export function KeysClient({
           </p>
           {/* eslint-disable-next-line @next/next/no-img-element -- data: URL, next/image can't optimize it */}
           <img src={revealed.qrDataUrl} alt="QR code for redemption link" width={240} height={240} />
-          <input readOnly value={redeemUrl} onClick={(e) => (e.target as HTMLInputElement).select()} />
+          <input
+            readOnly
+            aria-label="Redemption link"
+            value={redeemUrl}
+            onClick={(e) => (e.target as HTMLInputElement).select()}
+          />
           <Button variant="secondary" onClick={() => setRevealed(null)}>
             Done
           </Button>
