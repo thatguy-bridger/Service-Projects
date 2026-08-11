@@ -89,6 +89,19 @@ export function AddressPointsClient({ initialSources }: { initialSources: Addres
           <Button type="button" variant="primary" disabled={importing || !fileLabel || !source.trim()} onClick={handleImport}>
             {importing ? "Importing…" : "Import"}
           </Button>
+          {/* The button needs a source label AND a chosen file, both --
+              easy to fill in one and wonder why it's still grayed out,
+              so say exactly what's still missing instead of leaving it
+              to be inferred. */}
+          {!importing && (!fileLabel || !source.trim()) && (
+            <p style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)", margin: 0 }}>
+              {!fileLabel && !source.trim()
+                ? "Enter a source label and choose a file to enable Import."
+                : !fileLabel
+                  ? "Choose a file to enable Import."
+                  : "Enter a source label to enable Import."}
+            </p>
+          )}
           {message && <p style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)", margin: 0 }}>{message}</p>}
         </div>
       </div>
