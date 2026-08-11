@@ -107,6 +107,18 @@ export interface TerritoryFillResult {
   count?: number;
 }
 
+async function countAddressPointsInPolygon(polygon: unknown): Promise<number> {
+  const polygonJson = JSON.stringify(polygon);
+  const rows = await prisma.$queryRaw<{ count: bigint }[]>`
+    SELECT COUNT(*)::bigint AS count FROM "AddressPoint"
+    WHERE ST_Contains(
+      ST_SetSRID(ST_GeomFromGeoJSON(${polygonJson}), 4326),
+      ST_SetSRID(ST_MakePoint(lng, lat), 4326)
+    )
+  `;
+  return Number(rows[0]?.count ?? 0);
+}
+
 /**
  * SPEC.md §9.2's fill step, against a local import instead of a live
  * UGRC call ("ST_Contains against a local import... a live API call per
@@ -129,20 +141,34 @@ export async function previewTerritoryFill(
   const territory = await prisma.territory.findFirst({ where: { id: territoryId, orgId, deletedAt: null } });
   if (!territory) return { ok: false, error: "Territory not found." };
 
-  const polygonJson = JSON.stringify(territory.polygon);
-  const rows = await prisma.$queryRaw<{ count: bigint }[]>`
-    SELECT COUNT(*)::bigint AS count FROM "AddressPoint"
-    WHERE ST_Contains(
-      ST_SetSRID(ST_GeomFromGeoJSON(${polygonJson}), 4326),
-      ST_SetSRID(ST_MakePoint(lng, lat), 4326)
-    )
-  `;
-  const count = Number(rows[0]?.count ?? 0);
+  const count = await countAddressPointsInPolygon(territory.polygon);
 
   await prisma.territory.update({
     where: { id: territoryId },
     data: { addressPointCount: count, lastFilledAt: new Date() },
   });
 
+  return { ok: true, count };
+}
+
+/**
+ * Same count, but against a polygon that hasn't been saved as a
+ * Territory yet -- lets the drawing UI show "N addresses in this shape
+ * so far" as a lightweight card while an admin is still drawing, without
+ * forcing them to save first just to see whether the shape is even
+ * useful. Read-only, nothing cached (there's no Territory row to cache
+ * it on).
+ */
+export async function previewPolygonFill(
+  session: SessionLike | null | undefined,
+  polygon: TerritoryPolygon
+): Promise<TerritoryFillResult> {
+  const membership = await resolveMembership(session);
+  if (!membership || !isStaff(membership.role)) return { ok: false, error: "Forbidden" };
+  if (!polygon?.coordinates?.[0] || polygon.coordinates[0].length < 3) {
+    return { ok: false, error: "A shape needs at least 3 points." };
+  }
+
+  const count = await countAddressPointsInPolygon(polygon);
   return { ok: true, count };
 }

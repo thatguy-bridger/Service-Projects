@@ -9,6 +9,7 @@ import {
   renameTerritory,
   deleteTerritory,
   previewTerritoryFill,
+  previewPolygonFill,
   type TerritoryActionResult,
   type TerritoryFillResult,
   type TerritoryPolygon,
@@ -48,4 +49,11 @@ export async function previewTerritoryFillAction(id: string): Promise<TerritoryF
   const result = await previewTerritoryFill(session, org.id, id);
   revalidatePath("/admin/territories");
   return result;
+}
+
+// Read-only -- no org needed (nothing is scoped or written), so this
+// works against an in-progress, unsaved shape while drawing.
+export async function previewPolygonFillAction(polygon: TerritoryPolygon): Promise<TerritoryFillResult> {
+  const session = await getServerSession(authOptions);
+  return previewPolygonFill(session, polygon);
 }
