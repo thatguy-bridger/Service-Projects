@@ -24,6 +24,7 @@ const {
   submitSignup,
   signedUpHouseholdsInBounds,
   signedUpHouseholdsInPolygon,
+  householdRetentionSummary,
 } = await import("../households");
 
 function uniqueConstraintError() {
@@ -235,6 +236,43 @@ describe("signedUpHouseholdsInPolygon", () => {
       truncated: false,
     });
     expect(prismaMock.$queryRaw).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("householdRetentionSummary", () => {
+  function monthsAgo(n: number): Date {
+    const d = new Date();
+    d.setDate(d.getDate() - n * 30.44);
+    return d;
+  }
+
+  it("returns nothing for a non-staff caller", async () => {
+    const result = await householdRetentionSummary(VOLUNTEER, "org-1");
+    expect(result).toEqual({ pastRetentionCount: 0, dueSoonCount: 0, pastRetention: [] });
+    expect(prismaMock.$queryRaw).not.toHaveBeenCalled();
+  });
+
+  it("classifies households past the 24-month mark separately from ones due soon", async () => {
+    prismaMock.$queryRaw.mockResolvedValueOnce([
+      { id: "hh-recent", contactName: "Recent Household", addressInput: "1 Recent St", lastEventAt: monthsAgo(1) },
+      { id: "hh-due-soon", contactName: "Due Soon Household", addressInput: "2 Soon St", lastEventAt: monthsAgo(22) },
+      { id: "hh-overdue", contactName: "Overdue Household", addressInput: "3 Late St", lastEventAt: monthsAgo(30) },
+    ]);
+    const result = await householdRetentionSummary(OWNER, "org-1");
+    expect(result.pastRetentionCount).toBe(1);
+    expect(result.dueSoonCount).toBe(1);
+    expect(result.pastRetention).toHaveLength(1);
+    expect(result.pastRetention[0].id).toBe("hh-overdue");
+    expect(result.pastRetention[0].monthsSinceLastEvent).toBeGreaterThanOrEqual(29);
+  });
+
+  it("sorts the past-retention list most-overdue first", async () => {
+    prismaMock.$queryRaw.mockResolvedValueOnce([
+      { id: "hh-a", contactName: "A", addressInput: "a", lastEventAt: monthsAgo(25) },
+      { id: "hh-b", contactName: "B", addressInput: "b", lastEventAt: monthsAgo(40) },
+    ]);
+    const result = await householdRetentionSummary(OWNER, "org-1");
+    expect(result.pastRetention.map((h) => h.id)).toEqual(["hh-b", "hh-a"]);
   });
 });
 

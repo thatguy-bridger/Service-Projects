@@ -1,7 +1,13 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@service-projects/core-auth";
-import { defaultOrganization, eventsForSession, browseHouseholds, type HouseholdSortField } from "@service-projects/database";
-import { Card } from "@service-projects/ui";
+import {
+  defaultOrganization,
+  eventsForSession,
+  browseHouseholds,
+  householdRetentionSummary,
+  type HouseholdSortField,
+} from "@service-projects/database";
+import { Card, Badge } from "@service-projects/ui";
 import { t } from "@/copy";
 import { LibraryResults } from "./LibraryResults";
 
@@ -34,8 +40,53 @@ export default async function AdminLibraryPage({
   const eventOptions = events.map((ev) => ({ id: ev.id, name: ev.name }));
   const totalPages = Math.max(1, Math.ceil(result.total / result.pageSize));
 
+  const retention = org ? await householdRetentionSummary(session, org.id) : { pastRetentionCount: 0, dueSoonCount: 0, pastRetention: [] };
+  const SHOWN_RETENTION_ROWS = 10;
+
   return (
     <>
+      {(retention.pastRetentionCount > 0 || retention.dueSoonCount > 0) && (
+        <Card style={{ marginBottom: "var(--space-6)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", marginBottom: 4 }}>
+            <h2 style={{ margin: 0, fontSize: "var(--text-lg)", fontWeight: "var(--weight-semibold)" }}>
+              {t("admin.library.retention.title")}
+            </h2>
+            {retention.pastRetentionCount > 0 && <Badge tone="danger">{retention.pastRetentionCount}</Badge>}
+          </div>
+          {retention.pastRetentionCount > 0 && (
+            <p style={{ margin: "4px 0" }}>{t("admin.library.retention.pastDue", { count: retention.pastRetentionCount })}</p>
+          )}
+          {retention.dueSoonCount > 0 && (
+            <p style={{ margin: "4px 0", color: "var(--text-secondary)" }}>
+              {t("admin.library.retention.dueSoon", { count: retention.dueSoonCount })}
+            </p>
+          )}
+          {retention.pastRetentionCount > 0 && (
+            <>
+              <p style={{ color: "var(--text-secondary)", fontSize: "var(--text-sm)" }}>{t("admin.library.retention.note")}</p>
+              <ul style={{ margin: 0, paddingLeft: "1.25em", display: "grid", gap: 4 }}>
+                {retention.pastRetention.slice(0, SHOWN_RETENTION_ROWS).map((h) => (
+                  <li key={h.id} style={{ fontSize: "var(--text-sm)" }}>
+                    <strong>{h.contactName}</strong> — {h.addressInput} —{" "}
+                    <span style={{ color: "var(--text-secondary)" }}>
+                      {t("admin.library.retention.lastEvent", {
+                        date: new Date(h.lastEventAt).toLocaleDateString(),
+                        months: h.monthsSinceLastEvent,
+                      })}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              {retention.pastRetentionCount > SHOWN_RETENTION_ROWS && (
+                <p style={{ color: "var(--text-secondary)", fontSize: "var(--text-sm)", margin: "4px 0 0" }}>
+                  {t("admin.library.retention.andMore", { count: retention.pastRetentionCount - SHOWN_RETENTION_ROWS })}
+                </p>
+              )}
+            </>
+          )}
+        </Card>
+      )}
+
       <Card style={{ marginBottom: "var(--space-6)" }}>
         <h1 style={{ margin: "0 0 4px", fontSize: "var(--text-xl)", fontWeight: "var(--weight-semibold)" }}>
           {t("admin.library.title")}
