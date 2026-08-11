@@ -9,9 +9,8 @@ vi.mock("../../client", async () => {
 const { prisma } = await import("../../client");
 const prismaMock = prisma as unknown as PrismaMock;
 
-const { eventsForSession, deleteEvents, updateEvent, openEventsForSignup, createPairedEvent } = await import(
-  "../events"
-);
+const { eventsForSession, eventForSession, deleteEvents, updateEvent, openEventsForSignup, createPairedEvent } =
+  await import("../events");
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -33,7 +32,12 @@ describe("eventsForSession", () => {
   it("non-staff only see OPEN events in the org", async () => {
     await eventsForSession(VOLUNTEER, "org-1");
     expect(prismaMock.event.findMany).toHaveBeenCalledWith({
-      where: { orgId: "org-1", deletedAt: null, status: "OPEN" },
+      where: {
+        orgId: "org-1",
+        deletedAt: null,
+        status: "OPEN",
+        category: { is: { orgId: "org-1", deletedAt: null, publishedAt: { not: null } } },
+      },
       orderBy: { serviceStartsAt: "asc" },
     });
   });
@@ -41,9 +45,64 @@ describe("eventsForSession", () => {
   it("a signed-out visitor is treated the same as non-staff (public OPEN events only)", async () => {
     await eventsForSession(null, "org-1");
     expect(prismaMock.event.findMany).toHaveBeenCalledWith({
-      where: { orgId: "org-1", deletedAt: null, status: "OPEN" },
+      where: {
+        orgId: "org-1",
+        deletedAt: null,
+        status: "OPEN",
+        category: { is: { orgId: "org-1", deletedAt: null, publishedAt: { not: null } } },
+      },
       orderBy: { serviceStartsAt: "asc" },
     });
+  });
+});
+
+describe("eventForSession", () => {
+  it("staff see the event regardless of status or category publish state", async () => {
+    prismaMock.event.findFirst.mockResolvedValueOnce({
+      id: "ev-1",
+      status: "DRAFT",
+      category: { publishedAt: null, deletedAt: null },
+    });
+    const result = await eventForSession(ADMIN, "org-1", "ev-1");
+    expect(result).toEqual(
+      expect.objectContaining({ id: "ev-1", status: "DRAFT" })
+    );
+  });
+
+  it("non-staff get null for an OPEN event whose category isn't published", async () => {
+    prismaMock.event.findFirst.mockResolvedValueOnce({
+      id: "ev-1",
+      status: "OPEN",
+      category: { publishedAt: null, deletedAt: null },
+    });
+    const result = await eventForSession(VOLUNTEER, "org-1", "ev-1");
+    expect(result).toBeNull();
+  });
+
+  it("non-staff get the event when it's OPEN and its category is published", async () => {
+    prismaMock.event.findFirst.mockResolvedValueOnce({
+      id: "ev-1",
+      status: "OPEN",
+      category: { publishedAt: new Date(), deletedAt: null },
+    });
+    const result = await eventForSession(VOLUNTEER, "org-1", "ev-1");
+    expect(result).toEqual(expect.objectContaining({ id: "ev-1" }));
+  });
+
+  it("non-staff get null when the category itself is soft-deleted, even if publishedAt is set", async () => {
+    prismaMock.event.findFirst.mockResolvedValueOnce({
+      id: "ev-1",
+      status: "OPEN",
+      category: { publishedAt: new Date(), deletedAt: new Date() },
+    });
+    const result = await eventForSession(VOLUNTEER, "org-1", "ev-1");
+    expect(result).toBeNull();
+  });
+
+  it("non-staff get null for an uncategorized event (no category to be published)", async () => {
+    prismaMock.event.findFirst.mockResolvedValueOnce({ id: "ev-1", status: "OPEN", category: null });
+    const result = await eventForSession(VOLUNTEER, "org-1", "ev-1");
+    expect(result).toBeNull();
   });
 });
 

@@ -20,6 +20,17 @@ export default async function AdminEventsPage() {
 
   const categories = org ? await categoriesForOrg(org.id) : [];
   const uncategorizedCount = events.filter((ev) => !ev.categoryId).length;
+  // A category can be published with every one of its events still in
+  // DRAFT/CLOSED (publishCategory only bulk-opens DRAFT events at the
+  // moment it's published -- an event added after that stays DRAFT
+  // until touched) -- worth flagging plainly rather than leaving an
+  // admin to notice signup is empty and wonder why.
+  const openEventCountByCategory = new Map<string, number>();
+  for (const ev of events) {
+    if (ev.categoryId && ev.status === "OPEN") {
+      openEventCountByCategory.set(ev.categoryId, (openEventCountByCategory.get(ev.categoryId) ?? 0) + 1);
+    }
+  }
 
   return (
     <>
@@ -68,23 +79,32 @@ export default async function AdminEventsPage() {
         </a>
       </div>
       <div className="admin-columns">
-        {categories.map((cat) => (
-          <a key={cat.id} href={`/admin/events/by-category/${cat.id}`} style={{ textDecoration: "none" }}>
-            <Card className="card--interactive">
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "var(--space-2)" }}>
-                <h3 style={{ margin: 0, fontSize: "var(--text-base)", fontWeight: "var(--weight-medium)", color: "var(--text-primary)" }}>
-                  {cat.name}
-                </h3>
-                <span style={{ display: "flex", gap: "var(--space-2)", alignItems: "center" }}>
-                  <Badge tone={cat.publishedAt ? "success" : "neutral"}>
-                    {cat.publishedAt ? "Published" : "Not published"}
-                  </Badge>
-                  <Badge tone="accent">{cat._count.events}</Badge>
-                </span>
-              </div>
-            </Card>
-          </a>
-        ))}
+        {categories.map((cat) => {
+          const openCount = openEventCountByCategory.get(cat.id) ?? 0;
+          const publishedButEmpty = !!cat.publishedAt && openCount === 0;
+          return (
+            <a key={cat.id} href={`/admin/events/by-category/${cat.id}`} style={{ textDecoration: "none" }}>
+              <Card className="card--interactive">
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "var(--space-2)" }}>
+                  <h3 style={{ margin: 0, fontSize: "var(--text-base)", fontWeight: "var(--weight-medium)", color: "var(--text-primary)" }}>
+                    {cat.name}
+                  </h3>
+                  <span style={{ display: "flex", gap: "var(--space-2)", alignItems: "center" }}>
+                    <Badge tone={cat.publishedAt ? "success" : "neutral"}>
+                      {cat.publishedAt ? "Published" : "Not published"}
+                    </Badge>
+                    <Badge tone="accent">{cat._count.events}</Badge>
+                  </span>
+                </div>
+                {publishedButEmpty && (
+                  <p style={{ margin: "var(--space-2) 0 0", fontSize: "var(--text-sm)", color: "var(--color-warning-500)" }}>
+                    Published, but no events in it are open — signup will show nothing here.
+                  </p>
+                )}
+              </Card>
+            </a>
+          );
+        })}
         <a href="/admin/events/by-category/uncategorized" style={{ textDecoration: "none" }}>
           <Card className="card--interactive">
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
