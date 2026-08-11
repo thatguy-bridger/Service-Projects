@@ -66,7 +66,7 @@ export default async function SignupPage() {
     <>
       <AppTopbar section={t("signup.stepper.holidays")} />
       <div className="signup-page">
-        <div style={{ display: "grid", gap: "var(--space-3)", marginBottom: "var(--space-4)" }}>
+        <div className="signup-formBand" style={{ display: "grid", gap: "var(--space-3)", marginBottom: "var(--space-4)" }}>
           <PublicFormSlotBlocks layout={publicFormLayout} slot="header" featured={featured} />
         </div>
         <SignupFlow
@@ -89,7 +89,7 @@ export default async function SignupPage() {
               : null
           }
         />
-        <div style={{ display: "grid", gap: "var(--space-2)", marginTop: "var(--space-4)" }}>
+        <div className="signup-formBand" style={{ display: "grid", gap: "var(--space-2)", marginTop: "var(--space-4)" }}>
           <PublicFormSlotBlocks layout={publicFormLayout} slot="footer" featured={featured} />
         </div>
       </div>

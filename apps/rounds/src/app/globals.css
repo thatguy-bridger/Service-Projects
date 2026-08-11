@@ -98,8 +98,18 @@ h1, h2, h3, h4 {
   width: 100%;
   box-sizing: border-box;
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+  align-items: center;
   padding: var(--space-6) var(--space-4) var(--space-16);
+}
+
+/* The public-form header/footer blocks (cover image, dates, price
+   summary, privacy notice) that wrap the stepper card -- share the
+   card's width instead of stretching edge-to-edge, so they read as
+   part of the same flow rather than floating separately. */
+.signup-page > .signup-formBand {
+  width: 100%;
+  max-width: 640px;
 }
 
 .signup-shell {
