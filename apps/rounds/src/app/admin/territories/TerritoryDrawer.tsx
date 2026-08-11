@@ -33,7 +33,13 @@ const ADDRESS_PIN_MIN_ZOOM = 16;
  * doesn't re-query mid-gesture. Zooming back out clears the pins rather
  * than leaving stale ones on screen.
  */
-function AddressPointPins({ onTruncatedChange }: { onTruncatedChange: (truncated: boolean) => void }) {
+export type AddressPinStatus =
+  | { state: "below-zoom"; zoom: number }
+  | { state: "loading" }
+  | { state: "ok"; count: number; truncated: boolean }
+  | { state: "error"; message: string };
+
+function AddressPointPins({ onStatusChange }: { onStatusChange: (status: AddressPinStatus) => void }) {
   const map = useMap();
   const [pins, setPins] = useState<AddressPointPin[]>([]);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -47,24 +53,35 @@ function AddressPointPins({ onTruncatedChange }: { onTruncatedChange: (truncated
       const bounds = map!.getBounds();
       if (!zoom || zoom < ADDRESS_PIN_MIN_ZOOM || !bounds) {
         setPins([]);
-        onTruncatedChange(false);
+        onStatusChange({ state: "below-zoom", zoom: zoom ?? 0 });
         return;
       }
       const ne = bounds.getNorthEast();
       const sw = bounds.getSouthWest();
       const requestId = ++requestIdRef.current;
+      onStatusChange({ state: "loading" });
       addressPointsInBoundsAction({
         minLat: sw.lat(),
         maxLat: ne.lat(),
         minLng: sw.lng(),
         maxLng: ne.lng(),
-      }).then((result) => {
-        // A slower earlier request can resolve after a newer one --
-        // drop it instead of flickering back to a stale viewport's pins.
-        if (requestId !== requestIdRef.current) return;
-        setPins(result.points);
-        onTruncatedChange(result.truncated);
-      });
+      })
+        .then((result) => {
+          // A slower earlier request can resolve after a newer one --
+          // drop it instead of flickering back to a stale viewport's pins.
+          if (requestId !== requestIdRef.current) return;
+          setPins(result.points);
+          onStatusChange({ state: "ok", count: result.points.length, truncated: result.truncated });
+        })
+        .catch((err: unknown) => {
+          // A silently-dropped rejection here (auth expiring mid-session,
+          // a server error) previously looked exactly like "the pins just
+          // aren't loading" with nothing on screen to explain why --
+          // surface it instead of swallowing it.
+          if (requestId !== requestIdRef.current) return;
+          setPins([]);
+          onStatusChange({ state: "error", message: err instanceof Error ? err.message : "Could not load addresses." });
+        });
     }
 
     function onIdle() {
@@ -78,7 +95,7 @@ function AddressPointPins({ onTruncatedChange }: { onTruncatedChange: (truncated
       listener.remove();
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- onTruncatedChange is a setState wrapper from the parent, stable enough that re-running this on every render would just re-add the same idle listener over and over.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- onStatusChange is a setState wrapper from the parent, stable enough that re-running this on every render would just re-add the same idle listener over and over.
   }, [map]);
 
   return (
@@ -129,7 +146,7 @@ function DrawSurface({
   onSelectPoint,
   existingTerritories,
   onEditExisting,
-  onTruncatedChange,
+  onPinStatusChange,
 }: {
   path: google.maps.LatLngLiteral[];
   onAddPoint: (point: google.maps.LatLngLiteral) => void;
@@ -138,7 +155,7 @@ function DrawSurface({
   onSelectPoint: (index: number | null) => void;
   existingTerritories: TerritoryRow[];
   onEditExisting: (territory: TerritoryRow) => void;
-  onTruncatedChange: (truncated: boolean) => void;
+  onPinStatusChange: (status: AddressPinStatus) => void;
 }) {
   return (
     <Map
@@ -151,7 +168,7 @@ function DrawSurface({
         onSelectPoint(null);
       }}
     >
-      <AddressPointPins onTruncatedChange={onTruncatedChange} />
+      <AddressPointPins onStatusChange={onPinStatusChange} />
       {existingTerritories.map((t) => (
         <Polygon
           key={t.id}
@@ -220,7 +237,7 @@ export function TerritoryDrawer({
   const [selectedPointIndex, setSelectedPointIndex] = useState<number | null>(null);
   const [fillPreview, setFillPreview] = useState<{ count: number } | { error: string } | null>(null);
   const [previewing, setPreviewing] = useState(false);
-  const [pinsTruncated, setPinsTruncated] = useState(false);
+  const [pinStatus, setPinStatus] = useState<AddressPinStatus | null>(null);
 
   function addPoint(point: google.maps.LatLngLiteral) {
     setPath((prev) => [...prev, point]);
@@ -361,9 +378,9 @@ export function TerritoryDrawer({
             onSelectPoint={setSelectedPointIndex}
             existingTerritories={visibleExisting}
             onEditExisting={startEditing}
-            onTruncatedChange={setPinsTruncated}
+            onPinStatusChange={setPinStatus}
           />
-          {pinsTruncated && (
+          {pinStatus && (
             <div
               style={{
                 position: "absolute",
@@ -377,7 +394,16 @@ export function TerritoryDrawer({
                 pointerEvents: "none",
               }}
             >
-              Zoom in further to see every address in view
+              {pinStatus.state === "below-zoom" &&
+                `Zoom in to street level to see addresses (zoom ${pinStatus.zoom}/${ADDRESS_PIN_MIN_ZOOM})`}
+              {pinStatus.state === "loading" && "Loading addresses…"}
+              {pinStatus.state === "error" && `Couldn't load addresses: ${pinStatus.message}`}
+              {pinStatus.state === "ok" &&
+                (pinStatus.truncated
+                  ? `Showing ${pinStatus.count} of more — zoom in further to see every address in view`
+                  : pinStatus.count === 0
+                    ? "No imported addresses in this view"
+                    : `${pinStatus.count} address${pinStatus.count === 1 ? "" : "es"} in view`)}
             </div>
           )}
         </div>
