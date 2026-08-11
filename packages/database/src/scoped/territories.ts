@@ -193,6 +193,40 @@ async function countAddressPointsInPolygon(polygon: unknown): Promise<number> {
 }
 
 /**
+ * Addresses actually inside a polygon (not just its bounding box), for
+ * showing only a selected/edited territory's own address points on the
+ * map instead of everything in the current viewport -- selecting a
+ * territory should narrow the map down to that shape, not just add
+ * another filter on top of "whatever's on screen." Same ST_Contains
+ * query as countAddressPointsInPolygon, but returning the rows
+ * themselves (capped, same limit as the bounds-based lookup) instead of
+ * just a count.
+ */
+export async function addressPointsInPolygon(
+  session: SessionLike | null | undefined,
+  polygon: TerritoryPolygon
+): Promise<AddressPointBoundsResult> {
+  const membership = await resolveMembership(session);
+  if (!membership || !isStaff(membership.role)) return { points: [], truncated: false };
+  if (!polygon?.coordinates?.[0] || polygon.coordinates[0].length < 3) {
+    return { points: [], truncated: false };
+  }
+
+  const polygonJson = JSON.stringify(polygon);
+  const rows = await prisma.$queryRaw<{ lat: number; lng: number; fullAddress: string }[]>`
+    SELECT lat, lng, "fullAddress" FROM "AddressPoint"
+    WHERE ST_Contains(
+      ST_SetSRID(ST_GeomFromGeoJSON(${polygonJson}), 4326),
+      ST_SetSRID(ST_MakePoint(lng, lat), 4326)
+    )
+    LIMIT ${BOUNDS_PIN_LIMIT + 1}
+  `;
+
+  const truncated = rows.length > BOUNDS_PIN_LIMIT;
+  return { points: rows.slice(0, BOUNDS_PIN_LIMIT), truncated };
+}
+
+/**
  * SPEC.md §9.2's fill step, against a local import instead of a live
  * UGRC call ("ST_Contains against a local import... a live API call per
  * polygon fill is slower, rate-limited, and no fresher"). Counts

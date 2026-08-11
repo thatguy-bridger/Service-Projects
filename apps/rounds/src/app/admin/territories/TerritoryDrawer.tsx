@@ -1,15 +1,31 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { APIProvider, Map, Marker, Polygon, useMap } from "@vis.gl/react-google-maps";
 import { Badge, Button, Card } from "@service-projects/ui";
-import type { AddressPointPin, TerritoryPolygon, TerritoryRow } from "@service-projects/database";
-import { previewPolygonFillAction, addressPointsInBoundsAction } from "./actions";
+import type { AddressPointPin, SignedUpHouseholdPin, TerritoryPolygon, TerritoryRow } from "@service-projects/database";
+import {
+  previewPolygonFillAction,
+  addressPointsInBoundsAction,
+  addressPointsInPolygonAction,
+  signedUpHouseholdsInBoundsAction,
+  signedUpHouseholdsInPolygonAction,
+} from "./actions";
 
 const DRAW_COLOR = "#6f4ef0";
 const EXISTING_COLOR = "#8a8a8a";
 const SELECTED_POINT_COLOR = "#c0392b";
-const PIN_COLOR = "#2f8f4e";
+
+// Reads the app's actual theme accent color rather than hardcoding a
+// hex value here, so the pins stay in sync with it if the palette ever
+// changes. Falls back to the token's known value if the CSS variable
+// isn't there yet (shouldn't happen once the stylesheet's loaded, but
+// an empty fillColor would just be another invisible-pin bug).
+function getThemeAccentColor(): string {
+  if (typeof window === "undefined") return "#ff563c";
+  const value = getComputedStyle(document.documentElement).getPropertyValue("--color-accent-500").trim();
+  return value || "#ff563c";
+}
 
 // A real pin shape (24x24-ish viewBox), built from only M/C/c/z --
 // Google Maps' custom Symbol path parser does NOT support SVG arc
@@ -31,12 +47,18 @@ const PIN_SVG_PATH =
 const ADDRESS_PIN_MIN_ZOOM = 16;
 
 /**
- * Plots imported AddressPoint rows as pins once the map is zoomed in
- * past ADDRESS_PIN_MIN_ZOOM, refetching from the current viewport on
- * every pan/zoom (debounced) via the "idle" event -- the same event
- * Maps JS fires once a drag/zoom gesture has actually settled, so this
- * doesn't re-query mid-gesture. Zooming back out clears the pins rather
- * than leaving stale ones on screen.
+ * Plots imported AddressPoint rows as pins, in one of two modes:
+ *
+ * - A territory is selected/being edited (filterPolygon set): shows only
+ *   that shape's own addresses (a real ST_Contains query, not just a
+ *   bounding box), regardless of zoom or what else is in the viewport --
+ *   selecting a territory should narrow the map down to it, not just
+ *   layer another filter on top of "whatever's on screen." Refetches
+ *   (debounced) whenever the shape itself changes.
+ * - Nothing selected (filterPolygon null): the original viewport
+ *   behavior -- past ADDRESS_PIN_MIN_ZOOM, refetches from the current
+ *   viewport on every pan/zoom (debounced) via the "idle" event, the
+ *   same event Maps JS fires once a drag/zoom gesture has settled.
  */
 export type AddressPinStatus =
   | { state: "below-zoom"; zoom: number }
@@ -44,19 +66,80 @@ export type AddressPinStatus =
   | { state: "ok"; count: number; truncated: boolean }
   | { state: "error"; message: string };
 
-function AddressPointPins({ onStatusChange }: { onStatusChange: (status: AddressPinStatus) => void }) {
+interface PinResult<T> {
+  points: T[];
+  truncated: boolean;
+}
+
+/**
+ * Shared fetch/debounce logic behind both pin layers (imported
+ * AddressPoint rows and signed-up Household pins) -- same two modes
+ * for each:
+ *
+ * - A territory is selected/being edited (filterPolygon set): fetches
+ *   only that shape's own points (a real ST_Contains query, not just a
+ *   bounding box), regardless of zoom or what else is in the viewport
+ *   -- selecting a territory should narrow the map down to it, not
+ *   just layer another filter on top of "whatever's on screen."
+ *   Refetches (debounced) whenever the shape itself changes.
+ * - Nothing selected (filterPolygon null): fetches from the current
+ *   viewport once past minZoom, refetching (debounced) on every pan/
+ *   zoom via the "idle" event -- the same event Maps JS fires once a
+ *   drag/zoom gesture has settled.
+ */
+function usePinLayer<T>({
+  filterPolygon,
+  minZoom,
+  fetchBounds,
+  fetchPolygon,
+  onStatusChange,
+}: {
+  filterPolygon: TerritoryPolygon | null;
+  minZoom: number;
+  fetchBounds: (bounds: { minLat: number; maxLat: number; minLng: number; maxLng: number }) => Promise<PinResult<T>>;
+  fetchPolygon: (polygon: TerritoryPolygon) => Promise<PinResult<T>>;
+  onStatusChange: (status: AddressPinStatus) => void;
+}): T[] {
   const map = useMap();
-  const [pins, setPins] = useState<AddressPointPin[]>([]);
+  const [pins, setPins] = useState<T[]>([]);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const requestIdRef = useRef(0);
 
+  // Polygon mode.
   useEffect(() => {
-    if (!map) return;
+    if (!filterPolygon) return;
+
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      const requestId = ++requestIdRef.current;
+      onStatusChange({ state: "loading" });
+      fetchPolygon(filterPolygon)
+        .then((result) => {
+          if (requestId !== requestIdRef.current) return;
+          setPins(result.points);
+          onStatusChange({ state: "ok", count: result.points.length, truncated: result.truncated });
+        })
+        .catch((err: unknown) => {
+          if (requestId !== requestIdRef.current) return;
+          setPins([]);
+          onStatusChange({ state: "error", message: err instanceof Error ? err.message : "Could not load addresses." });
+        });
+    }, 300);
+
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fetchPolygon/onStatusChange are stable enough (module-level action + a setState wrapper) that including them would just re-run this on every render.
+  }, [filterPolygon]);
+
+  // Viewport mode -- only active while nothing is selected.
+  useEffect(() => {
+    if (filterPolygon || !map) return;
 
     function refresh() {
       const zoom = map!.getZoom();
       const bounds = map!.getBounds();
-      if (!zoom || zoom < ADDRESS_PIN_MIN_ZOOM || !bounds) {
+      if (!zoom || zoom < minZoom || !bounds) {
         setPins([]);
         onStatusChange({ state: "below-zoom", zoom: zoom ?? 0 });
         return;
@@ -65,7 +148,7 @@ function AddressPointPins({ onStatusChange }: { onStatusChange: (status: Address
       const sw = bounds.getSouthWest();
       const requestId = ++requestIdRef.current;
       onStatusChange({ state: "loading" });
-      addressPointsInBoundsAction({
+      fetchBounds({
         minLat: sw.lat(),
         maxLat: ne.lat(),
         minLng: sw.lng(),
@@ -100,8 +183,27 @@ function AddressPointPins({ onStatusChange }: { onStatusChange: (status: Address
       listener.remove();
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- onStatusChange is a setState wrapper from the parent, stable enough that re-running this on every render would just re-add the same idle listener over and over.
-  }, [map]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fetchBounds/onStatusChange are stable enough (module-level action + a setState wrapper) that including them would just re-add the same idle listener over and over.
+  }, [map, filterPolygon, minZoom]);
+
+  return pins;
+}
+
+function AddressPointPins({
+  filterPolygon,
+  onStatusChange,
+}: {
+  filterPolygon: TerritoryPolygon | null;
+  onStatusChange: (status: AddressPinStatus) => void;
+}) {
+  const pinColor = useMemo(() => getThemeAccentColor(), []);
+  const pins = usePinLayer<AddressPointPin>({
+    filterPolygon,
+    minZoom: ADDRESS_PIN_MIN_ZOOM,
+    fetchBounds: addressPointsInBoundsAction,
+    fetchPolygon: addressPointsInPolygonAction,
+    onStatusChange,
+  });
 
   return (
     <>
@@ -114,7 +216,7 @@ function AddressPointPins({ onStatusChange }: { onStatusChange: (status: Address
             path: PIN_SVG_PATH,
             scale: 0.9,
             anchor: new google.maps.Point(12, 22),
-            fillColor: PIN_COLOR,
+            fillColor: pinColor,
             fillOpacity: 0.9,
             strokeColor: "#fff",
             strokeWeight: 1,
@@ -123,6 +225,59 @@ function AddressPointPins({ onStatusChange }: { onStatusChange: (status: Address
       ))}
     </>
   );
+}
+
+// Households that have already signed up (a real Household.lat/lng, not
+// just imported reference data) are the whole reason to look at this
+// map -- rendered bigger, in a distinct color, and with a real tooltip
+// (name + the address they typed) so one is unmistakable from the
+// smaller, plainer imported-address pins around it, not just another
+// dot in the same style.
+const SIGNED_UP_PIN_COLOR = "#1a73e8";
+
+function SignedUpHouseholdPins({
+  filterPolygon,
+  onStatusChange,
+}: {
+  filterPolygon: TerritoryPolygon | null;
+  onStatusChange: (status: AddressPinStatus) => void;
+}) {
+  const pins = usePinLayer<SignedUpHouseholdPin>({
+    filterPolygon,
+    minZoom: ADDRESS_PIN_MIN_ZOOM,
+    fetchBounds: signedUpHouseholdsInBoundsAction,
+    fetchPolygon: signedUpHouseholdsInPolygonAction,
+    onStatusChange,
+  });
+
+  return (
+    <>
+      {pins.map((p) => (
+        <Marker
+          key={p.id}
+          position={{ lat: p.lat, lng: p.lng }}
+          title={`${p.contactName} — ${p.addressInput}`}
+          zIndex={1000}
+          icon={{
+            path: PIN_SVG_PATH,
+            scale: 1.5,
+            anchor: new google.maps.Point(12, 22),
+            fillColor: SIGNED_UP_PIN_COLOR,
+            fillOpacity: 1,
+            strokeColor: "#fff",
+            strokeWeight: 2,
+          }}
+        />
+      ))}
+    </>
+  );
+}
+
+function pathToPolygon(path: google.maps.LatLngLiteral[]): TerritoryPolygon {
+  return {
+    type: "Polygon",
+    coordinates: [[...path.map((p) => [p.lng, p.lat] as [number, number]), [path[0].lng, path[0].lat]]],
+  };
 }
 
 function polygonToPath(polygon: TerritoryPolygon): google.maps.LatLngLiteral[] {
@@ -151,7 +306,9 @@ function DrawSurface({
   onSelectPoint,
   existingTerritories,
   onEditExisting,
+  filterPolygon,
   onPinStatusChange,
+  onSignedUpStatusChange,
 }: {
   path: google.maps.LatLngLiteral[];
   onAddPoint: (point: google.maps.LatLngLiteral) => void;
@@ -160,7 +317,9 @@ function DrawSurface({
   onSelectPoint: (index: number | null) => void;
   existingTerritories: TerritoryRow[];
   onEditExisting: (territory: TerritoryRow) => void;
+  filterPolygon: TerritoryPolygon | null;
   onPinStatusChange: (status: AddressPinStatus) => void;
+  onSignedUpStatusChange: (status: AddressPinStatus) => void;
 }) {
   return (
     <Map
@@ -173,7 +332,8 @@ function DrawSurface({
         onSelectPoint(null);
       }}
     >
-      <AddressPointPins onStatusChange={onPinStatusChange} />
+      <AddressPointPins filterPolygon={filterPolygon} onStatusChange={onPinStatusChange} />
+      <SignedUpHouseholdPins filterPolygon={filterPolygon} onStatusChange={onSignedUpStatusChange} />
       {existingTerritories.map((t) => (
         <Polygon
           key={t.id}
@@ -243,6 +403,7 @@ export function TerritoryDrawer({
   const [fillPreview, setFillPreview] = useState<{ count: number } | { error: string } | null>(null);
   const [previewing, setPreviewing] = useState(false);
   const [pinStatus, setPinStatus] = useState<AddressPinStatus | null>(null);
+  const [signedUpStatus, setSignedUpStatus] = useState<AddressPinStatus | null>(null);
 
   function addPoint(point: google.maps.LatLngLiteral) {
     setPath((prev) => [...prev, point]);
@@ -327,11 +488,15 @@ export function TerritoryDrawer({
   }, [selectedPointIndex]);
 
   function toPolygon(): TerritoryPolygon {
-    return {
-      type: "Polygon",
-      coordinates: [[...path.map((p) => [p.lng, p.lat] as [number, number]), [path[0].lng, path[0].lat]]],
-    };
+    return pathToPolygon(path);
   }
+
+  // Only recomputed when the shape itself actually changes (add/move/
+  // delete a point, or loading a different territory to edit) -- a
+  // stable reference here matters, since AddressPointPins uses it as an
+  // effect dependency and a fresh object every render would refetch on
+  // every keystroke in the name field.
+  const filterPolygon = useMemo(() => (path.length >= 3 ? pathToPolygon(path) : null), [path]);
 
   async function previewFill() {
     setPreviewing(true);
@@ -358,7 +523,9 @@ export function TerritoryDrawer({
           <p style={{ color: "var(--text-secondary)", fontSize: "var(--text-sm)", margin: 0 }}>
             Click the map to add a point. Click a point to select it (drag to move, Delete/Backspace to remove).
             Ctrl/Cmd+Z undoes the last added point, Ctrl/Cmd+Shift+Z redoes it. Click an existing (gray) territory
-            to edit it. Zoom in past street level to see individual imported addresses as pins.
+            to edit it, which also narrows the address pins down to just that territory. Otherwise, zoom in past
+            street level to see individual imported addresses as pins. Larger blue pins are households that have
+            already signed up — hover one for their name and address.
           </p>
           {editingId && (
             <Badge tone="accent">
@@ -383,32 +550,60 @@ export function TerritoryDrawer({
             onSelectPoint={setSelectedPointIndex}
             existingTerritories={visibleExisting}
             onEditExisting={startEditing}
+            filterPolygon={filterPolygon}
             onPinStatusChange={setPinStatus}
+            onSignedUpStatusChange={setSignedUpStatus}
           />
-          {pinStatus && (
+          {(pinStatus || signedUpStatus) && (
             <div
               style={{
                 position: "absolute",
                 bottom: 8,
                 left: 8,
-                background: "rgba(0,0,0,0.7)",
-                color: "#fff",
-                fontSize: "var(--text-xs)",
-                padding: "2px 8px",
-                borderRadius: "var(--radius-md)",
+                display: "flex",
+                flexDirection: "column",
+                gap: 4,
                 pointerEvents: "none",
               }}
             >
-              {pinStatus.state === "below-zoom" &&
-                `Zoom in to street level to see addresses (zoom ${pinStatus.zoom}/${ADDRESS_PIN_MIN_ZOOM})`}
-              {pinStatus.state === "loading" && "Loading addresses…"}
-              {pinStatus.state === "error" && `Couldn't load addresses: ${pinStatus.message}`}
-              {pinStatus.state === "ok" &&
-                (pinStatus.truncated
-                  ? `Showing ${pinStatus.count} of more — zoom in further to see every address in view`
-                  : pinStatus.count === 0
-                    ? "No imported addresses in this view"
-                    : `${pinStatus.count} address${pinStatus.count === 1 ? "" : "es"} in view`)}
+              {signedUpStatus && signedUpStatus.state === "ok" && signedUpStatus.count > 0 && (
+                <div
+                  style={{
+                    background: SIGNED_UP_PIN_COLOR,
+                    color: "#fff",
+                    fontSize: "var(--text-xs)",
+                    fontWeight: "var(--weight-medium)",
+                    padding: "2px 8px",
+                    borderRadius: "var(--radius-md)",
+                  }}
+                >
+                  {signedUpStatus.count} signed-up address{signedUpStatus.count === 1 ? "" : "es"}
+                  {signedUpStatus.truncated ? " (more not shown)" : ""}
+                  {filterPolygon ? " in this territory" : " in view"}
+                </div>
+              )}
+              {pinStatus && (
+                <div
+                  style={{
+                    background: "rgba(0,0,0,0.7)",
+                    color: "#fff",
+                    fontSize: "var(--text-xs)",
+                    padding: "2px 8px",
+                    borderRadius: "var(--radius-md)",
+                  }}
+                >
+                  {pinStatus.state === "below-zoom" &&
+                    `Zoom in to street level to see addresses (zoom ${pinStatus.zoom}/${ADDRESS_PIN_MIN_ZOOM})`}
+                  {pinStatus.state === "loading" && "Loading addresses…"}
+                  {pinStatus.state === "error" && `Couldn't load addresses: ${pinStatus.message}`}
+                  {pinStatus.state === "ok" &&
+                    (pinStatus.truncated
+                      ? `Showing ${pinStatus.count} of more — zoom in further to see every address${filterPolygon ? " in this territory" : " in view"}`
+                      : pinStatus.count === 0
+                        ? `No imported addresses ${filterPolygon ? "in this territory" : "in this view"}`
+                        : `${pinStatus.count} address${pinStatus.count === 1 ? "" : "es"} ${filterPolygon ? "in this territory" : "in view"}`)}
+                </div>
+              )}
             </div>
           )}
         </div>

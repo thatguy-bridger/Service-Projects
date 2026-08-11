@@ -51,6 +51,95 @@ export async function findNearbyHouseholds(
 // SPEC.md §6: household data (home addresses, access notes) never goes
 // through a raw `prisma.household` call in app code — see the ESLint rule
 // in packages/config/eslint-preset.js.
+export interface SignedUpHouseholdPin {
+  id: string;
+  lat: number;
+  lng: number;
+  contactName: string;
+  addressInput: string;
+}
+
+export interface SignedUpHouseholdPinsResult {
+  points: SignedUpHouseholdPin[];
+  truncated: boolean;
+}
+
+// Signed-up households are a much smaller set than raw imported
+// AddressPoint rows and are the whole reason to look at the territory
+// map in the first place, so the cap is generous relative to
+// BOUNDS_PIN_LIMIT in territories.ts -- a real viewport rarely holds
+// this many actual signups.
+const SIGNED_UP_PIN_LIMIT = 1000;
+
+/**
+ * Households with a saved lat/lng inside a lat/lng box, for plotting
+ * "someone already signed up here" pins on the territory map -- a
+ * distinct, more important layer than the imported AddressPoint
+ * reference data, so it's kept separate (own color/size/tooltip)
+ * rather than merged into that query.
+ */
+export async function signedUpHouseholdsInBounds(
+  session: SessionLike | null | undefined,
+  orgId: string,
+  bounds: { minLat: number; maxLat: number; minLng: number; maxLng: number }
+): Promise<SignedUpHouseholdPinsResult> {
+  const membership = await resolveMembership(session);
+  if (!membership || !isStaff(membership.role)) return { points: [], truncated: false };
+
+  const rows = await prisma.household.findMany({
+    where: {
+      orgId,
+      deletedAt: null,
+      lat: { gte: bounds.minLat, lte: bounds.maxLat },
+      lng: { gte: bounds.minLng, lte: bounds.maxLng },
+    },
+    select: { id: true, lat: true, lng: true, contactName: true, addressInput: true },
+    take: SIGNED_UP_PIN_LIMIT + 1,
+  });
+
+  const truncated = rows.length > SIGNED_UP_PIN_LIMIT;
+  return {
+    points: rows.slice(0, SIGNED_UP_PIN_LIMIT).map((r) => ({
+      id: r.id,
+      lat: r.lat as number,
+      lng: r.lng as number,
+      contactName: r.contactName,
+      addressInput: r.addressInput,
+    })),
+    truncated,
+  };
+}
+
+/**
+ * Same as signedUpHouseholdsInBounds, but against a real polygon
+ * (ST_Contains) instead of a bounding box -- used when a territory is
+ * selected/being edited, same as addressPointsInPolygon.
+ */
+export async function signedUpHouseholdsInPolygon(
+  session: SessionLike | null | undefined,
+  orgId: string,
+  polygon: unknown
+): Promise<SignedUpHouseholdPinsResult> {
+  const membership = await resolveMembership(session);
+  if (!membership || !isStaff(membership.role)) return { points: [], truncated: false };
+
+  const polygonJson = JSON.stringify(polygon);
+  const rows = await prisma.$queryRaw<SignedUpHouseholdPin[]>`
+    SELECT id, lat, lng, "contactName", "addressInput" FROM "Household"
+    WHERE "orgId" = ${orgId}
+      AND "deletedAt" IS NULL
+      AND lat IS NOT NULL AND lng IS NOT NULL
+      AND ST_Contains(
+        ST_SetSRID(ST_GeomFromGeoJSON(${polygonJson}), 4326),
+        ST_SetSRID(ST_MakePoint(lng, lat), 4326)
+      )
+    LIMIT ${SIGNED_UP_PIN_LIMIT + 1}
+  `;
+
+  const truncated = rows.length > SIGNED_UP_PIN_LIMIT;
+  return { points: rows.slice(0, SIGNED_UP_PIN_LIMIT), truncated };
+}
+
 export async function householdsForSession(session: SessionLike | null | undefined, orgId: string) {
   const membership = await resolveMembership(session);
   if (!membership || !isStaff(membership.role)) return [];
