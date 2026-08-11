@@ -311,7 +311,12 @@ export function DataTable<T extends { id: string }>({
               return (
                 <tr key={row.id} style={{ borderTop: "1px solid var(--border-default)" }}>
                   <td style={tdStyle}>
-                    <input type="checkbox" checked={selected.has(row.id)} onChange={() => toggleRow(row.id)} />
+                    <input
+                      type="checkbox"
+                      checked={selected.has(row.id)}
+                      onChange={() => toggleRow(row.id)}
+                      aria-label={`Select row ${row.id}`}
+                    />
                   </td>
                   {columns.map((col) => (
                     <td key={col.key} style={tdStyle}>

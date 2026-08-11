@@ -97,6 +97,14 @@ export function SignupFlow({
   const [contactPhone, setContactPhone] = useState(initialHousehold?.contactPhone ?? "");
   const [placementNote, setPlacementNote] = useState(initialHousehold?.placementNote ?? "");
   const [accessNotes, setAccessNotes] = useState(initialHousehold?.accessNotes ?? "");
+  // Collapsed by default -- most households have nothing special to
+  // say here, so showing two more fields up front just adds visual
+  // noise to the one screen every signup has to get through. Starts
+  // open for a returning household that already has something saved,
+  // so editing an existing note is never hidden behind an extra click.
+  const [showMoreDetails, setShowMoreDetails] = useState(
+    !!(initialHousehold?.placementNote || initialHousehold?.accessNotes)
+  );
   const [submitting, startSubmit] = useTransition();
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submittedHouseholdId, setSubmittedHouseholdId] = useState<string | null>(null);
@@ -273,7 +281,7 @@ export function SignupFlow({
                 >
                   <span className={`signup-checkbox${isSelected ? " signup-checkbox--selected" : ""}`}>
                     {isSelected && (
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3.4" strokeLinecap="round" strokeLinejoin="round">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                         <path d="M20 6 9 17l-5-5" />
                       </svg>
                     )}
@@ -376,25 +384,33 @@ export function SignupFlow({
               <span className="signup-fieldLabel">{t("signup.contact.phone")}</span>
               <input className="signup-input" type="tel" value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} />
             </label>
-            <label className="signup-field">
-              <span className="signup-fieldLabel">{t("signup.contact.placementNote")}</span>
-              <input
-                className="signup-input"
-                type="text"
-                placeholder={t("signup.contact.placementNotePlaceholder")}
-                value={placementNote}
-                onChange={(e) => setPlacementNote(e.target.value)}
-              />
-            </label>
-            <label className="signup-field">
-              <span className="signup-fieldLabel">{t("signup.contact.accessNotes")}</span>
-              <textarea
-                className="signup-input"
-                rows={2}
-                value={accessNotes}
-                onChange={(e) => setAccessNotes(e.target.value)}
-              />
-            </label>
+            {showMoreDetails ? (
+              <>
+                <label className="signup-field">
+                  <span className="signup-fieldLabel">{t("signup.contact.placementNote")}</span>
+                  <input
+                    className="signup-input"
+                    type="text"
+                    placeholder={t("signup.contact.placementNotePlaceholder")}
+                    value={placementNote}
+                    onChange={(e) => setPlacementNote(e.target.value)}
+                  />
+                </label>
+                <label className="signup-field">
+                  <span className="signup-fieldLabel">{t("signup.contact.accessNotes")}</span>
+                  <textarea
+                    className="signup-input"
+                    rows={2}
+                    value={accessNotes}
+                    onChange={(e) => setAccessNotes(e.target.value)}
+                  />
+                </label>
+              </>
+            ) : (
+              <button type="button" className="signup-linkButton" onClick={() => setShowMoreDetails(true)}>
+                + Add placement or access notes (optional)
+              </button>
+            )}
 
             <div className="signup-reviewBox">
               <h2 className="signup-reviewTitle">{t("signup.contact.reviewTitle")}</h2>
