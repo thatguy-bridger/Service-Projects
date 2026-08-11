@@ -17,6 +17,7 @@ const {
   openEventsForSignup,
   createPairedEvent,
   updateEventStopCardLayout,
+  updateEventRouteScreenLayout,
 } = await import("../events");
 
 beforeEach(() => {
@@ -174,19 +175,48 @@ describe("updateEventStopCardLayout", () => {
   });
 
   it("re-normalizes before persisting, forcing required blocks visible even if the caller tried to hide them", async () => {
+    prismaMock.event.findFirst.mockResolvedValueOnce({ layoutBlocks: null });
     await updateEventStopCardLayout(ADMIN, "org-1", "ev-1", {
       slots: { primary: [{ blockId: "address", visible: false }], secondary: [], actions: [] },
     });
     const call = prismaMock.event.updateMany.mock.calls[0][0];
     expect(call.where).toEqual({ id: "ev-1", orgId: "org-1", deletedAt: null });
     const saved = call.data.layoutBlocks;
-    expect(saved.slots.primary.find((b: { blockId: string; visible: boolean }) => b.blockId === "address").visible).toBe(true);
+    expect(saved.volunteer_stop_card.slots.primary.find((b: { blockId: string; visible: boolean }) => b.blockId === "address").visible).toBe(true);
   });
 
-  it("reports not-found when the org-scoped update matches nothing", async () => {
-    prismaMock.event.updateMany.mockResolvedValueOnce({ count: 0 });
+  it("merges into other screens' already-saved layouts instead of clobbering them", async () => {
+    prismaMock.event.findFirst.mockResolvedValueOnce({
+      layoutBlocks: { volunteer_route: { slots: { header: [{ blockId: "progress_bar", visible: true }], peek: [], sheet: [] } } },
+    });
+    await updateEventStopCardLayout(ADMIN, "org-1", "ev-1", {
+      slots: { primary: [{ blockId: "address", visible: true }], secondary: [], actions: [] },
+    });
+    const saved = prismaMock.event.updateMany.mock.calls[0][0].data.layoutBlocks;
+    expect(saved.volunteer_route).toBeDefined();
+    expect(saved.volunteer_stop_card).toBeDefined();
+  });
+
+  it("reports not-found when the event doesn't exist in this org", async () => {
     const result = await updateEventStopCardLayout(ADMIN, "org-1", "ev-1", { slots: {} });
     expect(result).toEqual({ ok: false, error: "Event not found." });
+  });
+});
+
+describe("updateEventRouteScreenLayout", () => {
+  it("blocks a non-staff caller before any write", async () => {
+    const result = await updateEventRouteScreenLayout(VOLUNTEER, "org-1", "ev-1", { slots: {} });
+    expect(result).toEqual({ ok: false, error: "Forbidden" });
+    expect(prismaMock.event.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("forces required blocks (progress bar, next stop, stop list) visible", async () => {
+    prismaMock.event.findFirst.mockResolvedValueOnce({ layoutBlocks: null });
+    await updateEventRouteScreenLayout(ADMIN, "org-1", "ev-1", {
+      slots: { header: [{ blockId: "progress_bar", visible: false }], peek: [], sheet: [] },
+    });
+    const saved = prismaMock.event.updateMany.mock.calls[0][0].data.layoutBlocks.volunteer_route;
+    expect(saved.slots.header.find((b: { blockId: string; visible: boolean }) => b.blockId === "progress_bar").visible).toBe(true);
   });
 });
 

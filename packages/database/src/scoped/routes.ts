@@ -7,6 +7,7 @@ export interface RouteRow {
   name: string;
   color: string;
   status: string;
+  briefingMd: string | null;
   stopCount: number;
   assignedTo: string[]; // volunteer names/emails, for display
 }
@@ -32,6 +33,7 @@ export async function routesForEvent(
     name: r.name,
     color: r.color,
     status: r.status,
+    briefingMd: r.briefingMd,
     stopCount: r._count.stops,
     assignedTo: r.assignments.map((a) => a.user.name ?? a.user.email),
   }));
@@ -46,7 +48,7 @@ export async function renameRoute(
   session: SessionLike | null | undefined,
   eventId: string,
   routeId: string,
-  patch: { name?: string; status?: string; color?: string }
+  patch: { name?: string; status?: string; color?: string; briefingMd?: string | null }
 ): Promise<ActionResult> {
   const membership = await resolveMembership(session, eventId);
   if (!membership || !isStaff(membership.role)) return { ok: false, error: "Forbidden" };

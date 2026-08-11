@@ -1,7 +1,7 @@
 import { Prisma, type EventKind, type EventStatus } from "@prisma/client";
 import { prisma } from "../client";
 import { isStaff, resolveMembership, type SessionLike } from "./membership";
-import { normalizeStopCardLayout, type ScreenLayout } from "../layoutBlocks";
+import { normalizeStopCard, normalizeRouteScreen, mergeEventLayout, type ScreenLayout, type EventScreenName } from "../layoutBlocks";
 
 export async function eventsForSession(session: SessionLike | null | undefined, orgId: string) {
   const membership = await resolveMembership(session);
@@ -136,30 +136,55 @@ export async function updateEvent(
 }
 
 /**
- * SPEC.md §11.3's layout-block editor, saving to Event.layoutBlocks
- * (existed unused since Phase 0). Always re-normalizes before
- * persisting -- normalizeStopCardLayout drops any block id the
- * registry doesn't recognize and forces required blocks back visible,
- * so a hand-crafted/stale client payload can't smuggle in something
- * the reader wouldn't also just re-normalize away, but at least the
- * stored row is never inconsistent with what actually gets rendered.
+ * SPEC.md §11.3's layout-block editor, saving into Event.layoutBlocks
+ * (existed unused since Phase 0) under one screen's key, merged with
+ * whatever other screens' layouts are already saved on this event
+ * (mergeEventLayout) rather than clobbering them. Always re-normalizes
+ * before persisting -- the per-screen normalizer drops any block id
+ * its registry doesn't recognize and forces required blocks back
+ * visible, so a hand-crafted/stale client payload can't smuggle in
+ * something the reader wouldn't also just re-normalize away, but at
+ * least the stored row is never inconsistent with what actually gets
+ * rendered.
  */
+async function updateEventLayout(
+  session: SessionLike | null | undefined,
+  orgId: string,
+  eventId: string,
+  screen: EventScreenName,
+  layout: ScreenLayout
+): Promise<UpdateEventResult> {
+  const membership = await resolveMembership(session, eventId);
+  if (!membership || !isStaff(membership.role)) return { ok: false, error: "Forbidden" };
+
+  const event = await prisma.event.findFirst({ where: { id: eventId, orgId, deletedAt: null }, select: { layoutBlocks: true } });
+  if (!event) return { ok: false, error: "Event not found." };
+
+  const merged = mergeEventLayout(event.layoutBlocks, screen, layout);
+  const result = await prisma.event.updateMany({
+    where: { id: eventId, orgId, deletedAt: null },
+    data: { layoutBlocks: merged as unknown as Prisma.InputJsonValue },
+  });
+  if (result.count === 0) return { ok: false, error: "Event not found." };
+  return { ok: true };
+}
+
 export async function updateEventStopCardLayout(
   session: SessionLike | null | undefined,
   orgId: string,
   eventId: string,
   layout: ScreenLayout
 ): Promise<UpdateEventResult> {
-  const membership = await resolveMembership(session, eventId);
-  if (!membership || !isStaff(membership.role)) return { ok: false, error: "Forbidden" };
+  return updateEventLayout(session, orgId, eventId, "volunteer_stop_card", normalizeStopCard(layout));
+}
 
-  const normalized = normalizeStopCardLayout(layout);
-  const result = await prisma.event.updateMany({
-    where: { id: eventId, orgId, deletedAt: null },
-    data: { layoutBlocks: normalized as unknown as Prisma.InputJsonValue },
-  });
-  if (result.count === 0) return { ok: false, error: "Event not found." };
-  return { ok: true };
+export async function updateEventRouteScreenLayout(
+  session: SessionLike | null | undefined,
+  orgId: string,
+  eventId: string,
+  layout: ScreenLayout
+): Promise<UpdateEventResult> {
+  return updateEventLayout(session, orgId, eventId, "volunteer_route", normalizeRouteScreen(layout));
 }
 
 // SPEC.md §2.1/§6: FLAG_SETOUT <-> FLAG_PICKUP is the only pairing

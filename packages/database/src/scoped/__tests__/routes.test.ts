@@ -9,7 +9,7 @@ vi.mock("../../client", async () => {
 const { prisma } = await import("../../client");
 const prismaMock = prisma as unknown as PrismaMock;
 
-const { assignStopsToRoute, createRouteFromStops } = await import("../routes");
+const { assignStopsToRoute, createRouteFromStops, renameRoute } = await import("../routes");
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -118,6 +118,22 @@ describe("createRouteFromStops", () => {
     expect(prismaMock.stop.update).toHaveBeenCalledWith({
       where: { id: "stop-done" },
       data: { routeId: "route-new", sequence: 0 },
+    });
+  });
+});
+
+describe("renameRoute", () => {
+  it("rejects a non-staff caller", async () => {
+    const result = await renameRoute(VOLUNTEER, "event-1", "route-1", { briefingMd: "Park at the church lot." });
+    expect(result.ok).toBe(false);
+    expect(prismaMock.route.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("passes briefingMd through to the update", async () => {
+    await renameRoute(ADMIN, "event-1", "route-1", { briefingMd: "Park at the church lot." });
+    expect(prismaMock.route.updateMany).toHaveBeenCalledWith({
+      where: { id: "route-1", eventId: "event-1", deletedAt: null },
+      data: { briefingMd: "Park at the church lot." },
     });
   });
 });

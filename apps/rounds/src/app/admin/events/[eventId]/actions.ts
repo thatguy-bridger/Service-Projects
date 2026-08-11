@@ -16,6 +16,7 @@ import {
   generateStopsFromSubscriptions,
   createPairedEvent,
   updateEventStopCardLayout,
+  updateEventRouteScreenLayout,
   type ImportResult,
   type DeleteResult,
   type CopyToEventResult,
@@ -272,6 +273,18 @@ export async function updateEventStopCardLayoutAction(eventId: string, layout: S
   if (!org) return { ok: false, error: "No organization set up yet." };
 
   const result = await updateEventStopCardLayout(session, org.id, eventId, layout);
+  revalidatePath(`/admin/events/${eventId}`);
+  return result;
+}
+
+export async function updateEventRouteScreenLayoutAction(eventId: string, layout: ScreenLayout): Promise<UpdateEventResult> {
+  const session = await getServerSession(authOptions);
+  await requireRole(session, ["OWNER", "ADMIN"]);
+
+  const org = await defaultOrganization();
+  if (!org) return { ok: false, error: "No organization set up yet." };
+
+  const result = await updateEventRouteScreenLayout(session, org.id, eventId, layout);
   revalidatePath(`/admin/events/${eventId}`);
   return result;
 }

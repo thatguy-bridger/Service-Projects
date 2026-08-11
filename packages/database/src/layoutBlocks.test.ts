@@ -1,5 +1,13 @@
 import { describe, it, expect } from "vitest";
-import { normalizeStopCardLayout, DEFAULT_STOP_CARD_LAYOUT, STOP_CARD_BLOCKS } from "./layoutBlocks";
+import {
+  normalizeStopCardLayout,
+  normalizeRouteScreenLayout,
+  mergeEventLayout,
+  DEFAULT_STOP_CARD_LAYOUT,
+  DEFAULT_ROUTE_SCREEN_LAYOUT,
+  STOP_CARD_BLOCKS,
+  ROUTE_SCREEN_BLOCKS,
+} from "./layoutBlocks";
 
 describe("normalizeStopCardLayout", () => {
   it("returns the default layout for null/garbage input", () => {
@@ -78,5 +86,77 @@ describe("normalizeStopCardLayout", () => {
     expect(result.slots.primary.find((b) => b.blockId === "sequence")).toBeDefined();
     expect(result.slots.secondary.length).toBeGreaterThan(0);
     expect(result.slots.actions.length).toBeGreaterThan(0);
+  });
+
+  it("reads the pre-route-screen legacy bare shape ({slots:...} with no screen key)", () => {
+    const legacy = { slots: { primary: [{ blockId: "address", visible: true }], secondary: [], actions: [] } };
+    expect(normalizeStopCardLayout(legacy)).toEqual(normalizeStopCardLayout({ volunteer_stop_card: legacy }));
+  });
+});
+
+describe("normalizeRouteScreenLayout", () => {
+  it("returns the default for null input", () => {
+    expect(normalizeRouteScreenLayout(null)).toEqual(DEFAULT_ROUTE_SCREEN_LAYOUT);
+  });
+
+  it("every registered block appears exactly once", () => {
+    const result = normalizeRouteScreenLayout(null);
+    const allIds = Object.values(result.slots).flatMap((blocks) => blocks.map((b) => b.blockId));
+    expect(allIds.sort()).toEqual(ROUTE_SCREEN_BLOCKS.map((b) => b.id).sort());
+  });
+
+  it("forces progress_bar, next_stop, and stop_list visible even if hidden in the saved layout", () => {
+    const result = normalizeRouteScreenLayout({
+      volunteer_route: {
+        slots: {
+          header: [{ blockId: "progress_bar", visible: false }],
+          peek: [{ blockId: "next_stop", visible: false }],
+          sheet: [{ blockId: "stop_list", visible: false }],
+        },
+      },
+    });
+    expect(result.slots.header[0].visible).toBe(true);
+    expect(result.slots.peek[0].visible).toBe(true);
+    expect(result.slots.sheet.find((b) => b.blockId === "stop_list")?.visible).toBe(true);
+  });
+
+  it("ignores a volunteer_stop_card key when reading the route screen", () => {
+    const result = normalizeRouteScreenLayout({ volunteer_stop_card: { slots: { primary: [], secondary: [], actions: [] } } });
+    expect(result).toEqual(DEFAULT_ROUTE_SCREEN_LAYOUT);
+  });
+});
+
+describe("mergeEventLayout", () => {
+  it("adds the new screen without touching an already-saved other screen", () => {
+    const existing = { volunteer_route: { slots: { header: [{ blockId: "progress_bar", visible: true }], peek: [], sheet: [] } } };
+    const merged = mergeEventLayout(existing, "volunteer_stop_card", DEFAULT_STOP_CARD_LAYOUT);
+    expect(merged.volunteer_route).toBeDefined();
+    expect(merged.volunteer_stop_card).toEqual(DEFAULT_STOP_CARD_LAYOUT);
+  });
+
+  it("upgrades a legacy bare stop-card shape to the keyed shape", () => {
+    const legacy = { slots: { primary: [{ blockId: "address", visible: true }], secondary: [], actions: [] } };
+    const merged = mergeEventLayout(legacy, "volunteer_route", DEFAULT_ROUTE_SCREEN_LAYOUT);
+    expect(merged.volunteer_stop_card).toBeDefined();
+    expect(merged.volunteer_route).toEqual(DEFAULT_ROUTE_SCREEN_LAYOUT);
+  });
+
+  it("overwrites the same screen's own previous layout", () => {
+    const existing = { volunteer_stop_card: DEFAULT_STOP_CARD_LAYOUT };
+    const changed = { slots: { primary: [{ blockId: "address", visible: true }], secondary: [], actions: [] } };
+    const merged = mergeEventLayout(existing, "volunteer_stop_card", changed);
+    expect(merged.volunteer_stop_card).toEqual(changed);
+  });
+});
+
+describe("STOP_CARD_BLOCKS / ROUTE_SCREEN_BLOCKS", () => {
+  it("address is the only required stop-card block", () => {
+    expect(STOP_CARD_BLOCKS.filter((b) => b.required).map((b) => b.id)).toEqual(["address"]);
+  });
+
+  it("progress_bar, next_stop, and stop_list are required route-screen blocks", () => {
+    expect(ROUTE_SCREEN_BLOCKS.filter((b) => b.required).map((b) => b.id).sort()).toEqual(
+      ["next_stop", "progress_bar", "stop_list"].sort()
+    );
   });
 });
