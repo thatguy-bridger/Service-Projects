@@ -564,6 +564,36 @@ gmp-place-autocomplete.signup-input::part(input) {
   width: 100%;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+}
+.admin-tableWrap table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+.admin-tableWrap thead th {
+  position: sticky;
+  top: 0;
+  background: var(--surface-raised);
+  z-index: 1;
+}
+.admin-tableWrap thead tr:first-child th {
+  border-bottom: 1px solid var(--border-default);
+}
+.admin-tableRow {
+  transition: background var(--duration-fast) var(--ease-standard);
+}
+.admin-tableRow:nth-child(even) {
+  background: var(--surface-sunken);
+}
+.admin-tableRow:hover {
+  background: color-mix(in srgb, var(--color-accent-500) 6%, var(--surface-sunken));
+}
+.admin-tableWrap input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
 }
 
 .admin-formRow {

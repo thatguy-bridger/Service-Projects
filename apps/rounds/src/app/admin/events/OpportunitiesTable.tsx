@@ -116,7 +116,13 @@ export function OpportunitiesTable({
           <span style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)" }}>
             {selectedIds.length > 0 ? `${selectedIds.length} selected` : "Select rows above to move them"}
           </span>
-          <select value={moveTargetId} onChange={(e) => setMoveTargetId(e.target.value)} disabled={selectedIds.length === 0}>
+          <select
+            className="signup-input"
+            style={{ width: "auto" }}
+            value={moveTargetId}
+            onChange={(e) => setMoveTargetId(e.target.value)}
+            disabled={selectedIds.length === 0}
+          >
             <option value={UNCATEGORIZED_LABEL}>{UNCATEGORIZED_LABEL}</option>
             {categories.map((c) => (
               <option key={c.id} value={c.id}>
