@@ -1,14 +1,107 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { APIProvider, Map, Marker, Polygon } from "@vis.gl/react-google-maps";
+import { useEffect, useRef, useState } from "react";
+import { APIProvider, Map, Marker, Polygon, useMap } from "@vis.gl/react-google-maps";
 import { Badge, Button, Card } from "@service-projects/ui";
-import type { TerritoryPolygon, TerritoryRow } from "@service-projects/database";
-import { previewPolygonFillAction } from "./actions";
+import type { AddressPointPin, TerritoryPolygon, TerritoryRow } from "@service-projects/database";
+import { previewPolygonFillAction, addressPointsInBoundsAction } from "./actions";
 
 const DRAW_COLOR = "#6f4ef0";
 const EXISTING_COLOR = "#8a8a8a";
 const SELECTED_POINT_COLOR = "#c0392b";
+const PIN_COLOR = "#2f8f4e";
+
+// A real pin shape (Material Design's "place" glyph, 24x24 viewBox) --
+// plain circles read as generic dots at any zoom, and the whole point
+// here is that these should read as individual addresses, not a
+// texture. anchor sits at the tip so the pin actually points at its
+// coordinate instead of floating above it.
+const PIN_SVG_PATH =
+  "M12 0C7.03 0 3 4.03 3 9c0 6.75 9 15 9 15s9-8.25 9-15c0-4.97-4.03-9-9-9zm0 12a3 3 0 110-6 3 3 0 010 6z";
+
+// Below this zoom level a real viewport can span an entire city, which
+// is exactly the "map turns into a smear of dots" case this is meant to
+// avoid -- only start plotting individual addresses once the admin is
+// zoomed in far enough that a screenful of them is actually legible.
+const ADDRESS_PIN_MIN_ZOOM = 16;
+
+/**
+ * Plots imported AddressPoint rows as pins once the map is zoomed in
+ * past ADDRESS_PIN_MIN_ZOOM, refetching from the current viewport on
+ * every pan/zoom (debounced) via the "idle" event -- the same event
+ * Maps JS fires once a drag/zoom gesture has actually settled, so this
+ * doesn't re-query mid-gesture. Zooming back out clears the pins rather
+ * than leaving stale ones on screen.
+ */
+function AddressPointPins({ onTruncatedChange }: { onTruncatedChange: (truncated: boolean) => void }) {
+  const map = useMap();
+  const [pins, setPins] = useState<AddressPointPin[]>([]);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const requestIdRef = useRef(0);
+
+  useEffect(() => {
+    if (!map) return;
+
+    function refresh() {
+      const zoom = map!.getZoom();
+      const bounds = map!.getBounds();
+      if (!zoom || zoom < ADDRESS_PIN_MIN_ZOOM || !bounds) {
+        setPins([]);
+        onTruncatedChange(false);
+        return;
+      }
+      const ne = bounds.getNorthEast();
+      const sw = bounds.getSouthWest();
+      const requestId = ++requestIdRef.current;
+      addressPointsInBoundsAction({
+        minLat: sw.lat(),
+        maxLat: ne.lat(),
+        minLng: sw.lng(),
+        maxLng: ne.lng(),
+      }).then((result) => {
+        // A slower earlier request can resolve after a newer one --
+        // drop it instead of flickering back to a stale viewport's pins.
+        if (requestId !== requestIdRef.current) return;
+        setPins(result.points);
+        onTruncatedChange(result.truncated);
+      });
+    }
+
+    function onIdle() {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      debounceRef.current = setTimeout(refresh, 300);
+    }
+
+    const listener = map.addListener("idle", onIdle);
+    refresh();
+    return () => {
+      listener.remove();
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- onTruncatedChange is a setState wrapper from the parent, stable enough that re-running this on every render would just re-add the same idle listener over and over.
+  }, [map]);
+
+  return (
+    <>
+      {pins.map((p, i) => (
+        <Marker
+          key={`${p.lat},${p.lng},${i}`}
+          position={{ lat: p.lat, lng: p.lng }}
+          title={p.fullAddress}
+          icon={{
+            path: PIN_SVG_PATH,
+            scale: 0.9,
+            anchor: new google.maps.Point(12, 24),
+            fillColor: PIN_COLOR,
+            fillOpacity: 0.9,
+            strokeColor: "#fff",
+            strokeWeight: 1,
+          }}
+        />
+      ))}
+    </>
+  );
+}
 
 function polygonToPath(polygon: TerritoryPolygon): google.maps.LatLngLiteral[] {
   // Saved polygons repeat the first point at the end to close the ring
@@ -36,6 +129,7 @@ function DrawSurface({
   onSelectPoint,
   existingTerritories,
   onEditExisting,
+  onTruncatedChange,
 }: {
   path: google.maps.LatLngLiteral[];
   onAddPoint: (point: google.maps.LatLngLiteral) => void;
@@ -44,6 +138,7 @@ function DrawSurface({
   onSelectPoint: (index: number | null) => void;
   existingTerritories: TerritoryRow[];
   onEditExisting: (territory: TerritoryRow) => void;
+  onTruncatedChange: (truncated: boolean) => void;
 }) {
   return (
     <Map
@@ -56,6 +151,7 @@ function DrawSurface({
         onSelectPoint(null);
       }}
     >
+      <AddressPointPins onTruncatedChange={onTruncatedChange} />
       {existingTerritories.map((t) => (
         <Polygon
           key={t.id}
@@ -124,6 +220,7 @@ export function TerritoryDrawer({
   const [selectedPointIndex, setSelectedPointIndex] = useState<number | null>(null);
   const [fillPreview, setFillPreview] = useState<{ count: number } | { error: string } | null>(null);
   const [previewing, setPreviewing] = useState(false);
+  const [pinsTruncated, setPinsTruncated] = useState(false);
 
   function addPoint(point: google.maps.LatLngLiteral) {
     setPath((prev) => [...prev, point]);
@@ -239,7 +336,7 @@ export function TerritoryDrawer({
           <p style={{ color: "var(--text-secondary)", fontSize: "var(--text-sm)", margin: 0 }}>
             Click the map to add a point. Click a point to select it (drag to move, Delete/Backspace to remove).
             Ctrl/Cmd+Z undoes the last added point, Ctrl/Cmd+Shift+Z redoes it. Click an existing (gray) territory
-            to edit it.
+            to edit it. Zoom in past street level to see individual imported addresses as pins.
           </p>
           {editingId && (
             <Badge tone="accent">
@@ -264,7 +361,25 @@ export function TerritoryDrawer({
             onSelectPoint={setSelectedPointIndex}
             existingTerritories={visibleExisting}
             onEditExisting={startEditing}
+            onTruncatedChange={setPinsTruncated}
           />
+          {pinsTruncated && (
+            <div
+              style={{
+                position: "absolute",
+                bottom: 8,
+                left: 8,
+                background: "rgba(0,0,0,0.7)",
+                color: "#fff",
+                fontSize: "var(--text-xs)",
+                padding: "2px 8px",
+                borderRadius: "var(--radius-md)",
+                pointerEvents: "none",
+              }}
+            >
+              Zoom in further to see every address in view
+            </div>
+          )}
         </div>
 
         <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-2)", alignItems: "center" }}>
