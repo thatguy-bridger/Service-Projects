@@ -1115,3 +1115,93 @@ for `previewTerritoryFill`; `routing.test.ts`'s count also grew from an
 earlier update). `tsc --noEmit` clean in both packages, `next lint`
 clean, `next build` clean, full `turbo run test` green (169 database +
 18 rounds + 28 core-auth = 215 tests).
+
+## Update — address-point import reliability/UX, territory map pins, and an integration pass
+
+Several rounds of iterative fixes on the territory-fill/address-point
+work above, then a broader "make sure everything already built is
+actually wired together and finish what's genuinely unblocked" pass
+per explicit request.
+
+**Address-point import (bug fixes, in order reported):**
+- "12MB import is too slow" was two real bugs: `AddressPointsClient`
+  held the whole file as controlled-`<textarea>` React state (a 12MB+
+  string re-rendered into the DOM every keystroke), and Server Actions'
+  1MB default body cap. Fixed via a file picker (content read once into
+  a ref, never rendered) and a raised `bodySizeLimit`.
+- That raised limit still isn't a real production guarantee — Vercel
+  caps serverless request bodies around 4.5MB regardless of Next.js
+  config. Rebuilt as client-side parsing + small sequential batch
+  uploads (2000 rows/request): fixes the body-size ceiling for real
+  *and* gives an accurate batches-completed/total progress bar. The
+  parsing logic moved to a Prisma-free `addressPointParsing.ts` module
+  (a `package.json` subpath export) so it's safe to bundle into the
+  browser.
+- OpenAddresses.io's real default export is newline-delimited GeoJSON,
+  not CSV — added format auto-detection.
+
+**Territory map — address points as pins:**
+- Imported `AddressPoint` rows now render as pins once zoomed in past
+  street level (a whole city's worth at once would just be a smear of
+  dots), fetched per-viewport and debounced on the map's `idle` event.
+- Two real bugs found and fixed along the way: a silently-swallowed
+  fetch rejection (no `.catch`) looked identical to "still zoomed out,"
+  fixed by surfacing a real status badge (below-zoom/loading/ok/error)
+  instead of just a truncated flag; and the pin icon was invisible
+  because Google Maps' custom `Symbol.path` parser doesn't support SVG
+  arc (`A`/`a`) commands — the Material "place" glyph used two, fails
+  to parse with no console error. Replaced with an equivalent all-
+  bezier path.
+- Selecting a territory (click an existing one, draw a new shape, or
+  "Edit shape") now narrows pins to just that shape via a real
+  `ST_Contains` query (`addressPointsInPolygon`) instead of the
+  viewport. Pins use the app's real theme accent color, not a
+  hardcoded one. New layer: signed-up households (`Household.lat/lng`)
+  render bigger, in a distinct color, with a name+address tooltip —
+  the more important "someone already signed up here" signal, visually
+  distinct from the plainer imported reference-address pins.
+
+**Integration/completion pass (explicit request: "make sure everything
+is integrated with everything we have created so far... execute on
+things we haven't completed yet, that you can on your own"):**
+- **Copy editor now actually live.** `/admin/copy` saved real
+  `UiCopyOverride` rows since it shipped, but every `t()` call site
+  used a module-level singleton built with empty overrides — a saved
+  override changed nothing a visitor saw. This was flagged as
+  follow-up scope ("touches dozens of files") but turned out not to:
+  since this app is single-org per deployment already, overrides are
+  safe as module state rather than threaded through every call site.
+  `t()` now reads a mutable overrides store, populated by a
+  `CopyHydrator` client component in the root layout with the org's
+  overrides fetched fresh every request.
+- **SPEC.md §20/§3.3 security gaps closed**, all previously undone and
+  none blocked by missing credentials: invite-key redemption had zero
+  rate limiting and gave a distinct message per failure reason (exactly
+  what §3.3 warns against — "deliberately vague failure messages," to
+  stop the endpoint enumerating real codes) — added 5/account/hour +
+  20/IP/hour and collapsed the messages. Self-service token actions had
+  no rate limiting — added a shared 30/hour/IP bucket. CSV export had
+  no audit trail, no rate limit, no download confirmation — all three
+  explicitly called out in §20 — added all three, plus a generic
+  `recordAuditEvent` helper and real `ipHash` values (the column
+  existed, was always null). Analytics page-view tracking put a real
+  secret (self-service token, invite code) directly in the tracked URL
+  — added a `beforeSend` redaction handler with a test.
+  Invite-key share sheet finished: the raw code is now shown in large
+  (32px) type (previously only embedded, unreadably, in a URL box), and
+  a "Print slip" button/stylesheet was added — both explicitly asked
+  for in §3.3, neither built until now.
+- **Data retention countdown** (§20: "purge... 24 months after the
+  last event... with an admin-visible countdown"): countdown half only
+  — a card on `/admin/library` showing households past/approaching the
+  24-month mark. The purge itself is deliberately not built: it's a
+  destructive bulk write against real contact info with real edge
+  cases, worth an explicit product decision first.
+- Dropped the dead Phase 0 `UiCopy` model (zero references anywhere,
+  fully superseded by `UiCopyOverride` before it ever got a reader or
+  writer) — schema hygiene, no application-code risk.
+
+tsc --noEmit clean in every package, next lint clean, next build
+clean, check:copy clean, full turbo test suite green after every
+change in this batch (final: 200 database + 32 core-auth + 24 rounds
+tests, before the share-sheet UI-only change which added none).
