@@ -3,7 +3,13 @@
 import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth";
 import { authOptions, requireRole } from "@service-projects/core-auth";
-import { defaultOrganization, updateOrganization, type UpdateOrganizationResult } from "@service-projects/database";
+import {
+  defaultOrganization,
+  updateOrganization,
+  updateAdminDashboardLayout,
+  type UpdateOrganizationResult,
+} from "@service-projects/database";
+import type { ScreenLayout } from "@service-projects/database/layoutBlocks";
 
 export async function updateOrganizationAction(
   _prevState: UpdateOrganizationResult,
@@ -22,5 +28,18 @@ export async function updateOrganizationAction(
 
   const result = await updateOrganization(org.id, { name, emailFrom: emailFrom || null });
   revalidatePath("/admin/settings");
+  return result;
+}
+
+export async function updateAdminDashboardLayoutAction(
+  layout: ScreenLayout
+): Promise<UpdateOrganizationResult> {
+  const session = await getServerSession(authOptions);
+  const org = await defaultOrganization();
+  if (!org) return { ok: false, error: "No organization set up yet." };
+
+  const result = await updateAdminDashboardLayout(session, org.id, layout);
+  revalidatePath("/admin/settings");
+  revalidatePath("/");
   return result;
 }

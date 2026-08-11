@@ -2,11 +2,14 @@ import { describe, it, expect } from "vitest";
 import {
   normalizeStopCardLayout,
   normalizeRouteScreenLayout,
+  normalizeAdminDashboardLayout,
   mergeEventLayout,
   DEFAULT_STOP_CARD_LAYOUT,
   DEFAULT_ROUTE_SCREEN_LAYOUT,
+  DEFAULT_ADMIN_DASHBOARD_LAYOUT,
   STOP_CARD_BLOCKS,
   ROUTE_SCREEN_BLOCKS,
+  ADMIN_DASHBOARD_BLOCKS,
 } from "./layoutBlocks";
 
 describe("normalizeStopCardLayout", () => {
@@ -158,5 +161,24 @@ describe("STOP_CARD_BLOCKS / ROUTE_SCREEN_BLOCKS", () => {
     expect(ROUTE_SCREEN_BLOCKS.filter((b) => b.required).map((b) => b.id).sort()).toEqual(
       ["next_stop", "progress_bar", "stop_list"].sort()
     );
+  });
+});
+
+describe("normalizeAdminDashboardLayout", () => {
+  it("returns the default layout for null/garbage input", () => {
+    expect(normalizeAdminDashboardLayout(null)).toEqual(DEFAULT_ADMIN_DASHBOARD_LAYOUT);
+    expect(normalizeAdminDashboardLayout({ foo: "bar" })).toEqual(DEFAULT_ADMIN_DASHBOARD_LAYOUT);
+  });
+
+  it("reads the keyed admin_dashboard shape out of org settings", () => {
+    const raw = {
+      admin_dashboard: { slots: { top: [], main: [{ blockId: "todays_routes", visible: false }], side: [] } },
+    };
+    const result = normalizeAdminDashboardLayout(raw);
+    expect(result.slots.main.find((b) => b.blockId === "todays_routes")?.visible).toBe(false);
+  });
+
+  it("has no required admin-dashboard blocks", () => {
+    expect(ADMIN_DASHBOARD_BLOCKS.filter((b) => b.required)).toEqual([]);
   });
 });

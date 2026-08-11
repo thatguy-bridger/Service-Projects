@@ -225,3 +225,79 @@ export function mergeEventLayout(existing: unknown, screen: EventScreenName, lay
   base[screen] = layout;
   return base;
 }
+
+// ---------------------------------------------------------------------
+// Admin dashboard
+
+// Org-scoped, not per-event (SPEC.md §11.3 says layouts are "per event,
+// inheriting from an org default" -- there's no single event in
+// context for an admin's home screen, so this one only has the org
+// tier; stored in Organization.settings.layoutBlocks.admin_dashboard,
+// not Event.layoutBlocks).
+export const ADMIN_DASHBOARD_SLOTS = ["top", "main", "side"] as const;
+export type AdminDashboardSlot = (typeof ADMIN_DASHBOARD_SLOTS)[number];
+
+export interface AdminDashboardBlockMeta {
+  id: string;
+  slot: AdminDashboardSlot;
+  required: boolean;
+  label: string;
+}
+
+// SPEC.md §11.3's admin-dashboard block list, minus "renewal campaign
+// status" -- renewal campaigns aren't built anywhere in this app yet,
+// so there's no data source for that block. The other six all have a
+// real one (dashboard.ts's adminDashboardData).
+export const ADMIN_DASHBOARD_BLOCKS: AdminDashboardBlockMeta[] = [
+  { id: "needs_review_count", slot: "top", required: false, label: "Needs review" },
+  { id: "unassigned_stops", slot: "top", required: false, label: "Unassigned stops" },
+  { id: "subscription_funnel", slot: "main", required: false, label: "Subscription funnel" },
+  { id: "todays_routes", slot: "main", required: false, label: "Today's routes" },
+  { id: "live_progress", slot: "main", required: false, label: "Live progress" },
+  { id: "recent_audit", slot: "side", required: false, label: "Recent activity" },
+];
+
+export const DEFAULT_ADMIN_DASHBOARD_LAYOUT: ScreenLayout = {
+  slots: {
+    top: [
+      { blockId: "needs_review_count", visible: true },
+      { blockId: "unassigned_stops", visible: true },
+    ],
+    main: [
+      { blockId: "subscription_funnel", visible: false },
+      { blockId: "todays_routes", visible: true },
+      { blockId: "live_progress", visible: true },
+    ],
+    side: [{ blockId: "recent_audit", visible: true }],
+  },
+};
+
+export const normalizeAdminDashboard = makeNormalizer(ADMIN_DASHBOARD_SLOTS, ADMIN_DASHBOARD_BLOCKS, DEFAULT_ADMIN_DASHBOARD_LAYOUT);
+
+export function normalizeAdminDashboardLayout(raw: unknown): ScreenLayout {
+  if (raw && typeof raw === "object" && "admin_dashboard" in raw) {
+    return normalizeAdminDashboard((raw as { admin_dashboard: unknown }).admin_dashboard);
+  }
+  return normalizeAdminDashboard(null);
+}
+
+/**
+ * Plain data shapes for the admin-dashboard blocks (see
+ * scoped/dashboard.ts's adminDashboardData, which returns these). Declared
+ * here rather than in dashboard.ts because dashboard.ts imports Prisma --
+ * client components need these types without pulling that in, same reason
+ * the block registries above live in this Prisma-free file.
+ */
+export interface AdminDashboardRoute {
+  id: string;
+  name: string;
+  eventId: string;
+  eventName: string;
+  status: string;
+}
+
+export interface AdminDashboardAuditEntry {
+  action: string;
+  entity: string;
+  at: string;
+}

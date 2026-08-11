@@ -12,3 +12,4 @@ export * from "./territories";
 export * from "./copyOverrides";
 export * from "./addressPoints";
 export * from "./auditLog";
+export * from "./dashboard";

@@ -1,5 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "../client";
+import { isStaff, resolveMembership, type SessionLike } from "./membership";
+import { normalizeAdminDashboardLayout, normalizeAdminDashboard, type ScreenLayout } from "../layoutBlocks";
 
 /**
  * This app's real-world scope is one organization (SPEC.md §22.1's
@@ -44,6 +46,11 @@ export interface UpdateOrganizationResult {
  */
 export interface OrganizationSettings {
   emailFrom?: string | null;
+  // SPEC.md §11.3's admin-dashboard layout -- org-scoped (see
+  // layoutBlocks.ts's admin-dashboard section for why), stored here
+  // rather than on Event since there's no single event in context for
+  // an admin's home screen.
+  layoutBlocks?: { admin_dashboard?: unknown };
 }
 
 export function organizationSettings(org: { settings: unknown }): OrganizationSettings {
@@ -64,6 +71,31 @@ export async function updateOrganization(
     } as Prisma.InputJsonValue;
   }
   const result = await prisma.organization.updateMany({ where: { id: orgId, deletedAt: null }, data });
+  if (result.count === 0) return { ok: false, error: "Organization not found." };
+  return { ok: true };
+}
+
+export async function adminDashboardLayoutForOrg(orgId: string): Promise<ScreenLayout> {
+  const org = await organizationById(orgId);
+  return normalizeAdminDashboardLayout(org ? organizationSettings(org).layoutBlocks : null);
+}
+
+export async function updateAdminDashboardLayout(
+  session: SessionLike | null | undefined,
+  orgId: string,
+  layout: ScreenLayout
+): Promise<UpdateOrganizationResult> {
+  const membership = await resolveMembership(session);
+  if (!membership || !isStaff(membership.role)) return { ok: false, error: "Forbidden" };
+
+  const existing = await prisma.organization.findUnique({ where: { id: orgId }, select: { settings: true } });
+  const settings = organizationSettings(existing ?? { settings: {} });
+  const data = {
+    ...settings,
+    layoutBlocks: { admin_dashboard: normalizeAdminDashboard(layout) },
+  } as unknown as Prisma.InputJsonValue;
+
+  const result = await prisma.organization.updateMany({ where: { id: orgId, deletedAt: null }, data: { settings: data } });
   if (result.count === 0) return { ok: false, error: "Organization not found." };
   return { ok: true };
 }
