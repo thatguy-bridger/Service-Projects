@@ -100,7 +100,10 @@ export async function addOpportunityAction(
     kind,
     name,
     slug,
-    status: "OPEN",
+    // Left as the schema default (DRAFT) -- see createEventsAction's
+    // matching comment in ./actions.ts. Publishing is a Category-level
+    // action now; a quick-added event shouldn't already be OPEN before
+    // its category has gone live.
     priceCents,
     serviceStartsAt,
     serviceEndsAt: serviceStartsAt,
