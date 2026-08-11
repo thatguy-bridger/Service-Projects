@@ -83,7 +83,11 @@ export async function createEventsAction(input: {
       kind,
       name: e.name.trim(),
       slug,
-      status: "OPEN",
+      // Left as the schema default (DRAFT) -- publishing is now a
+      // Category-level action (publishCategory bulk-opens DRAFT events
+      // when the category goes live), so a freshly created event
+      // shouldn't already read as OPEN before anyone's published
+      // anything it belongs to.
       priceCents,
       serviceStartsAt,
       serviceEndsAt: serviceStartsAt,

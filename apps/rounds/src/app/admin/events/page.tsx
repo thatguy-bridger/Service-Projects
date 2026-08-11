@@ -71,11 +71,16 @@ export default async function AdminEventsPage() {
         {categories.map((cat) => (
           <a key={cat.id} href={`/admin/events/by-category/${cat.id}`} style={{ textDecoration: "none" }}>
             <Card className="card--interactive">
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "var(--space-2)" }}>
                 <h3 style={{ margin: 0, fontSize: "var(--text-base)", fontWeight: "var(--weight-medium)", color: "var(--text-primary)" }}>
                   {cat.name}
                 </h3>
-                <Badge tone="accent">{cat._count.events}</Badge>
+                <span style={{ display: "flex", gap: "var(--space-2)", alignItems: "center" }}>
+                  <Badge tone={cat.publishedAt ? "success" : "neutral"}>
+                    {cat.publishedAt ? "Published" : "Not published"}
+                  </Badge>
+                  <Badge tone="accent">{cat._count.events}</Badge>
+                </span>
               </div>
             </Card>
           </a>
