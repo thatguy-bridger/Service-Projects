@@ -9,8 +9,15 @@ vi.mock("../../client", async () => {
 const { prisma } = await import("../../client");
 const prismaMock = prisma as unknown as PrismaMock;
 
-const { eventsForSession, eventForSession, deleteEvents, updateEvent, openEventsForSignup, createPairedEvent } =
-  await import("../events");
+const {
+  eventsForSession,
+  eventForSession,
+  deleteEvents,
+  updateEvent,
+  openEventsForSignup,
+  createPairedEvent,
+  updateEventStopCardLayout,
+} = await import("../events");
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -155,6 +162,30 @@ describe("updateEvent — cross-org isolation", () => {
   it("reports not-found when the org-scoped update matches nothing", async () => {
     prismaMock.event.updateMany.mockResolvedValueOnce({ count: 0 });
     const result = await updateEvent(ADMIN, "org-1", "ev-1", { name: "New name" });
+    expect(result).toEqual({ ok: false, error: "Event not found." });
+  });
+});
+
+describe("updateEventStopCardLayout", () => {
+  it("blocks a non-staff caller before any write", async () => {
+    const result = await updateEventStopCardLayout(VOLUNTEER, "org-1", "ev-1", { slots: {} });
+    expect(result).toEqual({ ok: false, error: "Forbidden" });
+    expect(prismaMock.event.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("re-normalizes before persisting, forcing required blocks visible even if the caller tried to hide them", async () => {
+    await updateEventStopCardLayout(ADMIN, "org-1", "ev-1", {
+      slots: { primary: [{ blockId: "address", visible: false }], secondary: [], actions: [] },
+    });
+    const call = prismaMock.event.updateMany.mock.calls[0][0];
+    expect(call.where).toEqual({ id: "ev-1", orgId: "org-1", deletedAt: null });
+    const saved = call.data.layoutBlocks;
+    expect(saved.slots.primary.find((b: { blockId: string; visible: boolean }) => b.blockId === "address").visible).toBe(true);
+  });
+
+  it("reports not-found when the org-scoped update matches nothing", async () => {
+    prismaMock.event.updateMany.mockResolvedValueOnce({ count: 0 });
+    const result = await updateEventStopCardLayout(ADMIN, "org-1", "ev-1", { slots: {} });
     expect(result).toEqual({ ok: false, error: "Event not found." });
   });
 });

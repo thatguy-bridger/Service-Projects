@@ -1,6 +1,7 @@
 import { Prisma, type EventKind, type EventStatus } from "@prisma/client";
 import { prisma } from "../client";
 import { isStaff, resolveMembership, type SessionLike } from "./membership";
+import { normalizeStopCardLayout, type ScreenLayout } from "../layoutBlocks";
 
 export async function eventsForSession(session: SessionLike | null | undefined, orgId: string) {
   const membership = await resolveMembership(session);
@@ -129,6 +130,33 @@ export async function updateEvent(
   const result = await prisma.event.updateMany({
     where: { id: eventId, orgId, deletedAt: null },
     data: input,
+  });
+  if (result.count === 0) return { ok: false, error: "Event not found." };
+  return { ok: true };
+}
+
+/**
+ * SPEC.md §11.3's layout-block editor, saving to Event.layoutBlocks
+ * (existed unused since Phase 0). Always re-normalizes before
+ * persisting -- normalizeStopCardLayout drops any block id the
+ * registry doesn't recognize and forces required blocks back visible,
+ * so a hand-crafted/stale client payload can't smuggle in something
+ * the reader wouldn't also just re-normalize away, but at least the
+ * stored row is never inconsistent with what actually gets rendered.
+ */
+export async function updateEventStopCardLayout(
+  session: SessionLike | null | undefined,
+  orgId: string,
+  eventId: string,
+  layout: ScreenLayout
+): Promise<UpdateEventResult> {
+  const membership = await resolveMembership(session, eventId);
+  if (!membership || !isStaff(membership.role)) return { ok: false, error: "Forbidden" };
+
+  const normalized = normalizeStopCardLayout(layout);
+  const result = await prisma.event.updateMany({
+    where: { id: eventId, orgId, deletedAt: null },
+    data: { layoutBlocks: normalized as unknown as Prisma.InputJsonValue },
   });
   if (result.count === 0) return { ok: false, error: "Event not found." };
   return { ok: true };

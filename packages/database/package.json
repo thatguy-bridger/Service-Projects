@@ -6,7 +6,8 @@
   "types": "src/index.ts",
   "exports": {
     ".": "./src/index.ts",
-    "./addressPointParsing": "./src/addressPointParsing.ts"
+    "./addressPointParsing": "./src/addressPointParsing.ts",
+    "./layoutBlocks": "./src/layoutBlocks.ts"
   },
   "scripts": {
     "postinstall": "prisma generate",

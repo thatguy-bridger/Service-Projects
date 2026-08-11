@@ -9,6 +9,7 @@ import {
   categoriesForOrg,
   routesForEvent,
   stopsForSession,
+  normalizeStopCardLayout,
 } from "@service-projects/database";
 import { Card, Badge } from "@service-projects/ui";
 import { t } from "@/copy";
@@ -114,6 +115,7 @@ export default async function AdminEventDetailPage({ params }: { params: { event
         kind={event.kind}
         pairedEventId={event.pairedEventId}
         pairedEventName={pairedEvent?.name ?? null}
+        stopCardLayout={normalizeStopCardLayout(event.layoutBlocks)}
       />
 
       <p style={{ marginTop: "var(--space-4)" }}>
