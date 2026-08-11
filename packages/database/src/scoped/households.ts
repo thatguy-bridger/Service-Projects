@@ -220,6 +220,82 @@ export async function browseHouseholds(
   return { households, total, page, pageSize };
 }
 
+export interface HouseholdRetentionRow {
+  id: string;
+  contactName: string;
+  addressInput: string;
+  lastEventAt: string; // Event.serviceEndsAt of the most recent event this household participated in
+  monthsSinceLastEvent: number;
+}
+
+export interface HouseholdRetentionSummary {
+  pastRetentionCount: number;
+  dueSoonCount: number; // within 3 months of the 24-month mark, not yet past it
+  pastRetention: HouseholdRetentionRow[]; // capped, most-overdue first
+}
+
+const RETENTION_MONTHS = 24; // SPEC.md §20
+const RETENTION_DUE_SOON_MONTHS = RETENTION_MONTHS - 3;
+const RETENTION_LIST_LIMIT = 100;
+
+/**
+ * SPEC.md §20: "Retention per season: purge household contact details
+ * 24 months after the last event they participated in, with an
+ * admin-visible countdown." This is the countdown half -- read-only,
+ * nothing purged. The actual purge is a real, separate, deliberately
+ * NOT-built action: it's a genuinely destructive bulk write against
+ * real households' contact info, and exactly what counts as "the last
+ * event they participated in" (a Subscription with no linked Events at
+ * all, a cancelled-before-any-event Subscription) has edge cases worth
+ * an explicit product decision before code deletes anyone's data
+ * unattended. Every household with at least one event in its history is
+ * considered; one that's never actually reached an event yet (only
+ * ever DRAFT/PENDING_PAYMENT Subscriptions) has no "last event" and is
+ * excluded rather than treated as infinitely overdue.
+ */
+export async function householdRetentionSummary(
+  session: SessionLike | null | undefined,
+  orgId: string
+): Promise<HouseholdRetentionSummary> {
+  const membership = await resolveMembership(session);
+  if (!membership || !isStaff(membership.role)) {
+    return { pastRetentionCount: 0, dueSoonCount: 0, pastRetention: [] };
+  }
+
+  const rows = await prisma.$queryRaw<{ id: string; contactName: string; addressInput: string; lastEventAt: Date }[]>`
+    SELECT h.id, h."contactName", h."addressInput", MAX(e."serviceEndsAt") AS "lastEventAt"
+    FROM "Household" h
+    JOIN "Subscription" s ON s."householdId" = h.id
+    JOIN "SubscriptionEvent" se ON se."subscriptionId" = s.id
+    JOIN "Event" e ON e.id = se."eventId"
+    WHERE h."orgId" = ${orgId} AND h."deletedAt" IS NULL
+    GROUP BY h.id
+  `;
+
+  const now = Date.now();
+  const monthsSince = (lastEventAt: Date) => (now - lastEventAt.getTime()) / (1000 * 60 * 60 * 24 * 30.44);
+
+  const withMonths = rows.map((r) => ({ ...r, months: monthsSince(r.lastEventAt) }));
+  const pastRetention = withMonths
+    .filter((r) => r.months >= RETENTION_MONTHS)
+    .sort((a, b) => b.months - a.months);
+  const dueSoonCount = withMonths.filter(
+    (r) => r.months >= RETENTION_DUE_SOON_MONTHS && r.months < RETENTION_MONTHS
+  ).length;
+
+  return {
+    pastRetentionCount: pastRetention.length,
+    dueSoonCount,
+    pastRetention: pastRetention.slice(0, RETENTION_LIST_LIMIT).map((r) => ({
+      id: r.id,
+      contactName: r.contactName,
+      addressInput: r.addressInput,
+      lastEventAt: r.lastEventAt.toISOString(),
+      monthsSinceLastEvent: Math.floor(r.months),
+    })),
+  };
+}
+
 // Admin-created household, straight into the org's library -- no
 // signup flow, no geocoding (lat/lng stay null, same as a manual signup
 // entry). Staff-only, unlike submitSignup which is intentionally public.

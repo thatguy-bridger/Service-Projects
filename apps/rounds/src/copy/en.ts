@@ -282,6 +282,12 @@ export const en = {
 
   "admin.library.title": "Data library",
   "admin.library.subtitle": "Browse every household ever created for this org — sort, hide columns, then copy or delete the ones you want.",
+  "admin.library.retention.title": "Data retention",
+  "admin.library.retention.pastDue": "{{count}} household(s) are past the 24-month retention window since their last event.",
+  "admin.library.retention.dueSoon": "{{count}} more will cross it within 3 months.",
+  "admin.library.retention.note": "Contact details aren't purged automatically — review the list below and remove them by hand (or from the table above) once you're ready.",
+  "admin.library.retention.lastEvent": "Last event {{date}} — {{months}} months ago",
+  "admin.library.retention.andMore": "and {{count}} more…",
   "admin.library.search.label": "Search",
   "admin.library.search.placeholder": "Name, email, phone, or address",
   "admin.library.search.submit": "Search",
