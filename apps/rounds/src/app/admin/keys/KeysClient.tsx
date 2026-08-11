@@ -123,22 +123,48 @@ export function KeysClient({
       </div>
 
       {revealed && (
-        <div className="card" style={{ display: "grid", gap: "var(--space-3)", maxWidth: 480 }}>
+        <div id="key-share-sheet" className="card" style={{ display: "grid", gap: "var(--space-3)", maxWidth: 480 }}>
           <h2 style={{ margin: 0, fontSize: "var(--text-lg)" }}>Share this key</h2>
           <p style={{ margin: 0, color: "var(--text-secondary)" }}>
             This code is shown once and is never stored raw — save or share it now.
           </p>
+          {/* SPEC.md §3.3: "the code in 32px type" -- the QR code and
+              link below cover the tap-to-redeem case, but the raw code
+              itself was previously only ever embedded (unreadably
+              small) inside the URL text box -- no way to read it aloud
+              over the phone or copy it by hand. */}
+          <p
+            style={{
+              margin: 0,
+              fontFamily: "monospace",
+              fontSize: "32px",
+              fontWeight: "var(--weight-semibold)",
+              letterSpacing: "0.05em",
+              wordBreak: "break-all",
+              textAlign: "center",
+            }}
+          >
+            {revealed.rawCode}
+          </p>
           {/* eslint-disable-next-line @next/next/no-img-element -- data: URL, next/image can't optimize it */}
-          <img src={revealed.qrDataUrl} alt="QR code for redemption link" width={240} height={240} />
+          <img src={revealed.qrDataUrl} alt="QR code for redemption link" width={240} height={240} style={{ justifySelf: "center" }} />
           <input
             readOnly
             aria-label="Redemption link"
             value={redeemUrl}
             onClick={(e) => (e.target as HTMLInputElement).select()}
           />
-          <Button variant="secondary" onClick={() => setRevealed(null)}>
-            Done
-          </Button>
+          {/* SPEC.md §3.3: "a printable slip." print.css scopes down to
+              just this card (see globals.css's #key-share-sheet rules)
+              so the rest of the admin chrome doesn't end up on paper. */}
+          <div className="no-print" style={{ display: "flex", gap: "var(--space-2)" }}>
+            <Button variant="secondary" onClick={() => window.print()}>
+              Print slip
+            </Button>
+            <Button variant="secondary" onClick={() => setRevealed(null)}>
+              Done
+            </Button>
+          </div>
         </div>
       )}
 
