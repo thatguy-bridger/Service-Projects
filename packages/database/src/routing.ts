@@ -54,8 +54,23 @@ export function orderRouteStops(points: RoutablePoint[]): RoutablePoint[] {
   }
 
   // 2-opt improvement: try reversing every segment [i, j]; keep the
-  // reversal if it shortens the route. Capped passes so this can't run
-  // away on a large route.
+  // reversal if it shortens the route. Each pass is O(n^2) haversine
+  // calls, and this runs up to maxPasses times -- fine for one route's
+  // worth of stops (tens to low hundreds), but a caller that hands this
+  // an unsplit, arbitrarily large batch (createRouteFromStops takes
+  // whatever the map lasso selected, with no size cap of its own) could
+  // otherwise multiply that O(n^2) by 20 passes into something that
+  // runs long enough to threaten a serverless function's timeout. Above
+  // this threshold, skip refinement and ship the nearest-neighbor route
+  // as-is -- still a reasonable order, just not locally 2-opt-optimal,
+  // which is a far better failure mode than a request that never
+  // returns. Not benchmarked against real infra (no live deployment in
+  // this environment -- see docs/rounds/OPEN-QUESTIONS.md's UGRC note
+  // for the same constraint); the threshold is a conservative estimate,
+  // worth revisiting with a real load test per SPEC.md §21 Phase 3.
+  const TWO_OPT_MAX_POINTS = 400;
+  if (points.length > TWO_OPT_MAX_POINTS) return route;
+
   const maxPasses = 20;
   for (let pass = 0; pass < maxPasses; pass++) {
     let improved = false;

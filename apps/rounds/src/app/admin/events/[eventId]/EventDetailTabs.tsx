@@ -178,7 +178,16 @@ export function EventDetailTabs({
         />
       )}
 
-      {tab === "Routes" && <RoutesTab eventId={eventId} routes={routes} stops={stops} />}
+      {tab === "Routes" && (
+        <>
+          <div style={{ marginBottom: "var(--space-3)" }}>
+            <a href={`/admin/events/${eventId}/board`} style={{ color: "var(--color-accent-600)", fontSize: "var(--text-sm)" }}>
+              Open live progress board →
+            </a>
+          </div>
+          <RoutesTab eventId={eventId} routes={routes} stops={stops} />
+        </>
+      )}
 
       {tab === "Settings" && (
         <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)", maxWidth: 480 }}>
