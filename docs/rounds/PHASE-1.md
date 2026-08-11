@@ -965,3 +965,46 @@ unconditionally, which would have silently erased a volunteer's
 already-recorded `DONE`/`SKIPPED`/`ISSUE` outcome the moment an admin
 re-lassoed their area. Fixed before it shipped — only stops still
 `UNASSIGNED` get bumped.
+
+## Update — three more shipped since the last entry: category-delete cascade, per-org email From, and Territory (Phase 6)
+
+Catching this doc up on what's landed since the lasso-select update above:
+
+1. **Deleting a category now cascades to its events.** Root-caused a
+   live report ("signup shows events that don't exist") by querying
+   production directly: an admin had deleted a category, and its events
+   stayed live, just silently re-bucketed as "Uncategorized" instead of
+   disappearing — the original design's deliberate choice, but not what
+   an admin expects "delete" to mean. `deleteCategories` now soft-deletes
+   the category and every still-live event in it inside one transaction.
+2. **The signup-link email's From address is now org-configurable**
+   (`/admin/settings`), stored in `Organization.settings.emailFrom` and
+   preferred over the deployment-wide `EMAIL_FROM` env var when set —
+   different orgs on one deployment can have different senders.
+   `RESEND_API_KEY` stays a single deployment-wide credential.
+3. **Started the rest of Phase 6: `Territory` (SPEC.md §5.1, §9.2).**
+   New model + `/admin/territories` — draw a polygon on the same
+   click-to-vertex Google Map interaction StopMap.tsx's lasso already
+   uses, name it, save it. Rename/delete (soft) supported. Territory
+   *fill* (importing UGRC address points within the shape) is still not
+   built — needs the UGRC developer key this environment doesn't have,
+   same blocker noted in OPEN-QUESTIONS.md since Phase 1 — so
+   `addressPointCount`/`lastFilledAt` stay null on every saved territory
+   for now; the UI says so plainly rather than pretending it's done.
+   Also fixed a real `.env.example` bug found while wiring this up: it
+   documented `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`, but every actual read
+   site (`AddressPicker.tsx`, `RoutesTab.tsx`, ...) reads
+   `NEXT_PUBLIC_GOOGLE_MAPS_API` (no `_KEY` suffix) — the docs, not the
+   code, were wrong.
+
+New capability `territory.manage` (OWNER/ADMIN/COORDINATOR, matching
+`route.manage`'s roles) added to the shared PERMISSIONS table; the actual
+`/admin/territories` page currently only reaches OWNER/ADMIN, since it
+sits under `/admin/*`'s existing OWNER/ADMIN-only layout gate and there's
+no Coordinator-facing surface for org-wide territories yet — same shape
+as other capabilities already in that table.
+
+16 new tests (5 `organizations.test.ts`, 11 `territories.test.ts`).
+`tsc --noEmit` clean in both packages, `next lint` clean, `next build`
+clean, full `turbo run test` green (139 database + 18 rounds + 28
+core-auth = 185 tests).

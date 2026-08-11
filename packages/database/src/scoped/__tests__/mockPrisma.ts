@@ -80,6 +80,11 @@ export function createPrismaMock() {
       updateMany: vi.fn().mockResolvedValue({ count: 1 }),
       create: vi.fn(),
     },
+    territory: {
+      findMany: vi.fn().mockResolvedValue([]),
+      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+      create: vi.fn().mockResolvedValue({ id: "territory-mock" }),
+    },
     routeAssignment: {
       findMany: vi.fn().mockResolvedValue([]),
       upsert: vi.fn(),
