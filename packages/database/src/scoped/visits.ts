@@ -1,6 +1,7 @@
 import { prisma } from "../client";
 import type { SessionLike } from "./membership";
 import type { Disposition, StopStatus } from "@prisma/client";
+import { normalizeStopCardLayout, type ScreenLayout } from "../layoutBlocks";
 
 // Phase 4: the volunteer-facing "my routes" surface. Deliberately not
 // staff-gated the way the admin scoped helpers are -- this is a
@@ -62,8 +63,11 @@ export interface MyRouteStop {
   sequence: number | null;
   status: string;
   addressLine: string;
+  label: string | null;
   placementNote: string | null;
   accessNotes: string | null;
+  householdName: string | null;
+  phone: string | null;
   lat: number;
   lng: number;
   lastVisitOutcome: string | null;
@@ -76,6 +80,10 @@ export interface MyRouteDetail {
   eventName: string;
   outcomeOptions: { key: string; disposition: Disposition }[];
   stops: MyRouteStop[];
+  // SPEC.md §11.3's stop-card layout, resolved (Event.layoutBlocks or
+  // the hard-coded default, normalized either way) -- RouteRunner.tsx
+  // renders each stop's card from this instead of a fixed layout.
+  stopCardLayout: ScreenLayout;
 }
 
 // Real query-level redaction, per SPEC.md §6/§7.2's eventual intent:
@@ -94,8 +102,11 @@ export async function myRouteDetail(
   const route = await prisma.route.findFirst({
     where: { id: routeId, deletedAt: null, assignments: { some: { userId } } },
     include: {
-      event: { select: { id: true, name: true, outcomeSet: true } },
-      stops: { orderBy: { sequence: "asc" } },
+      event: { select: { id: true, name: true, outcomeSet: true, layoutBlocks: true } },
+      stops: {
+        orderBy: { sequence: "asc" },
+        include: { household: { select: { contactName: true, contactPhone: true } } },
+      },
     },
   });
   if (!route) return null;
@@ -120,12 +131,16 @@ export async function myRouteDetail(
       sequence: s.sequence,
       status: s.status,
       addressLine: s.addressLine,
+      label: s.label,
       placementNote: s.placementNote,
       accessNotes: s.accessNotes,
+      householdName: s.household?.contactName ?? null,
+      phone: s.household?.contactPhone ?? null,
       lat: s.lat,
       lng: s.lng,
       lastVisitOutcome: lastOutcomeByStop.get(s.id) ?? null,
     })),
+    stopCardLayout: normalizeStopCardLayout(route.event.layoutBlocks),
   };
 }
 

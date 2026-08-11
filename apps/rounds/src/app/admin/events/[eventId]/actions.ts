@@ -15,6 +15,7 @@ import {
   updateEventMembershipRole,
   generateStopsFromSubscriptions,
   createPairedEvent,
+  updateEventStopCardLayout,
   type ImportResult,
   type DeleteResult,
   type CopyToEventResult,
@@ -24,6 +25,7 @@ import {
   type EventStatus,
   type Role,
   type EventKind,
+  type ScreenLayout,
 } from "@service-projects/database";
 import { MODULE_DEFAULTS, OUTCOME_SETS } from "@/lib/eventKinds";
 
@@ -259,6 +261,18 @@ export async function createPairedEventAction(eventId: string): Promise<CreatePa
 
   revalidatePath(`/admin/events/${eventId}`);
   revalidatePath("/admin/events");
+  return result;
+}
+
+export async function updateEventStopCardLayoutAction(eventId: string, layout: ScreenLayout): Promise<UpdateEventResult> {
+  const session = await getServerSession(authOptions);
+  await requireRole(session, ["OWNER", "ADMIN"]);
+
+  const org = await defaultOrganization();
+  if (!org) return { ok: false, error: "No organization set up yet." };
+
+  const result = await updateEventStopCardLayout(session, org.id, eventId, layout);
+  revalidatePath(`/admin/events/${eventId}`);
   return result;
 }
 

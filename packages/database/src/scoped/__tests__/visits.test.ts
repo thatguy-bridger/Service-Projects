@@ -53,6 +53,60 @@ describe("myRouteDetail", () => {
     const result = await myRouteDetail(VOLUNTEER, "route-1");
     expect(result).toBeNull();
   });
+
+  it("maps household contact info onto each stop and resolves the event's stop-card layout", async () => {
+    prismaMock.route.findFirst.mockResolvedValueOnce({
+      id: "route-1",
+      name: "Route A",
+      event: { id: "ev-1", name: "Pioneer Day", outcomeSet: { outcomes: [] }, layoutBlocks: null },
+      stops: [
+        {
+          id: "stop-1",
+          sequence: 1,
+          status: "UNASSIGNED",
+          addressLine: "123 Main St",
+          label: "Corner lot",
+          placementNote: null,
+          accessNotes: null,
+          lat: 40.6,
+          lng: -111.9,
+          household: { contactName: "Jane Doe", contactPhone: "555-0100" },
+        },
+      ],
+    });
+    const result = await myRouteDetail(VOLUNTEER, "route-1");
+    expect(result?.stops[0]).toMatchObject({
+      label: "Corner lot",
+      householdName: "Jane Doe",
+      phone: "555-0100",
+    });
+    expect(result?.stopCardLayout.slots.primary.some((b) => b.blockId === "address" && b.visible)).toBe(true);
+  });
+
+  it("handles a stop with no linked household", async () => {
+    prismaMock.route.findFirst.mockResolvedValueOnce({
+      id: "route-1",
+      name: "Route A",
+      event: { id: "ev-1", name: "Pioneer Day", outcomeSet: { outcomes: [] }, layoutBlocks: null },
+      stops: [
+        {
+          id: "stop-1",
+          sequence: 1,
+          status: "UNASSIGNED",
+          addressLine: "123 Main St",
+          label: null,
+          placementNote: null,
+          accessNotes: null,
+          lat: 40.6,
+          lng: -111.9,
+          household: null,
+        },
+      ],
+    });
+    const result = await myRouteDetail(VOLUNTEER, "route-1");
+    expect(result?.stops[0].householdName).toBeNull();
+    expect(result?.stops[0].phone).toBeNull();
+  });
 });
 
 describe("recordVisit", () => {
