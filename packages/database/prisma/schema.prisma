@@ -201,15 +201,22 @@ model Territory {
 // selects, or leave it null to charge each Event's own price and sum
 // them (see Subscription.categoryId, Event.priceCents below).
 model Category {
-  id         String       @id @default(cuid())
-  orgId      String
-  org        Organization @relation(fields: [orgId], references: [id])
-  name       String
-  slug       String
-  sortOrder  Int          @default(0)
-  priceCents Int? // null = sum each selected Event's own priceCents
-  createdAt  DateTime     @default(now())
-  deletedAt  DateTime?
+  id          String       @id @default(cuid())
+  orgId       String
+  org         Organization @relation(fields: [orgId], references: [id])
+  name        String
+  slug        String
+  sortOrder   Int          @default(0)
+  priceCents  Int? // null = sum each selected Event's own priceCents
+  publishedAt DateTime? // null = not visible on public signup. Publishing
+  // is now done at the category level, not per-event — see
+  // openEventsForSignup: an Event only shows on /signup when its
+  // Category is published *and* the Event's own status is OPEN, so
+  // "publish the category" is the one bulk action, while an admin can
+  // still pull a single event out (CLOSED) or hold a newly-added one
+  // back (DRAFT) without unpublishing the whole category.
+  createdAt   DateTime     @default(now())
+  deletedAt   DateTime?
 
   events        Event[]
   subscriptions Subscription[]

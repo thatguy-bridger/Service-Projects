@@ -19,7 +19,9 @@ export default async function CategoriesPage() {
       </h1>
       <p style={{ color: "var(--text-secondary)", marginTop: 0 }}>
         Group your events however makes sense for your org. Create, rename, or delete categories here — assign
-        events to one from an event&apos;s Settings tab.
+        events to one from an event&apos;s Settings tab. Publishing happens here too: a category only appears on
+        public signup once you set its Signup status to Published, which also opens any of its events still in
+        Draft.
       </p>
       <CategoriesClient
         initialRows={categories.map((c) => ({
@@ -28,6 +30,7 @@ export default async function CategoriesPage() {
           slug: c.slug,
           eventCount: c._count.events,
           priceCents: c.priceCents,
+          publishedAt: c.publishedAt ? c.publishedAt.toISOString() : null,
         }))}
       />
     </Card>

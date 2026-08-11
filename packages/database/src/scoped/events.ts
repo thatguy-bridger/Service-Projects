@@ -46,22 +46,27 @@ export interface CreateEventInput {
 }
 
 // Public, unauthenticated read -- the whole point of signup is no
-// account required (SPEC.md §3.2). Every currently-open Event across the
-// org, with its own price and (if it has one) its Category's bundle
-// price -- the replacement for the old "current Season" lookup, which
-// only ever showed one year's flag holidays at a time.
+// account required (SPEC.md §3.2). Publishing is category-level (see
+// Category.publishedAt): an Event only shows here when its Category is
+// published *and* the Event's own status is OPEN, so an uncategorized
+// event (categoryId null -- no category to publish) can never appear,
+// and a category with events still in DRAFT/CLOSED holds those back
+// even while the category itself is published. Each event carries its
+// own price and (if it has one) its Category's bundle price -- the
+// replacement for the old "current Season" lookup, which only ever
+// showed one year's flag holidays at a time.
 export async function openEventsForSignup(orgId: string) {
   const events = await prisma.event.findMany({
-    where: { orgId, deletedAt: null, status: "OPEN" },
+    where: {
+      orgId,
+      deletedAt: null,
+      status: "OPEN",
+      category: { is: { orgId, deletedAt: null, publishedAt: { not: null } } },
+    },
     orderBy: { serviceStartsAt: "asc" },
     include: { category: { select: { id: true, name: true, priceCents: true, deletedAt: true } } },
   });
-  // Prisma's `include` doesn't filter by the related row's own
-  // deletedAt -- a soft-deleted Category (categoriesForOrg already
-  // hides it from every admin list) would otherwise still show its
-  // name/bundle price here, letting a deleted category leak back into
-  // the public signup grouping through an event that still points at it.
-  return events.map((e) => (e.category?.deletedAt ? { ...e, category: null, categoryId: null } : e));
+  return events;
 }
 
 export interface DeleteEventsResult {

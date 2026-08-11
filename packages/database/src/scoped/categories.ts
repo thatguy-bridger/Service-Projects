@@ -123,6 +123,57 @@ export async function deleteCategories(
   return { deleted: result.count };
 }
 
+// Publishing is category-level, not per-event (see the schema comment
+// on Category.publishedAt) -- this is the one bulk "go live" action for
+// everything in the category. It also bulk-opens every DRAFT event
+// still in the category (a fresh category's events default to DRAFT,
+// so publishing the category with no event-status change would
+// otherwise publish an empty shelf). Only DRAFT events are touched --
+// an event an admin already explicitly CLOSED or ARCHIVED stays that
+// way, same "don't clobber an explicit state" precedent as the route
+// lasso only bumping UNASSIGNED stops.
+export async function publishCategory(
+  session: SessionLike | null | undefined,
+  orgId: string,
+  categoryId: string
+): Promise<CategoryActionResult> {
+  const membership = await resolveMembership(session);
+  if (!membership || !isStaff(membership.role)) return { ok: false, error: "Forbidden" };
+
+  const [result] = await prisma.$transaction([
+    prisma.category.updateMany({
+      where: { id: categoryId, orgId, deletedAt: null },
+      data: { publishedAt: new Date() },
+    }),
+    prisma.event.updateMany({
+      where: { categoryId, orgId, deletedAt: null, status: "DRAFT" },
+      data: { status: "OPEN" },
+    }),
+  ]);
+  if (result.count === 0) return { ok: false, error: "Category not found." };
+  return { ok: true };
+}
+
+// Unpublish only clears the category's own publishedAt -- deliberately
+// leaves every event's status untouched (no forcing OPEN events back to
+// DRAFT) so re-publishing later doesn't need to re-derive which events
+// were meant to be open; it just flips the one gate back on.
+export async function unpublishCategory(
+  session: SessionLike | null | undefined,
+  orgId: string,
+  categoryId: string
+): Promise<CategoryActionResult> {
+  const membership = await resolveMembership(session);
+  if (!membership || !isStaff(membership.role)) return { ok: false, error: "Forbidden" };
+
+  const result = await prisma.category.updateMany({
+    where: { id: categoryId, orgId, deletedAt: null },
+    data: { publishedAt: null },
+  });
+  if (result.count === 0) return { ok: false, error: "Category not found." };
+  return { ok: true };
+}
+
 export async function setEventCategory(
   session: SessionLike | null | undefined,
   orgId: string,
