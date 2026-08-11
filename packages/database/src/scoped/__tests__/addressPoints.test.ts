@@ -24,6 +24,11 @@ const OPENADDRESSES_CSV =
   "-111.891,40.7608,350,State St,,Salt Lake City,,UT,84103,1,abc\n" +
   "-111.89,40.76,352,State St,,Salt Lake City,,UT,84103,2,def\n";
 
+// Real sample lines from an OpenAddresses.io ndgeojson export (Ephram, UT).
+const OPENADDRESSES_NDJSON =
+  '{"type": "Feature", "properties": {"hash": "2011240616ce1095", "number": "170", "street": "E 400 S", "unit": "", "city": "EPHRAIM", "district": "49039", "region": "UT", "postcode": "84627", "id": "EPHRAIM | 170 E 400 S", "accuracy": ""}, "geometry": {"type": "Point", "coordinates": [-111.582612, 39.3525121]}}\n' +
+  '{"type": "Feature", "properties": {"hash": "ea57bf1817652eb2", "number": "64", "street": "W 100 N", "unit": "", "city": "EPHRAIM", "district": "49039", "region": "UT", "postcode": "84627", "id": "EPHRAIM | 64 W 100 N", "accuracy": ""}, "geometry": {"type": "Point", "coordinates": [-111.5886022, 39.3617725]}}\n';
+
 describe("importAddressPointsCsv", () => {
   it("rejects a non-staff caller before touching the database", async () => {
     const result = await importAddressPointsCsv(VOLUNTEER, OPENADDRESSES_CSV, "Salt Lake County");
@@ -82,6 +87,41 @@ describe("importAddressPointsCsv", () => {
     expect(result.ok).toBe(false);
     expect(result.skipped).toBe(1);
     expect(prismaMock.$transaction).not.toHaveBeenCalled();
+  });
+});
+
+describe("importAddressPointsCsv — newline-delimited GeoJSON", () => {
+  it("auto-detects and parses OpenAddresses.io's real ndgeojson export format", async () => {
+    const result = await importAddressPointsCsv(ADMIN, OPENADDRESSES_NDJSON, "Sanpete County");
+    expect(result).toEqual({ ok: true, imported: 2, skipped: 0 });
+    expect(prismaMock.addressPoint.deleteMany).toHaveBeenCalledWith({ where: { source: "Sanpete County" } });
+    expect(prismaMock.addressPoint.createMany).toHaveBeenCalledWith({
+      data: [
+        { lat: 39.3525121, lng: -111.582612, fullAddress: "170 E 400 S", city: "EPHRAIM", zip: "84627", source: "Sanpete County" },
+        { lat: 39.3617725, lng: -111.5886022, fullAddress: "64 W 100 N", city: "EPHRAIM", zip: "84627", source: "Sanpete County" },
+      ],
+    });
+  });
+
+  it("skips a malformed line instead of failing the whole import", async () => {
+    const ndjson = OPENADDRESSES_NDJSON + "not valid json\n";
+    const result = await importAddressPointsCsv(ADMIN, ndjson, "Sanpete County");
+    expect(result).toEqual({ ok: true, imported: 2, skipped: 1 });
+  });
+
+  it("skips a feature missing point coordinates", async () => {
+    const ndjson = '{"type":"Feature","properties":{"number":"1","street":"Main St","city":"X","postcode":"1"},"geometry":{"type":"Point"}}\n';
+    const result = await importAddressPointsCsv(ADMIN, ndjson, "Test");
+    expect(result.ok).toBe(false);
+    expect(result.skipped).toBe(1);
+  });
+
+  it("still requires a source label and staff role, same as the CSV path", async () => {
+    const forbidden = await importAddressPointsCsv(VOLUNTEER, OPENADDRESSES_NDJSON, "Sanpete County");
+    expect(forbidden.ok).toBe(false);
+
+    const noSource = await importAddressPointsCsv(ADMIN, OPENADDRESSES_NDJSON, "  ");
+    expect(noSource.ok).toBe(false);
   });
 });
 
