@@ -1,8 +1,8 @@
-import { Analytics } from "@vercel/analytics/next";
 import { defaultOrganization, copyOverridesForOrg } from "@service-projects/database";
 import { brand } from "@/config/brand";
 import { CopyHydrator } from "@/copy/CopyHydrator";
 import { OfflineBanner } from "./OfflineBanner";
+import { AnalyticsWithPrivacy } from "./AnalyticsWithPrivacy";
 import "./globals.css";
 
 export const metadata = {
@@ -48,7 +48,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <CopyHydrator overrides={overrides} />
         <OfflineBanner />
         {children}
-        <Analytics />
+        <AnalyticsWithPrivacy />
       </body>
     </html>
   );
