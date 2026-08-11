@@ -2,9 +2,11 @@ import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions, can } from "@service-projects/core-auth";
 import { Button, Card, Badge, ImagePlaceholder } from "@service-projects/ui";
+import { defaultOrganization, adminDashboardLayoutForOrg, adminDashboardData } from "@service-projects/database";
 import { t } from "@/copy";
 import { AppTopbar } from "./AppTopbar";
 import { getEffectiveRole } from "@/lib/previewRole";
+import { AdminDashboardSlotBlocks } from "@/blocks/DashboardBlocks";
 
 // Always fresh: reads the request's session.
 export const dynamic = "force-dynamic";
@@ -97,6 +99,18 @@ export default async function HomePage({
   const isPreviewing = canPreview && role !== realRole;
   const isOwnerOrAdmin = can(role, "users.manageRoles");
 
+  let dashboardLayout = null;
+  let dashboardData = null;
+  if (isOwnerOrAdmin) {
+    const org = await defaultOrganization();
+    if (org) {
+      [dashboardLayout, dashboardData] = await Promise.all([
+        adminDashboardLayoutForOrg(org.id),
+        adminDashboardData(session, org.id),
+      ]);
+    }
+  }
+
   return (
     <>
       <AppTopbar />
@@ -143,6 +157,30 @@ export default async function HomePage({
             </div>
           </div>
         </Card>
+      )}
+
+      {isOwnerOrAdmin && dashboardLayout && dashboardData && (
+        <>
+          <div style={{ display: "flex", gap: "var(--space-4)", flexWrap: "wrap", marginBottom: "var(--space-6)" }}>
+            <AdminDashboardSlotBlocks layout={dashboardLayout} slot="top" data={dashboardData} />
+          </div>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "2fr 1fr",
+              gap: "var(--space-4)",
+              marginBottom: "var(--space-6)",
+              alignItems: "start",
+            }}
+          >
+            <div style={{ display: "grid", gap: "var(--space-4)" }}>
+              <AdminDashboardSlotBlocks layout={dashboardLayout} slot="main" data={dashboardData} />
+            </div>
+            <div style={{ display: "grid", gap: "var(--space-4)" }}>
+              <AdminDashboardSlotBlocks layout={dashboardLayout} slot="side" data={dashboardData} />
+            </div>
+          </div>
+        </>
       )}
 
       <Card>

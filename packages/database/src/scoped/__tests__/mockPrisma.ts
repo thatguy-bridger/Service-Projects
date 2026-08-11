@@ -55,6 +55,7 @@ export function createPrismaMock() {
       findUnique: vi.fn().mockResolvedValue(null),
       update: vi.fn(),
       updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+      groupBy: vi.fn().mockResolvedValue([]),
     },
     stop: {
       findFirst: vi.fn().mockResolvedValue(null),
@@ -63,6 +64,7 @@ export function createPrismaMock() {
       createMany: vi.fn().mockResolvedValue({ count: 0 }),
       update: vi.fn(),
       updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+      count: vi.fn().mockResolvedValue(0),
     },
     $queryRaw: vi.fn().mockResolvedValue([]),
     organization: {
@@ -122,6 +124,7 @@ export function createPrismaMock() {
     },
     auditLog: {
       create: vi.fn(),
+      findMany: vi.fn().mockResolvedValue([]),
     },
   };
 }

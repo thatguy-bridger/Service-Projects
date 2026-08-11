@@ -1,7 +1,14 @@
 import { Prisma, type EventKind, type EventStatus } from "@prisma/client";
 import { prisma } from "../client";
 import { isStaff, resolveMembership, type SessionLike } from "./membership";
-import { normalizeStopCard, normalizeRouteScreen, mergeEventLayout, type ScreenLayout, type EventScreenName } from "../layoutBlocks";
+import {
+  normalizeStopCard,
+  normalizeRouteScreen,
+  normalizeEventLanding,
+  mergeEventLayout,
+  type ScreenLayout,
+  type EventScreenName,
+} from "../layoutBlocks";
 
 export async function eventsForSession(session: SessionLike | null | undefined, orgId: string) {
   const membership = await resolveMembership(session);
@@ -80,6 +87,25 @@ export async function openEventsForSignup(orgId: string) {
     include: { category: { select: { id: true, name: true, priceCents: true, deletedAt: true } } },
   });
   return events;
+}
+
+/**
+ * The public event-landing page (SPEC.md §11.3's `event_landing` screen).
+ * Deliberately no session/membership gate -- this is a public teaser page,
+ * same audience as the /signup flow itself. Only OPEN events with a
+ * published category are findable, same rule as openEventsForSignup.
+ */
+export async function openEventForLanding(orgId: string, slug: string) {
+  return prisma.event.findFirst({
+    where: {
+      orgId,
+      slug,
+      deletedAt: null,
+      status: "OPEN",
+      category: { is: { orgId, deletedAt: null, publishedAt: { not: null } } },
+    },
+    include: { category: { select: { id: true, name: true, priceCents: true, deletedAt: true } } },
+  });
 }
 
 export interface DeleteEventsResult {
@@ -185,6 +211,15 @@ export async function updateEventRouteScreenLayout(
   layout: ScreenLayout
 ): Promise<UpdateEventResult> {
   return updateEventLayout(session, orgId, eventId, "volunteer_route", normalizeRouteScreen(layout));
+}
+
+export async function updateEventLandingLayout(
+  session: SessionLike | null | undefined,
+  orgId: string,
+  eventId: string,
+  layout: ScreenLayout
+): Promise<UpdateEventResult> {
+  return updateEventLayout(session, orgId, eventId, "event_landing", normalizeEventLanding(layout));
 }
 
 // SPEC.md §2.1/§6: FLAG_SETOUT <-> FLAG_PICKUP is the only pairing

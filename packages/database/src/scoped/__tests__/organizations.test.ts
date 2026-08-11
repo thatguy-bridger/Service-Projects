@@ -9,7 +9,19 @@ vi.mock("../../client", async () => {
 const { prisma } = await import("../../client");
 const prismaMock = prisma as unknown as PrismaMock;
 
-const { updateOrganization, organizationSettings } = await import("../organizations");
+const {
+  updateOrganization,
+  organizationSettings,
+  updateAdminDashboardLayout,
+  adminDashboardLayoutForOrg,
+  updatePublicFormLayout,
+  publicFormLayoutForOrg,
+} = await import("../organizations");
+const { DEFAULT_ADMIN_DASHBOARD_LAYOUT, DEFAULT_PUBLIC_FORM_LAYOUT, normalizeAdminDashboard, normalizePublicForm } =
+  await import("../../layoutBlocks");
+
+const OWNER_SESSION = { user: { id: "u1", role: "OWNER" as const } };
+const VOLUNTEER_SESSION = { user: { id: "u2", role: "VOLUNTEER" as const } };
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -55,6 +67,87 @@ describe("updateOrganization", () => {
   it("reports not-found when nothing matches", async () => {
     prismaMock.organization.updateMany.mockResolvedValueOnce({ count: 0 });
     const result = await updateOrganization("org-missing", { name: "x" });
+    expect(result).toEqual({ ok: false, error: "Organization not found." });
+  });
+});
+
+describe("adminDashboardLayoutForOrg", () => {
+  it("returns the default layout when the org has no saved layout", async () => {
+    prismaMock.organization.findFirst.mockResolvedValueOnce({ id: "org-1", settings: null });
+    expect(await adminDashboardLayoutForOrg("org-1")).toEqual(normalizeAdminDashboard(null));
+  });
+
+  it("returns the default layout when the org doesn't exist", async () => {
+    prismaMock.organization.findFirst.mockResolvedValueOnce(null);
+    expect(await adminDashboardLayoutForOrg("org-missing")).toEqual(normalizeAdminDashboard(null));
+  });
+});
+
+describe("updateAdminDashboardLayout", () => {
+  it("rejects a non-staff session", async () => {
+    const result = await updateAdminDashboardLayout(VOLUNTEER_SESSION, "org-1", DEFAULT_ADMIN_DASHBOARD_LAYOUT);
+    expect(result).toEqual({ ok: false, error: "Forbidden" });
+    expect(prismaMock.organization.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("merges the admin-dashboard layout into settings without clobbering other keys", async () => {
+    prismaMock.organization.findUnique.mockResolvedValueOnce({ settings: { emailFrom: "flags@org.org" } });
+    const result = await updateAdminDashboardLayout(OWNER_SESSION, "org-1", DEFAULT_ADMIN_DASHBOARD_LAYOUT);
+    expect(result).toEqual({ ok: true });
+    expect(prismaMock.organization.updateMany).toHaveBeenCalledWith({
+      where: { id: "org-1", deletedAt: null },
+      data: {
+        settings: {
+          emailFrom: "flags@org.org",
+          layoutBlocks: { admin_dashboard: normalizeAdminDashboard(DEFAULT_ADMIN_DASHBOARD_LAYOUT) },
+        },
+      },
+    });
+  });
+
+  it("reports not-found when nothing matches", async () => {
+    prismaMock.organization.updateMany.mockResolvedValueOnce({ count: 0 });
+    const result = await updateAdminDashboardLayout(OWNER_SESSION, "org-missing", DEFAULT_ADMIN_DASHBOARD_LAYOUT);
+    expect(result).toEqual({ ok: false, error: "Organization not found." });
+  });
+});
+
+describe("publicFormLayoutForOrg", () => {
+  it("returns the default layout when the org has no saved layout", async () => {
+    prismaMock.organization.findFirst.mockResolvedValueOnce({ id: "org-1", settings: null });
+    expect(await publicFormLayoutForOrg("org-1")).toEqual(normalizePublicForm(null));
+  });
+});
+
+describe("updatePublicFormLayout", () => {
+  it("rejects a non-staff session", async () => {
+    const result = await updatePublicFormLayout(VOLUNTEER_SESSION, "org-1", DEFAULT_PUBLIC_FORM_LAYOUT);
+    expect(result).toEqual({ ok: false, error: "Forbidden" });
+    expect(prismaMock.organization.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("merges the public-form layout into settings without clobbering the admin-dashboard layout", async () => {
+    prismaMock.organization.findUnique.mockResolvedValueOnce({
+      settings: { layoutBlocks: { admin_dashboard: normalizeAdminDashboard(null) } },
+    });
+    const result = await updatePublicFormLayout(OWNER_SESSION, "org-1", DEFAULT_PUBLIC_FORM_LAYOUT);
+    expect(result).toEqual({ ok: true });
+    expect(prismaMock.organization.updateMany).toHaveBeenCalledWith({
+      where: { id: "org-1", deletedAt: null },
+      data: {
+        settings: {
+          layoutBlocks: {
+            admin_dashboard: normalizeAdminDashboard(null),
+            public_form: normalizePublicForm(DEFAULT_PUBLIC_FORM_LAYOUT),
+          },
+        },
+      },
+    });
+  });
+
+  it("reports not-found when nothing matches", async () => {
+    prismaMock.organization.updateMany.mockResolvedValueOnce({ count: 0 });
+    const result = await updatePublicFormLayout(OWNER_SESSION, "org-missing", DEFAULT_PUBLIC_FORM_LAYOUT);
     expect(result).toEqual({ ok: false, error: "Organization not found." });
   });
 });
