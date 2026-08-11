@@ -162,6 +162,7 @@ model Organization {
   categories  Category[]
   inviteKeys  InviteKey[]
   territories Territory[]
+  copyOverrides UiCopyOverride[]
 
   createdAt DateTime  @default(now())
   deletedAt DateTime?
@@ -185,6 +186,29 @@ model Territory {
   deletedAt         DateTime?
 
   @@index([orgId])
+}
+
+// SPEC.md §11.1's "org override" layer of the copy resolution chain
+// (default in code -> org override -> event override -> locale ->
+// rendered). Storage + admin editor only for now -- the `en.ts`
+// default layer and apps/rounds/src/copy/t.ts's createT(overrides)
+// already support layering overrides in, but every current call site
+// imports the singleton `t` (defaults only) directly rather than a
+// per-request, org-scoped instance; wiring every screen through a
+// request-scoped t() is real follow-up scope, not attempted here. An
+// empty/missing `value` means "no override, use the code default" --
+// there's deliberately no way to store an override that's an empty
+// string distinct from "not overridden."
+model UiCopyOverride {
+  id        String       @id @default(cuid())
+  orgId     String
+  org       Organization @relation(fields: [orgId], references: [id])
+  key       String
+  value     String
+  updatedAt DateTime     @updatedAt
+  updatedBy String?
+
+  @@unique([orgId, key])
 }
 
 // User-managed replacement for the old hardcoded EventKind directory
