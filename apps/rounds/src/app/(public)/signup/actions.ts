@@ -100,6 +100,14 @@ export async function sendSelfServiceLinkAction(input: {
       html: `<p>Here's your link to manage this signup any time:</p><p><a href="${link}">${link}</a></p>`,
     }),
   });
-  if (!res.ok) return { ok: false, error: "Couldn't send that email — copy the link instead." };
+  if (!res.ok) {
+    // Resend's actual rejection reason (bad "from" domain, invalid key,
+    // etc) never reaches the user — this is a public action and
+    // shouldn't leak provider details — but it has to land somewhere,
+    // or a misconfigured "from" address fails silently forever.
+    const body = await res.text().catch(() => "");
+    console.error(`[sendSelfServiceLinkAction] Resend ${res.status}: ${body}`);
+    return { ok: false, error: "Couldn't send that email — copy the link instead." };
+  }
   return { ok: true };
 }
