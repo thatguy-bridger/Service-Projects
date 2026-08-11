@@ -37,11 +37,10 @@ function applyVars(template: string, vars?: Vars): string {
 const defaults: Record<string, string> = en;
 
 /**
- * Builds a `t()` bound to a set of org/event overrides layered on top of
- * the code defaults — SPEC.md §11.1's resolution order. Nothing calls
- * this with real overrides yet (the copy editor and its UiCopy-backed
- * loader ship in Phase 8); `t` below is `createT()` with no overrides,
- * i.e. defaults only, which is the correct behavior until then.
+ * Builds a `t()` bound to a fixed set of org/event overrides layered on
+ * top of the code defaults — SPEC.md §11.1's resolution order. Useful
+ * standalone (e.g. a script rendering copy outside a request), but the
+ * app's real call sites all use the singleton `t` below instead.
  */
 export function createT(overrides: Partial<Record<string, string>> = {}) {
   return function t(key: string, vars?: Vars): string {
@@ -57,4 +56,31 @@ export function createT(overrides: Partial<Record<string, string>> = {}) {
   };
 }
 
-export const t = createT();
+// The app's real org-override resolution. This app is single-org per
+// deployment (resolveMembership's OWNER/ADMIN org-wide shortcut already
+// bakes that assumption in), so overrides aren't a per-request-varying
+// value the way session/auth state is -- they're closer to slowly-
+// changing global config, safe to hold as module state rather than
+// threading through every one of the ~30 call sites that already do
+// `import { t } from "@/copy"` and call it directly during render
+// (including client-side, inside event handlers). CopyHydrator (a tiny
+// client component rendered once in the root layout) is the one place
+// that calls setCopyOverrides, with the org's current UiCopyOverride
+// rows fetched fresh server-side on every request.
+let overridesStore: Record<string, string> = {};
+
+export function setCopyOverrides(next: Record<string, string>): void {
+  overridesStore = next;
+}
+
+export function t(key: string, vars?: Vars): string {
+  const template = overridesStore[key] ?? defaults[key];
+  if (template === undefined) {
+    if (process.env.NODE_ENV !== "production") {
+      // eslint-disable-next-line no-console
+      console.warn(`[copy] "${key}" has no default in src/copy/en.ts`);
+    }
+    return key;
+  }
+  return applyVars(template, vars);
+}
