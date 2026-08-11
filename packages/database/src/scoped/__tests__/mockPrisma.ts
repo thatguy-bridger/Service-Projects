@@ -82,13 +82,20 @@ export function createPrismaMock() {
     },
     territory: {
       findMany: vi.fn().mockResolvedValue([]),
+      findFirst: vi.fn().mockResolvedValue(null),
       updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+      update: vi.fn().mockResolvedValue({ id: "territory-mock" }),
       create: vi.fn().mockResolvedValue({ id: "territory-mock" }),
     },
     uiCopyOverride: {
       findMany: vi.fn().mockResolvedValue([]),
       deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
       upsert: vi.fn().mockResolvedValue({ id: "copy-override-mock" }),
+    },
+    addressPoint: {
+      deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
+      createMany: vi.fn().mockResolvedValue({ count: 0 }),
+      groupBy: vi.fn().mockResolvedValue([]),
     },
     routeAssignment: {
       findMany: vi.fn().mockResolvedValue([]),

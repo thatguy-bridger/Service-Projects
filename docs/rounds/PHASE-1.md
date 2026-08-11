@@ -1059,3 +1059,59 @@ published, same as today.
 shape). `tsc --noEmit` clean in both packages, `next lint` clean,
 `next build` clean, full `turbo run test` green (143 database + 18
 rounds + 28 core-auth = 189 tests).
+
+## Update — territory fill, built without UGRC after its key hit a real wall
+
+Got a real `UGRC_API_KEY`, tested it (temporary `ugrc-probe.yml` GitHub
+Actions workflow — response bodies logged, key itself never printed) —
+every call failed with UGRC's own error: the key is locked to a single
+IP/referrer pattern from whenever it was created, no way found in their
+self-service portal to edit or remove that, and Vercel doesn't give a
+fixed outbound IP by default anyway. Confirmed across two different
+runner IPs and a regenerated key, so this isn't a fluke — it's a
+structural mismatch, logged in `docs/rounds/OPEN-QUESTIONS.md` with the
+real options (UGRC support, a static-IP proxy) if it's worth revisiting.
+
+Built territory fill anyway, without depending on UGRC at all — per
+SPEC.md §9.2's own words, a live API call per polygon was only ever the
+fallback, not the intended end state ("import once into local Postgres,
+refresh quarterly... a live API call is slower, rate-limited, and no
+fresher"):
+
+- New `AddressPoint` model (not org-scoped — shared reference geodata)
+  + `/admin/address-points`: paste/import any address-point CSV,
+  tagged with a free-form source label. Column matching is
+  case-insensitive and format-flexible (OpenAddresses.io's
+  LON/LAT/NUMBER/STREET/CITY/POSTCODE header, or a plain ADDRESS
+  column, or others) rather than locked to one exact export shape —
+  "expandable" per explicit request, so a county's own open-data
+  export or a different aggregator's file both import the same way.
+  Re-importing the same source label replaces that batch (delete +
+  recreate in one transaction) rather than appending duplicates —
+  that's the whole refresh mechanism.
+- `previewTerritoryFill` (new, in `territories.ts`): counts
+  `AddressPoint` rows inside a saved Territory's polygon via
+  `ST_Contains`/`ST_GeomFromGeoJSON` against the polygon already
+  stored on the Territory, caches the count + timestamp on
+  `Territory.addressPointCount`/`lastFilledAt` (both existed since the
+  original Territory model, always null until now). Zero external API
+  calls at request time.
+- Extracted the CSV parser that was private to `households.ts` into a
+  shared `packages/database/src/csv.ts` (same parser, now used by both
+  the household-import and address-point-import paths) rather than
+  duplicating it.
+- `packages/geo/src/ugrc.ts`'s `geocode()` stays as the one verified
+  UGRC integration (single-address geocoding for the signup address
+  field — a genuinely different use case, still live-API-shaped since
+  it's one address at a time, not bulk). `addressPointsInPolygon`
+  there is now unnecessary — territory fill doesn't go through
+  `packages/geo` at all any more.
+
+Removed the temporary `ugrc-probe.yml` workflow now that it's done its
+job, same as `db-inspect.yml` before it.
+
+25 new tests (11 `addressPoints.test.ts`, 3 new in `territories.test.ts`
+for `previewTerritoryFill`; `routing.test.ts`'s count also grew from an
+earlier update). `tsc --noEmit` clean in both packages, `next lint`
+clean, `next build` clean, full `turbo run test` green (169 database +
+18 rounds + 28 core-auth = 215 tests).

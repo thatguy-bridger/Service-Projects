@@ -50,12 +50,45 @@ against that; its exact response field names are best-effort
 unimplemented (clear thrown errors, not guesses) rather than building
 against three more unverified shapes.
 
-**If you can get a UGRC developer key** (register at
-developer.mapserv.utah.gov — free), the fastest way to unblock the rest
-of Phase 1/6 is confirming these four endpoint shapes at
-api.mapserv.utah.gov/docs/ (or just trying them with a real key) and
-updating `packages/geo/src/ugrc.ts` accordingly. Everything else in the
-address-field and territory-fill work is ready to build on top of it.
+**Update: a UGRC key was obtained, and it doesn't work from this
+deployment.** A real `UGRC_API_KEY` was added as a GitHub Actions
+secret and probed against the live API (temporary `ugrc-probe.yml`
+workflow, since removed). Every call — from two different runner IPs,
+and after regenerating the key — failed the same way:
+
+```
+{"status":400,"message":"Your API key does match the pattern created in
+the self service website for key `ugrc-...`. The request is originating
+from `<ip>`"}
+```
+
+UGRC's self-service portal locks a key to whatever IP/referrer pattern
+was active at creation time, with no way found in the portal to edit or
+remove that restriction. Vercel doesn't provide a fixed outbound IP by
+default, so even a working key would keep failing intermittently in
+production — this isn't a one-time setup problem, it's a structural
+mismatch between UGRC's key model and how this app is hosted. Real
+options if this is revisited: UGRC support may be able to issue an
+unrestricted key on request, or a static-IP proxy service (QuotaGuard
+Static, Fixie, or a small self-hosted VPS) could give Vercel a fixed
+egress IP to register with UGRC. Neither was pursued.
+
+**Territory fill was built anyway, without UGRC**, per SPEC.md §9.2's
+own stated preference ("import once into local Postgres, refresh
+quarterly... a live API call per polygon fill is slower, rate-limited,
+and no fresher" — a live call was never actually the end-state design,
+just the fallback if a local import wasn't ready yet). New `AddressPoint`
+model + `/admin/address-points`: import any address-point CSV (not
+UGRC-specific — OpenAddresses.io's open, no-key dataset works, as would
+a county's own open-data export), tagged with a source label; re-
+importing a label replaces that batch, which is the refresh mechanism.
+`previewTerritoryFill` counts `AddressPoint` rows inside a saved
+Territory's polygon via `ST_Contains`, entirely local, no external API
+at request time. `packages/geo/src/ugrc.ts`'s `geocode()` stays as the
+one verified UGRC integration (real address-field geocoding, a
+different use case than bulk territory fill); `reverseGeocode`/
+`autocomplete`/`addressPointsInPolygon` remain unimplemented — territory
+fill no longer needs the last one at all.
 
 ## Credentials this environment doesn't have
 
@@ -68,7 +101,7 @@ not a crash). They block the corresponding phase's *real* functionality:
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Real Google sign-in (the actual OAuth round-trip was never exercised, only the guard logic) | `packages/core-auth/src/authOptions.ts` |
 | `RESEND_API_KEY` / `EMAIL_FROM` | Real email magic-link sign-in | same file |
 | Stripe test + live keys | Phase 1 Checkout | Phase 1, not built yet |
-| UGRC developer key | Real geocoding/autocomplete/territory fill — SPEC.md §9 says verify the endpoint shapes against gis.utah.gov before building against them, which wasn't possible here | Phase 1 (address field) / Phase 6 (territory fill) |
+| UGRC developer key | Real address-field geocoding/autocomplete (reverseGeocode/autocomplete remain unimplemented). **Not** territory fill any more — that's now a local `AddressPoint` import, see the UGRC verification section above. | Phase 1 (address field) |
 | Twilio Verify | Phone/SMS sign-in | Phase 5, not built yet |
 | `DATABASE_URL` for a real (non-local) Postgres | Deploying anywhere | `docs/deployment.md`'s existing flow (Neon/Supabase) — **must have PostGIS available**; confirm your chosen host supports the extension before picking one |
 
