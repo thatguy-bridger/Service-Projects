@@ -171,11 +171,25 @@ export async function importAddressPointsCsv(
     return { ok: false, error: "No valid rows to import — check the lat/lng data.", imported: 0, skipped };
   }
 
+  // One createMany for the whole file breaks down at real-world sizes:
+  // Postgres caps a single statement to 65535 bound parameters, and
+  // this table binds 5 per row (lat/lng/fullAddress/city/zip/source is
+  // 6, actually), so an unchunked call silently has a hard ceiling
+  // around ~10-11k rows regardless of how much memory the request has
+  // to spare -- a city-sized file (tens of thousands of points) would
+  // hit that ceiling and fail outright, not just run slowly. Batching
+  // keeps every statement well under the limit and lets Postgres commit
+  // incrementally instead of building one enormous query plan.
+  const BATCH_SIZE = 5000;
+  const rowsWithSource = toInsert.map((r) => ({ ...r, source: trimmedSource }));
+  const batches: (typeof rowsWithSource)[] = [];
+  for (let i = 0; i < rowsWithSource.length; i += BATCH_SIZE) {
+    batches.push(rowsWithSource.slice(i, i + BATCH_SIZE));
+  }
+
   await prisma.$transaction([
     prisma.addressPoint.deleteMany({ where: { source: trimmedSource } }),
-    prisma.addressPoint.createMany({
-      data: toInsert.map((r) => ({ ...r, source: trimmedSource })),
-    }),
+    ...batches.map((batch) => prisma.addressPoint.createMany({ data: batch })),
   ]);
 
   return { ok: true, imported: toInsert.length, skipped };

@@ -88,6 +88,24 @@ describe("importAddressPointsCsv", () => {
     expect(result.skipped).toBe(1);
     expect(prismaMock.$transaction).not.toHaveBeenCalled();
   });
+
+  it("splits a large import into multiple createMany batches instead of one unbounded call", async () => {
+    const header = "LAT,LON,ADDRESS\n";
+    const rows = Array.from({ length: 5001 }, (_, i) => `40.7,-111.9,${i} Main St`).join("\n");
+    const result = await importAddressPointsCsv(ADMIN, header + rows, "Big county");
+    expect(result).toEqual({ ok: true, imported: 5001, skipped: 0 });
+    // deleteMany + 2 batches (5000 + 1) for 5001 rows at a 5000-row batch size.
+    expect(prismaMock.$transaction).toHaveBeenCalledWith([
+      expect.anything(),
+      expect.anything(),
+      expect.anything(),
+    ]);
+    expect(prismaMock.addressPoint.createMany).toHaveBeenCalledTimes(2);
+    const firstBatch = prismaMock.addressPoint.createMany.mock.calls[0][0].data;
+    const secondBatch = prismaMock.addressPoint.createMany.mock.calls[1][0].data;
+    expect(firstBatch).toHaveLength(5000);
+    expect(secondBatch).toHaveLength(1);
+  });
 });
 
 describe("importAddressPointsCsv — newline-delimited GeoJSON", () => {

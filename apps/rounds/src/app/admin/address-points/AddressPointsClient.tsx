@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button, Card } from "@service-projects/ui";
 import type { AddressPointSourceRow } from "@service-projects/database";
@@ -8,14 +8,33 @@ import { importAddressPointsAction, deleteAddressPointSourceAction } from "./act
 
 export function AddressPointsClient({ initialSources }: { initialSources: AddressPointSourceRow[] }) {
   const router = useRouter();
-  const [csvText, setCsvText] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  // The file's actual contents never go into React state or the DOM --
+  // a 12MB+ string as a controlled <textarea> value re-renders the
+  // whole thing into the page on every keystroke/paste, which is what
+  // was actually slow (not the import itself). Read once on submit,
+  // held in a plain ref, shown only as a filename + size.
+  const fileTextRef = useRef<string | null>(null);
+  const [fileLabel, setFileLabel] = useState<string | null>(null);
   const [source, setSource] = useState("");
   const [importing, setImporting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) {
+      fileTextRef.current = null;
+      setFileLabel(null);
+      return;
+    }
+    fileTextRef.current = await file.text();
+    setFileLabel(`${file.name} (${(file.size / (1024 * 1024)).toFixed(1)} MB)`);
+  }
+
   async function handleImport() {
+    if (!fileTextRef.current) return;
     setImporting(true);
-    const result = await importAddressPointsAction(csvText, source);
+    const result = await importAddressPointsAction(fileTextRef.current, source);
     setMessage(
       result.ok
         ? `Imported ${result.imported} address point${result.imported === 1 ? "" : "s"}${result.skipped ? ` (${result.skipped} row${result.skipped === 1 ? "" : "s"} skipped)` : ""}.`
@@ -23,7 +42,9 @@ export function AddressPointsClient({ initialSources }: { initialSources: Addres
     );
     setImporting(false);
     if (result.ok) {
-      setCsvText("");
+      fileTextRef.current = null;
+      setFileLabel(null);
+      if (fileInputRef.current) fileInputRef.current.value = "";
       router.refresh();
     }
   }
@@ -32,11 +53,11 @@ export function AddressPointsClient({ initialSources }: { initialSources: Addres
     <div style={{ display: "grid", gap: "var(--space-6)" }}>
       <div>
         <h2 style={{ fontSize: "var(--text-lg)", fontWeight: "var(--weight-medium)", marginBottom: "var(--space-1)" }}>
-          Import a CSV
+          Import a file
         </h2>
         <p style={{ color: "var(--text-secondary)", fontSize: "var(--text-sm)", marginTop: 0 }}>
-          Paste address-point data in either format OpenAddresses.io publishes: newline-delimited GeoJSON (one{" "}
-          <code>{`{"type":"Feature",...}`}</code> object per line — their real default export) or CSV
+          Pick a file with address-point data in either format OpenAddresses.io publishes: newline-delimited GeoJSON
+          (one <code>{`{"type":"Feature",...}`}</code> object per line — their real default export) or CSV
           (LON/LAT/NUMBER/STREET/CITY/POSTCODE columns, or any file with LAT/LON and either an ADDRESS column or
           NUMBER+STREET). Detected automatically. Give it a source label — re-importing the same label later
           replaces that batch, which is how a refresh works. Different labels (e.g. different counties) coexist.
@@ -53,17 +74,19 @@ export function AddressPointsClient({ initialSources }: { initialSources: Addres
             />
           </label>
           <label className="signup-field" style={{ marginBottom: 0 }}>
-            <span className="signup-fieldLabel">CSV text</span>
-            <textarea
+            <span className="signup-fieldLabel">File</span>
+            <input
+              ref={fileInputRef}
               className="signup-input"
-              rows={10}
-              style={{ fontFamily: "monospace", fontSize: "var(--text-sm)" }}
-              value={csvText}
-              onChange={(e) => setCsvText(e.target.value)}
-              placeholder="LON,LAT,NUMBER,STREET,UNIT,CITY,DISTRICT,REGION,POSTCODE,ID,HASH&#10;-111.891,40.7608,350,State St,,Salt Lake City,,UT,84103,1,abc"
+              type="file"
+              accept=".json,.geojson,.ndjson,.csv,.txt"
+              onChange={handleFileChange}
             />
           </label>
-          <Button type="button" variant="primary" disabled={importing || !csvText.trim() || !source.trim()} onClick={handleImport}>
+          {fileLabel && (
+            <p style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)", margin: 0 }}>{fileLabel}</p>
+          )}
+          <Button type="button" variant="primary" disabled={importing || !fileLabel || !source.trim()} onClick={handleImport}>
             {importing ? "Importing…" : "Import"}
           </Button>
           {message && <p style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)", margin: 0 }}>{message}</p>}
@@ -76,7 +99,7 @@ export function AddressPointsClient({ initialSources }: { initialSources: Addres
         </h2>
         {initialSources.length === 0 ? (
           <p style={{ color: "var(--text-secondary)", fontSize: "var(--text-sm)" }}>
-            Nothing imported yet — paste a CSV above to get started.
+            Nothing imported yet — pick a file above to get started.
           </p>
         ) : (
           <div style={{ display: "grid", gap: "var(--space-2)" }}>

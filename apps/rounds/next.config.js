@@ -1,5 +1,16 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  experimental: {
+    // Server Actions default to a 1MB request body cap -- fine for
+    // every form in this app except one: /admin/address-points'
+    // import, which hands a whole city-sized address-point file
+    // (newline-delimited GeoJSON or CSV, tens of MB) to a server
+    // action in one call. Raised just enough to cover a real county
+    // export without leaving it unbounded.
+    serverActions: {
+      bodySizeLimit: "50mb",
+    },
+  },
   async headers() {
     // Baseline hardening with no impact on how the app works — none of
     // this is a product decision, it's just closing default gaps every
