@@ -78,9 +78,13 @@ export function KeysClient({
     <div style={{ display: "grid", gap: "var(--space-4)" }}>
       <div className="card" style={{ display: "grid", gap: "var(--space-3)", maxWidth: 480 }}>
         <h2 style={{ margin: 0, fontSize: "var(--text-lg)" }}>Issue a new key</h2>
-        <label style={{ display: "grid", gap: 4 }}>
-          <span>Grants role</span>
-          <select value={form.grantsRole} onChange={(e) => setForm({ ...form, grantsRole: e.target.value as Role })}>
+        <label className="signup-field">
+          <span className="signup-fieldLabel">Grants role</span>
+          <select
+            className="signup-input"
+            value={form.grantsRole}
+            onChange={(e) => setForm({ ...form, grantsRole: e.target.value as Role })}
+          >
             {ROLE_OPTIONS.map((r) => (
               <option key={r} value={r}>
                 {r}
@@ -88,9 +92,9 @@ export function KeysClient({
             ))}
           </select>
         </label>
-        <label style={{ display: "grid", gap: 4 }}>
-          <span>Event (leave blank for org-wide)</span>
-          <select value={form.eventId} onChange={(e) => setForm({ ...form, eventId: e.target.value })}>
+        <label className="signup-field">
+          <span className="signup-fieldLabel">Event (leave blank for org-wide)</span>
+          <select className="signup-input" value={form.eventId} onChange={(e) => setForm({ ...form, eventId: e.target.value })}>
             <option value="">(org-wide)</option>
             {events.map((ev) => (
               <option key={ev.id} value={ev.id}>
@@ -99,22 +103,33 @@ export function KeysClient({
             ))}
           </select>
         </label>
-        <label style={{ display: "grid", gap: 4 }}>
-          <span>Max uses</span>
+        <label className="signup-field">
+          <span className="signup-fieldLabel">Max uses</span>
           <input
+            className="signup-input"
             type="number"
             min={1}
             value={form.maxUses}
             onChange={(e) => setForm({ ...form, maxUses: e.target.value })}
           />
         </label>
-        <label style={{ display: "grid", gap: 4 }}>
-          <span>Expires (optional)</span>
-          <input type="date" value={form.expiresAt} onChange={(e) => setForm({ ...form, expiresAt: e.target.value })} />
+        <label className="signup-field">
+          <span className="signup-fieldLabel">Expires (optional)</span>
+          <input
+            className="signup-input"
+            type="date"
+            value={form.expiresAt}
+            onChange={(e) => setForm({ ...form, expiresAt: e.target.value })}
+          />
         </label>
-        <label style={{ display: "grid", gap: 4 }}>
-          <span>Note (optional)</span>
-          <input type="text" value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} />
+        <label className="signup-field">
+          <span className="signup-fieldLabel">Note (optional)</span>
+          <input
+            className="signup-input"
+            type="text"
+            value={form.note}
+            onChange={(e) => setForm({ ...form, note: e.target.value })}
+          />
         </label>
         {error && <p style={{ color: "var(--color-danger-600, crimson)", margin: 0 }}>{error}</p>}
         <Button onClick={handleIssue} disabled={issuing}>

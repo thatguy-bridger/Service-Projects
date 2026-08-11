@@ -98,8 +98,18 @@ h1, h2, h3, h4 {
   width: 100%;
   box-sizing: border-box;
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+  align-items: center;
   padding: var(--space-6) var(--space-4) var(--space-16);
+}
+
+/* The public-form header/footer blocks (cover image, dates, price
+   summary, privacy notice) that wrap the stepper card -- share the
+   card's width instead of stretching edge-to-edge, so they read as
+   part of the same flow rather than floating separately. */
+.signup-page > .signup-formBand {
+  width: 100%;
+  max-width: 640px;
 }
 
 .signup-shell {
@@ -564,6 +574,36 @@ gmp-place-autocomplete.signup-input::part(input) {
   width: 100%;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+}
+.admin-tableWrap table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+.admin-tableWrap thead th {
+  position: sticky;
+  top: 0;
+  background: var(--surface-raised);
+  z-index: 1;
+}
+.admin-tableWrap thead tr:first-child th {
+  border-bottom: 1px solid var(--border-default);
+}
+.admin-tableRow {
+  transition: background var(--duration-fast) var(--ease-standard);
+}
+.admin-tableRow:nth-child(even) {
+  background: var(--surface-sunken);
+}
+.admin-tableRow:hover {
+  background: color-mix(in srgb, var(--color-accent-500) 6%, var(--surface-sunken));
+}
+.admin-tableWrap input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
 }
 
 .admin-formRow {

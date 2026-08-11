@@ -18,11 +18,57 @@ export interface AdminDashboardBlockData {
   recentAudit: DashboardAuditEntry[];
 }
 
-function StatTile({ label, count, href }: { label: string; count: number; href: string }) {
+function StatTile({
+  label,
+  count,
+  href,
+  tone = "neutral",
+}: {
+  label: string;
+  count: number;
+  href: string;
+  tone?: "neutral" | "attention";
+}) {
+  const flagged = tone === "attention" && count > 0;
   return (
-    <a href={href} className="card" style={{ display: "block", textDecoration: "none", color: "inherit" }}>
-      <p style={{ margin: "0 0 4px", color: "var(--text-secondary)", fontSize: "var(--text-sm)" }}>{label}</p>
-      <p style={{ margin: 0, fontSize: "var(--text-2xl)", fontWeight: "var(--weight-semibold)" }}>{count}</p>
+    <a
+      href={href}
+      className="card card--interactive"
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: "var(--space-4)",
+        textDecoration: "none",
+        color: "inherit",
+        borderColor: flagged ? "var(--color-warning-500)" : undefined,
+      }}
+    >
+      <span
+        aria-hidden
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          width: 40,
+          height: 40,
+          flexShrink: 0,
+          borderRadius: "var(--radius-full)",
+          background: flagged
+            ? "color-mix(in srgb, var(--color-warning-500) 18%, transparent)"
+            : "color-mix(in srgb, var(--color-accent-500) 14%, transparent)",
+          color: flagged ? "var(--color-warning-500)" : "var(--color-accent-500)",
+          fontSize: "var(--text-lg)",
+          fontWeight: "var(--weight-bold)",
+        }}
+      >
+        {flagged ? "!" : "•"}
+      </span>
+      <span>
+        <p style={{ margin: "0 0 2px", color: "var(--text-secondary)", fontSize: "var(--text-sm)" }}>{label}</p>
+        <p style={{ margin: 0, fontSize: "var(--text-2xl)", fontWeight: "var(--weight-semibold)", lineHeight: 1 }}>
+          {count}
+        </p>
+      </span>
     </a>
   );
 }
@@ -30,9 +76,9 @@ function StatTile({ label, count, href }: { label: string; count: number; href: 
 function renderBlock(blockId: string, data: AdminDashboardBlockData): ReactNode {
   switch (blockId) {
     case "needs_review_count":
-      return <StatTile label="Needs review" count={data.needsReviewCount} href="/admin/review" />;
+      return <StatTile label="Needs review" count={data.needsReviewCount} href="/admin/review" tone="attention" />;
     case "unassigned_stops":
-      return <StatTile label="Unassigned stops" count={data.unassignedStopsCount} href="/admin/events" />;
+      return <StatTile label="Unassigned stops" count={data.unassignedStopsCount} href="/admin/events" tone="attention" />;
     case "subscription_funnel":
       return data.subscriptionFunnel.length ? (
         <div className="card">

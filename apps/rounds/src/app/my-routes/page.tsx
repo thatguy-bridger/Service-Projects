@@ -34,21 +34,44 @@ export default async function MyRoutesPage() {
           </Card>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
-            {routes.map((r) => (
-              <a key={r.id} href={`/my-routes/${r.id}`} style={{ textDecoration: "none" }}>
-                <Card className="card--interactive">
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "var(--space-3)" }}>
-                    <div>
-                      <p style={{ margin: 0, fontWeight: "var(--weight-semibold)", color: "var(--text-primary)" }}>{r.name}</p>
-                      <p style={{ margin: 0, color: "var(--text-secondary)", fontSize: "var(--text-sm)" }}>{r.eventName}</p>
+            {routes.map((r) => {
+              const complete = r.visitedCount >= r.stopCount && r.stopCount > 0;
+              const pct = r.stopCount > 0 ? Math.round((r.visitedCount / r.stopCount) * 100) : 0;
+              return (
+                <a key={r.id} href={`/my-routes/${r.id}`} style={{ textDecoration: "none" }}>
+                  <Card className="card--interactive">
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "var(--space-3)" }}>
+                      <div>
+                        <p style={{ margin: 0, fontWeight: "var(--weight-semibold)", color: "var(--text-primary)" }}>{r.name}</p>
+                        <p style={{ margin: 0, color: "var(--text-secondary)", fontSize: "var(--text-sm)" }}>{r.eventName}</p>
+                      </div>
+                      <Badge tone={complete ? "success" : "accent"}>
+                        {r.visitedCount}/{r.stopCount} done
+                      </Badge>
                     </div>
-                    <Badge tone={r.visitedCount >= r.stopCount && r.stopCount > 0 ? "success" : "accent"}>
-                      {r.visitedCount}/{r.stopCount} done
-                    </Badge>
-                  </div>
-                </Card>
-              </a>
-            ))}
+                    <div
+                      style={{
+                        marginTop: "var(--space-3)",
+                        height: 6,
+                        borderRadius: "var(--radius-full)",
+                        background: "var(--surface-sunken)",
+                        overflow: "hidden",
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: `${pct}%`,
+                          height: "100%",
+                          borderRadius: "var(--radius-full)",
+                          background: complete ? "var(--color-success-500)" : "var(--gradient-accent)",
+                          transition: "width var(--duration-base) var(--ease-standard)",
+                        }}
+                      />
+                    </div>
+                  </Card>
+                </a>
+              );
+            })}
           </div>
         )}
       </main>

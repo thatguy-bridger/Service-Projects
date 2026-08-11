@@ -183,12 +183,14 @@ export default async function HomePage({
         </>
       )}
 
-      <Card>
-        <h2 style={{ margin: "0 0 8px", fontSize: "var(--text-lg)", fontWeight: "var(--weight-medium)" }}>
-          {t("previewer.emptyState.title")}
-        </h2>
-        <p style={{ color: "var(--text-secondary)", margin: 0 }}>{t("previewer.emptyState.body")}</p>
-      </Card>
+      {!isOwnerOrAdmin && (
+        <Card>
+          <h2 style={{ margin: "0 0 8px", fontSize: "var(--text-lg)", fontWeight: "var(--weight-medium)" }}>
+            {t("previewer.emptyState.title")}
+          </h2>
+          <p style={{ color: "var(--text-secondary)", margin: 0 }}>{t("previewer.emptyState.body")}</p>
+        </Card>
+      )}
       </main>
     </>
   );

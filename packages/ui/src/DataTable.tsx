@@ -309,7 +309,7 @@ export function DataTable<T extends { id: string }>({
             {filteredRows.map((row) => {
               const isEditing = editingId === row.id;
               return (
-                <tr key={row.id} style={{ borderTop: "1px solid var(--border-default)" }}>
+                <tr key={row.id} className="admin-tableRow">
                   <td style={tdStyle}>
                     <input
                       type="checkbox"
