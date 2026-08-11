@@ -29,7 +29,7 @@ export function UsersTable({ users }: { users: UserRow[] }) {
       rows={users}
       columns={columns}
       csvFilenamePrefix="users"
-      emptyMessage="No users yet."
+      emptyMessage="No users yet — add one by email above, or issue an invite key from Admin → Keys."
       onSaveRow={(id, patch) => saveUserRowAction(id, patch)}
       onDeleteSelected={(ids) => deleteUsersAction(ids)}
       onAddRow={(values) => addUserAction(values)}

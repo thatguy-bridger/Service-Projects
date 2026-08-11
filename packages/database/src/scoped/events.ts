@@ -7,11 +7,19 @@ export async function eventsForSession(session: SessionLike | null | undefined, 
   if (membership && isStaff(membership.role)) {
     return prisma.event.findMany({ where: { orgId, deletedAt: null }, orderBy: { serviceStartsAt: "desc" } });
   }
-  // Volunteers and previewers only see events open to the public. Once
-  // Route/RouteAssignment ship in Phase 3, a volunteer should also see
-  // events they're assigned to even if not (yet) OPEN — tracked there.
+  // Volunteers and previewers only see events open to the public --
+  // same gate as openEventsForSignup (event OPEN *and* its category
+  // published), so this list and what signup actually shows never
+  // disagree. Once Route/RouteAssignment ship in Phase 3, a volunteer
+  // should also see events they're assigned to even if not (yet) OPEN
+  // — tracked there.
   return prisma.event.findMany({
-    where: { orgId, deletedAt: null, status: "OPEN" },
+    where: {
+      orgId,
+      deletedAt: null,
+      status: "OPEN",
+      category: { is: { orgId, deletedAt: null, publishedAt: { not: null } } },
+    },
     orderBy: { serviceStartsAt: "asc" },
   });
 }
@@ -23,10 +31,14 @@ export async function eventForSession(
 ) {
   const membership = await resolveMembership(session, eventId);
   if (!membership) return null;
-  const event = await prisma.event.findFirst({ where: { id: eventId, orgId, deletedAt: null } });
+  const event = await prisma.event.findFirst({
+    where: { id: eventId, orgId, deletedAt: null },
+    include: { category: { select: { publishedAt: true, deletedAt: true } } },
+  });
   if (!event) return null;
   if (isStaff(membership.role)) return event;
   if (event.status !== "OPEN") return null;
+  if (!event.category || event.category.deletedAt || !event.category.publishedAt) return null;
   return event;
 }
 

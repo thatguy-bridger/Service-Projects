@@ -32,6 +32,7 @@ export async function AppTopbar({ section }: { section?: string }) {
       label: "Browse",
       items: [
         { label: "Home", href: "/" },
+        { label: "Browse what's open", href: "/browse" },
         { label: "Sign up", href: "/signup" },
       ],
     },

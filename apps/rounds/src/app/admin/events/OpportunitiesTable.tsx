@@ -95,7 +95,7 @@ export function OpportunitiesTable({
         rows={opportunities}
         columns={columns}
         csvFilenamePrefix="opportunities"
-        emptyMessage="No opportunities yet."
+        emptyMessage="No opportunities yet — add one above, or use Create events / Import from last year on the main Events page."
         onSelectionChange={setSelectedIds}
         onSaveRow={(id, patch) => {
           if (patch.category !== undefined) {
