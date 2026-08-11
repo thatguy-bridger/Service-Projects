@@ -3,13 +3,19 @@ import {
   normalizeStopCardLayout,
   normalizeRouteScreenLayout,
   normalizeAdminDashboardLayout,
+  normalizeEventLandingLayout,
+  normalizePublicFormLayout,
   mergeEventLayout,
   DEFAULT_STOP_CARD_LAYOUT,
   DEFAULT_ROUTE_SCREEN_LAYOUT,
   DEFAULT_ADMIN_DASHBOARD_LAYOUT,
+  DEFAULT_EVENT_LANDING_LAYOUT,
+  DEFAULT_PUBLIC_FORM_LAYOUT,
   STOP_CARD_BLOCKS,
   ROUTE_SCREEN_BLOCKS,
   ADMIN_DASHBOARD_BLOCKS,
+  EVENT_LANDING_BLOCKS,
+  PUBLIC_FORM_BLOCKS,
 } from "./layoutBlocks";
 
 describe("normalizeStopCardLayout", () => {
@@ -180,5 +186,54 @@ describe("normalizeAdminDashboardLayout", () => {
 
   it("has no required admin-dashboard blocks", () => {
     expect(ADMIN_DASHBOARD_BLOCKS.filter((b) => b.required)).toEqual([]);
+  });
+});
+
+describe("normalizeEventLandingLayout", () => {
+  it("returns the default layout for null/garbage input", () => {
+    expect(normalizeEventLandingLayout(null)).toEqual(DEFAULT_EVENT_LANDING_LAYOUT);
+    expect(normalizeEventLandingLayout({ foo: "bar" })).toEqual(DEFAULT_EVENT_LANDING_LAYOUT);
+  });
+
+  it("reads the keyed event_landing shape out of Event.layoutBlocks", () => {
+    const raw = { event_landing: { slots: { hero: [], body: [{ blockId: "price_table", visible: false }], footer: [] } } };
+    const result = normalizeEventLandingLayout(raw);
+    expect(result.slots.body.find((b) => b.blockId === "price_table")?.visible).toBe(false);
+  });
+
+  it("hero and signup_cta are the only required blocks", () => {
+    expect(EVENT_LANDING_BLOCKS.filter((b) => b.required).map((b) => b.id).sort()).toEqual(["hero", "signup_cta"]);
+  });
+});
+
+describe("normalizePublicFormLayout", () => {
+  it("returns the default layout for null/garbage input", () => {
+    expect(normalizePublicFormLayout(null)).toEqual(DEFAULT_PUBLIC_FORM_LAYOUT);
+  });
+
+  it("reads the keyed public_form shape out of org settings", () => {
+    const raw = { public_form: { slots: { header: [{ blockId: "cover_image", visible: false }], footer: [] } } };
+    const result = normalizePublicFormLayout(raw);
+    expect(result.slots.header.find((b) => b.blockId === "cover_image")?.visible).toBe(false);
+  });
+
+  it("privacy_notice is the only required block", () => {
+    expect(PUBLIC_FORM_BLOCKS.filter((b) => b.required).map((b) => b.id)).toEqual(["privacy_notice"]);
+  });
+});
+
+describe("mergeEventLayout with event_landing", () => {
+  it("adds event_landing without touching already-saved stop-card/route-screen layouts", () => {
+    const existing = { volunteer_stop_card: DEFAULT_STOP_CARD_LAYOUT, volunteer_route: DEFAULT_ROUTE_SCREEN_LAYOUT };
+    const merged = mergeEventLayout(existing, "event_landing", DEFAULT_EVENT_LANDING_LAYOUT);
+    expect(merged.volunteer_stop_card).toBeDefined();
+    expect(merged.volunteer_route).toBeDefined();
+    expect(merged.event_landing).toEqual(DEFAULT_EVENT_LANDING_LAYOUT);
+  });
+
+  it("preserves an already-saved event_landing layout when merging a different screen", () => {
+    const existing = { event_landing: DEFAULT_EVENT_LANDING_LAYOUT };
+    const merged = mergeEventLayout(existing, "volunteer_stop_card", DEFAULT_STOP_CARD_LAYOUT);
+    expect(merged.event_landing).toEqual(DEFAULT_EVENT_LANDING_LAYOUT);
   });
 });

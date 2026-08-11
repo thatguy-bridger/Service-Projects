@@ -17,6 +17,7 @@ import {
   createPairedEvent,
   updateEventStopCardLayout,
   updateEventRouteScreenLayout,
+  updateEventLandingLayout,
   type ImportResult,
   type DeleteResult,
   type CopyToEventResult,
@@ -285,6 +286,19 @@ export async function updateEventRouteScreenLayoutAction(eventId: string, layout
   if (!org) return { ok: false, error: "No organization set up yet." };
 
   const result = await updateEventRouteScreenLayout(session, org.id, eventId, layout);
+  revalidatePath(`/admin/events/${eventId}`);
+  return result;
+}
+
+export async function updateEventLandingLayoutAction(eventId: string, layout: ScreenLayout): Promise<UpdateEventResult> {
+  const session = await getServerSession(authOptions);
+  await requireRole(session, ["OWNER", "ADMIN"]);
+
+  const org = await defaultOrganization();
+  if (!org) return { ok: false, error: "No organization set up yet." };
+
+  // /events/[slug] is force-dynamic (always reads fresh), so no revalidatePath needed there.
+  const result = await updateEventLandingLayout(session, org.id, eventId, layout);
   revalidatePath(`/admin/events/${eventId}`);
   return result;
 }

@@ -9,13 +9,22 @@ import {
   ROUTE_SCREEN_SLOTS,
   ROUTE_SCREEN_BLOCKS,
   DEFAULT_ROUTE_SCREEN_LAYOUT,
+  EVENT_LANDING_SLOTS,
+  EVENT_LANDING_BLOCKS,
+  DEFAULT_EVENT_LANDING_LAYOUT,
   type ScreenLayout,
   type StopCardSlot,
   type RouteScreenSlot,
+  type EventLandingSlot,
 } from "@service-projects/database/layoutBlocks";
 import { StopCardSlotBlocks, type StopCardData } from "@/blocks/StopCardBlocks";
 import { RouteScreenSlotBlocks, renderRouteScreenBlock, type RouteScreenData } from "@/blocks/RouteScreenBlocks";
-import { updateEventStopCardLayoutAction, updateEventRouteScreenLayoutAction } from "./actions";
+import { EventLandingSlotBlocks, type EventLandingData } from "@/blocks/EventLandingBlocks";
+import {
+  updateEventStopCardLayoutAction,
+  updateEventRouteScreenLayoutAction,
+  updateEventLandingLayoutAction,
+} from "./actions";
 
 function moveBlock<TSlot extends string>(layout: ScreenLayout, slot: TSlot, index: number, direction: -1 | 1): ScreenLayout {
   const blocks = [...(layout.slots[slot] ?? [])];
@@ -285,16 +294,91 @@ function RouteScreenLayoutEditor({ eventId, initialLayout }: { eventId: string; 
   );
 }
 
+const EVENT_LANDING_SLOT_LABELS: Record<EventLandingSlot, string> = {
+  hero: "Hero",
+  body: "Body",
+  footer: "Footer",
+};
+
+// Stand-in data for the preview panel, same idea as PREVIEW_STOP/PREVIEW_ROUTE_DATA above.
+const PREVIEW_LANDING_DATA: EventLandingData = {
+  name: "Fall Flags 2026",
+  summary: "Flags placed the morning of, picked up that evening.",
+  coverImageUrl: null,
+  serviceStartsAt: new Date().toISOString(),
+  serviceEndsAt: new Date().toISOString(),
+  priceCents: 3500,
+  categoryName: "Flag program",
+  categoryBundlePriceCents: 12000,
+};
+
+function EventLandingLayoutEditor({ eventId, initialLayout }: { eventId: string; initialLayout: ScreenLayout }) {
+  const [layout, setLayout] = useState(initialLayout);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  async function save() {
+    setSaving(true);
+    setSaved(false);
+    const result = await updateEventLandingLayoutAction(eventId, layout);
+    setSaving(false);
+    setSaved(result.ok);
+  }
+
+  return (
+    <div style={{ display: "grid", gap: "var(--space-5)", gridTemplateColumns: "minmax(0, 1fr) 320px" }}>
+      <div style={{ display: "grid", gap: "var(--space-4)" }}>
+        <p style={{ color: "var(--text-secondary)", fontSize: "var(--text-sm)", margin: 0 }}>
+          What a visitor sees on this event&apos;s public landing page — a teaser that links into{" "}
+          <a href="/signup" style={{ color: "var(--color-accent-500)" }}>
+            /signup
+          </a>
+          , not the signup form itself. Hero and the signup CTA can&apos;t be hidden.
+        </p>
+        <BlockEditor
+          slots={EVENT_LANDING_SLOTS}
+          slotLabels={EVENT_LANDING_SLOT_LABELS}
+          blocks={EVENT_LANDING_BLOCKS}
+          layout={layout}
+          onChange={setLayout}
+        />
+        <div style={{ display: "flex", gap: "var(--space-2)" }}>
+          <Button type="button" variant="primary" disabled={saving} onClick={save}>
+            {saving ? "Saving…" : "Save"}
+          </Button>
+          <Button type="button" variant="ghost" onClick={() => setLayout(DEFAULT_EVENT_LANDING_LAYOUT)}>
+            Reset to default
+          </Button>
+        </div>
+        {saved && <p style={{ color: "var(--color-success-500)", margin: 0 }}>Saved.</p>}
+      </div>
+
+      <div>
+        <h3 style={{ margin: "0 0 8px", fontSize: "var(--text-base)", fontWeight: "var(--weight-semibold)" }}>
+          Preview
+        </h3>
+        <div className="card" style={{ display: "grid", gap: "var(--space-3)" }}>
+          <EventLandingSlotBlocks layout={layout} slot="hero" data={PREVIEW_LANDING_DATA} />
+          <EventLandingSlotBlocks layout={layout} slot="body" data={PREVIEW_LANDING_DATA} />
+          <EventLandingSlotBlocks layout={layout} slot="footer" data={PREVIEW_LANDING_DATA} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function LayoutTab({
   eventId,
   stopCardLayout,
   routeScreenLayout,
+  eventLandingLayout,
 }: {
   eventId: string;
   stopCardLayout: ScreenLayout;
   routeScreenLayout: ScreenLayout;
+  eventLandingLayout: ScreenLayout;
 }) {
-  const [screen, setScreen] = useState<"stop_card" | "route_screen">("stop_card");
+  const [screen, setScreen] = useState<"stop_card" | "route_screen" | "event_landing">("stop_card");
 
   return (
     <div style={{ display: "grid", gap: "var(--space-4)" }}>
@@ -313,12 +397,17 @@ export function LayoutTab({
         >
           Route screen
         </button>
+        <button
+          type="button"
+          className={`admin-tab${screen === "event_landing" ? " admin-tab--active" : ""}`}
+          onClick={() => setScreen("event_landing")}
+        >
+          Event landing page
+        </button>
       </div>
-      {screen === "stop_card" ? (
-        <StopCardLayoutEditor eventId={eventId} initialLayout={stopCardLayout} />
-      ) : (
-        <RouteScreenLayoutEditor eventId={eventId} initialLayout={routeScreenLayout} />
-      )}
+      {screen === "stop_card" && <StopCardLayoutEditor eventId={eventId} initialLayout={stopCardLayout} />}
+      {screen === "route_screen" && <RouteScreenLayoutEditor eventId={eventId} initialLayout={routeScreenLayout} />}
+      {screen === "event_landing" && <EventLandingLayoutEditor eventId={eventId} initialLayout={eventLandingLayout} />}
     </div>
   );
 }

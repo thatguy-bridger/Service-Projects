@@ -106,6 +106,7 @@ export function EventDetailTabs({
   pairedEventName,
   stopCardLayout,
   routeScreenLayout,
+  eventLandingLayout,
 }: {
   eventId: string;
   eventDatesRow: EventDatesRow;
@@ -120,6 +121,7 @@ export function EventDetailTabs({
   pairedEventName: string | null;
   stopCardLayout: ScreenLayout;
   routeScreenLayout: ScreenLayout;
+  eventLandingLayout: ScreenLayout;
 }) {
   const [tab, setTab] = useState<Tab>("Service Sign Ups");
   const [deleting, setDeleting] = useState(false);
@@ -195,7 +197,12 @@ export function EventDetailTabs({
       )}
 
       {tab === "Layout" && (
-        <LayoutTab eventId={eventId} stopCardLayout={stopCardLayout} routeScreenLayout={routeScreenLayout} />
+        <LayoutTab
+          eventId={eventId}
+          stopCardLayout={stopCardLayout}
+          routeScreenLayout={routeScreenLayout}
+          eventLandingLayout={eventLandingLayout}
+        />
       )}
 
       {tab === "Settings" && (

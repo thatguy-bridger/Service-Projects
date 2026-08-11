@@ -28,7 +28,7 @@ export interface ScreenLayout {
   slots: Record<string, BlockInstance[]>;
 }
 
-export type EventScreenName = "volunteer_stop_card" | "volunteer_route";
+export type EventScreenName = "volunteer_stop_card" | "volunteer_route" | "event_landing";
 
 function isBlockInstanceLike(value: unknown): value is { blockId: unknown; visible: unknown } {
   return !!value && typeof value === "object" && "blockId" in value;
@@ -221,6 +221,9 @@ export function mergeEventLayout(existing: unknown, screen: EventScreenName, lay
     if ("volunteer_route" in obj) {
       base.volunteer_route = normalizeRouteScreen(obj.volunteer_route);
     }
+    if ("event_landing" in obj) {
+      base.event_landing = normalizeEventLanding(obj.event_landing);
+    }
   }
   base[screen] = layout;
   return base;
@@ -300,4 +303,107 @@ export interface AdminDashboardAuditEntry {
   action: string;
   entity: string;
   at: string;
+}
+
+// ---------------------------------------------------------------------
+// Public form (org-scoped)
+
+// SPEC.md §11.3 describes this per-event, but the real /signup flow
+// lets a volunteer select several events (holidays) in one submission
+// -- there's no single event to key a layout on. So this is org-scoped
+// (stored on Organization.settings, same as admin_dashboard) and wraps
+// the whole signup stepper as a header/footer band, rather than one
+// event's form. "sponsor_logos" is left out: no sponsor data exists
+// anywhere in this app yet.
+export const PUBLIC_FORM_SLOTS = ["header", "footer"] as const;
+export type PublicFormSlot = (typeof PUBLIC_FORM_SLOTS)[number];
+
+export interface PublicFormBlockMeta {
+  id: string;
+  slot: PublicFormSlot;
+  required: boolean;
+  label: string;
+}
+
+export const PUBLIC_FORM_BLOCKS: PublicFormBlockMeta[] = [
+  { id: "cover_image", slot: "header", required: false, label: "Cover image" },
+  { id: "description", slot: "header", required: false, label: "Description" },
+  { id: "dates", slot: "header", required: false, label: "Dates" },
+  { id: "price_summary", slot: "header", required: false, label: "Price summary" },
+  { id: "privacy_notice", slot: "footer", required: true, label: "Privacy notice" },
+];
+
+export const DEFAULT_PUBLIC_FORM_LAYOUT: ScreenLayout = {
+  slots: {
+    header: [
+      { blockId: "cover_image", visible: true },
+      { blockId: "description", visible: true },
+      { blockId: "dates", visible: true },
+      { blockId: "price_summary", visible: true },
+    ],
+    footer: [{ blockId: "privacy_notice", visible: true }],
+  },
+};
+
+export const normalizePublicForm = makeNormalizer(PUBLIC_FORM_SLOTS, PUBLIC_FORM_BLOCKS, DEFAULT_PUBLIC_FORM_LAYOUT);
+
+export function normalizePublicFormLayout(raw: unknown): ScreenLayout {
+  if (raw && typeof raw === "object" && "public_form" in raw) {
+    return normalizePublicForm((raw as { public_form: unknown }).public_form);
+  }
+  return normalizePublicForm(null);
+}
+
+/** Representative single-event data the public-form header blocks render against -- the org's next open event (soonest serviceStartsAt). */
+export interface PublicFormFeaturedEvent {
+  name: string;
+  summary: string | null;
+  coverImageUrl: string | null;
+  serviceStartsAt: string;
+  priceCents: number;
+}
+
+// ---------------------------------------------------------------------
+// Event landing (per event)
+
+// Unlike public_form, event landing genuinely is about one event -- a
+// teaser page (SPEC.md §11.3: hero, description, price, signup CTA)
+// that links into the multi-event /signup flow rather than being the
+// signup itself. "sponsor_logos", "faq", and "map of service area" are
+// left out: no sponsor/FAQ content model and no map rendering exists
+// anywhere in this app yet.
+export const EVENT_LANDING_SLOTS = ["hero", "body", "footer"] as const;
+export type EventLandingSlot = (typeof EVENT_LANDING_SLOTS)[number];
+
+export interface EventLandingBlockMeta {
+  id: string;
+  slot: EventLandingSlot;
+  required: boolean;
+  label: string;
+}
+
+export const EVENT_LANDING_BLOCKS: EventLandingBlockMeta[] = [
+  { id: "hero", slot: "hero", required: true, label: "Hero" },
+  { id: "description", slot: "body", required: false, label: "Description" },
+  { id: "event_date", slot: "body", required: false, label: "Event date" },
+  { id: "price_table", slot: "body", required: false, label: "Price table" },
+  { id: "signup_cta", slot: "footer", required: true, label: "Signup CTA" },
+];
+
+export const DEFAULT_EVENT_LANDING_LAYOUT: ScreenLayout = {
+  slots: {
+    hero: [{ blockId: "hero", visible: true }],
+    body: [
+      { blockId: "description", visible: true },
+      { blockId: "event_date", visible: true },
+      { blockId: "price_table", visible: true },
+    ],
+    footer: [{ blockId: "signup_cta", visible: true }],
+  },
+};
+
+export const normalizeEventLanding = makeNormalizer(EVENT_LANDING_SLOTS, EVENT_LANDING_BLOCKS, DEFAULT_EVENT_LANDING_LAYOUT);
+
+export function normalizeEventLandingLayout(raw: unknown): ScreenLayout {
+  return normalizeEventLanding(extractScreenRaw(raw, "event_landing"));
 }

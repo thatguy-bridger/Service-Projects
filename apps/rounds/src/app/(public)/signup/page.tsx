@@ -1,9 +1,11 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@service-projects/core-auth";
-import { defaultOrganization, openEventsForSignup, householdForUser } from "@service-projects/database";
+import { defaultOrganization, openEventsForSignup, householdForUser, publicFormLayoutForOrg } from "@service-projects/database";
 import { t } from "@/copy";
 import { AppTopbar } from "../../AppTopbar";
 import { SignupFlow } from "./SignupFlow";
+import { PublicFormSlotBlocks } from "@/blocks/PublicFormBlocks";
+import type { PublicFormFeaturedEvent } from "@service-projects/database/layoutBlocks";
 
 // Public, no account — SPEC.md §14.1's "Flag signup" screen: holidays ->
 // address -> contact/review. Stripe Checkout is follow-up work (needs
@@ -31,6 +33,18 @@ export default async function SignupPage() {
     );
   }
 
+  const publicFormLayout = await publicFormLayoutForOrg(org.id);
+  const featuredEvent = events[0] ?? null;
+  const featured: PublicFormFeaturedEvent | null = featuredEvent
+    ? {
+        name: featuredEvent.name,
+        summary: featuredEvent.summary,
+        coverImageUrl: featuredEvent.coverImageUrl,
+        serviceStartsAt: featuredEvent.serviceStartsAt.toISOString(),
+        priceCents: featuredEvent.priceCents,
+      }
+    : null;
+
   const holidays = events.map((ev) => ({
     id: ev.id,
     key: ev.slug,
@@ -52,6 +66,9 @@ export default async function SignupPage() {
     <>
       <AppTopbar section={t("signup.stepper.holidays")} />
       <div className="signup-page">
+        <div style={{ display: "grid", gap: "var(--space-3)", marginBottom: "var(--space-4)" }}>
+          <PublicFormSlotBlocks layout={publicFormLayout} slot="header" featured={featured} />
+        </div>
         <SignupFlow
           orgId={org.id}
           holidays={holidays}
@@ -72,6 +89,9 @@ export default async function SignupPage() {
               : null
           }
         />
+        <div style={{ display: "grid", gap: "var(--space-2)", marginTop: "var(--space-4)" }}>
+          <PublicFormSlotBlocks layout={publicFormLayout} slot="footer" featured={featured} />
+        </div>
       </div>
     </>
   );

@@ -18,6 +18,8 @@ const {
   createPairedEvent,
   updateEventStopCardLayout,
   updateEventRouteScreenLayout,
+  updateEventLandingLayout,
+  openEventForLanding,
 } = await import("../events");
 
 beforeEach(() => {
@@ -217,6 +219,43 @@ describe("updateEventRouteScreenLayout", () => {
     });
     const saved = prismaMock.event.updateMany.mock.calls[0][0].data.layoutBlocks.volunteer_route;
     expect(saved.slots.header.find((b: { blockId: string; visible: boolean }) => b.blockId === "progress_bar").visible).toBe(true);
+  });
+});
+
+describe("openEventForLanding", () => {
+  it("is public — no session, no membership check — and only ever asks for OPEN events in a published, non-deleted category", async () => {
+    await openEventForLanding("org-1", "fall-flags-2026");
+    expect(prismaMock.event.findFirst).toHaveBeenCalledWith({
+      where: {
+        orgId: "org-1",
+        slug: "fall-flags-2026",
+        deletedAt: null,
+        status: "OPEN",
+        category: { is: { orgId: "org-1", deletedAt: null, publishedAt: { not: null } } },
+      },
+      include: { category: { select: { id: true, name: true, priceCents: true, deletedAt: true } } },
+    });
+  });
+});
+
+describe("updateEventLandingLayout", () => {
+  it("blocks a non-staff caller before any write", async () => {
+    const result = await updateEventLandingLayout(VOLUNTEER, "org-1", "ev-1", { slots: {} });
+    expect(result).toEqual({ ok: false, error: "Forbidden" });
+    expect(prismaMock.event.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("forces required blocks (hero, signup CTA) visible and merges with other saved screens", async () => {
+    prismaMock.event.findFirst.mockResolvedValueOnce({
+      layoutBlocks: { volunteer_stop_card: { slots: { primary: [], secondary: [], actions: [] } } },
+    });
+    await updateEventLandingLayout(ADMIN, "org-1", "ev-1", {
+      slots: { hero: [{ blockId: "hero", visible: false }], body: [], footer: [{ blockId: "signup_cta", visible: false }] },
+    });
+    const saved = prismaMock.event.updateMany.mock.calls[0][0].data.layoutBlocks;
+    expect(saved.volunteer_stop_card).toBeDefined();
+    expect(saved.event_landing.slots.hero[0].visible).toBe(true);
+    expect(saved.event_landing.slots.footer.find((b: { blockId: string; visible: boolean }) => b.blockId === "signup_cta").visible).toBe(true);
   });
 });
 

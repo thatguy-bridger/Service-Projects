@@ -7,6 +7,7 @@ import {
   defaultOrganization,
   updateOrganization,
   updateAdminDashboardLayout,
+  updatePublicFormLayout,
   type UpdateOrganizationResult,
 } from "@service-projects/database";
 import type { ScreenLayout } from "@service-projects/database/layoutBlocks";
@@ -41,5 +42,16 @@ export async function updateAdminDashboardLayoutAction(
   const result = await updateAdminDashboardLayout(session, org.id, layout);
   revalidatePath("/admin/settings");
   revalidatePath("/");
+  return result;
+}
+
+export async function updatePublicFormLayoutAction(layout: ScreenLayout): Promise<UpdateOrganizationResult> {
+  const session = await getServerSession(authOptions);
+  const org = await defaultOrganization();
+  if (!org) return { ok: false, error: "No organization set up yet." };
+
+  const result = await updatePublicFormLayout(session, org.id, layout);
+  revalidatePath("/admin/settings");
+  revalidatePath("/signup");
   return result;
 }

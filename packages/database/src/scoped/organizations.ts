@@ -1,7 +1,13 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "../client";
 import { isStaff, resolveMembership, type SessionLike } from "./membership";
-import { normalizeAdminDashboardLayout, normalizeAdminDashboard, type ScreenLayout } from "../layoutBlocks";
+import {
+  normalizeAdminDashboardLayout,
+  normalizeAdminDashboard,
+  normalizePublicFormLayout,
+  normalizePublicForm,
+  type ScreenLayout,
+} from "../layoutBlocks";
 
 /**
  * This app's real-world scope is one organization (SPEC.md §22.1's
@@ -50,7 +56,7 @@ export interface OrganizationSettings {
   // layoutBlocks.ts's admin-dashboard section for why), stored here
   // rather than on Event since there's no single event in context for
   // an admin's home screen.
-  layoutBlocks?: { admin_dashboard?: unknown };
+  layoutBlocks?: { admin_dashboard?: unknown; public_form?: unknown };
 }
 
 export function organizationSettings(org: { settings: unknown }): OrganizationSettings {
@@ -92,7 +98,32 @@ export async function updateAdminDashboardLayout(
   const settings = organizationSettings(existing ?? { settings: {} });
   const data = {
     ...settings,
-    layoutBlocks: { admin_dashboard: normalizeAdminDashboard(layout) },
+    layoutBlocks: { ...settings.layoutBlocks, admin_dashboard: normalizeAdminDashboard(layout) },
+  } as unknown as Prisma.InputJsonValue;
+
+  const result = await prisma.organization.updateMany({ where: { id: orgId, deletedAt: null }, data: { settings: data } });
+  if (result.count === 0) return { ok: false, error: "Organization not found." };
+  return { ok: true };
+}
+
+export async function publicFormLayoutForOrg(orgId: string): Promise<ScreenLayout> {
+  const org = await organizationById(orgId);
+  return normalizePublicFormLayout(org ? organizationSettings(org).layoutBlocks : null);
+}
+
+export async function updatePublicFormLayout(
+  session: SessionLike | null | undefined,
+  orgId: string,
+  layout: ScreenLayout
+): Promise<UpdateOrganizationResult> {
+  const membership = await resolveMembership(session);
+  if (!membership || !isStaff(membership.role)) return { ok: false, error: "Forbidden" };
+
+  const existing = await prisma.organization.findUnique({ where: { id: orgId }, select: { settings: true } });
+  const settings = organizationSettings(existing ?? { settings: {} });
+  const data = {
+    ...settings,
+    layoutBlocks: { ...settings.layoutBlocks, public_form: normalizePublicForm(layout) },
   } as unknown as Prisma.InputJsonValue;
 
   const result = await prisma.organization.updateMany({ where: { id: orgId, deletedAt: null }, data: { settings: data } });
