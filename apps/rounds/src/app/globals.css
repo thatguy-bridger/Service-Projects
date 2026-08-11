@@ -591,3 +591,27 @@ gmp-place-autocomplete.signup-input::part(input) {
     padding: var(--space-4) var(--space-3) var(--space-12);
   }
 }
+
+/* SPEC.md §3.3's invite-key "printable slip" -- scope printing down to
+   just the share-sheet card (#key-share-sheet, KeysClient.tsx) instead
+   of the whole admin page's nav/table/chrome ending up on paper. */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #key-share-sheet,
+  #key-share-sheet * {
+    visibility: visible;
+  }
+  #key-share-sheet {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    border: none;
+    box-shadow: none;
+  }
+  #key-share-sheet .no-print {
+    display: none;
+  }
+}
