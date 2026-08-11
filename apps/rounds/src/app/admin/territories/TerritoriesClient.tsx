@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button, Card } from "@service-projects/ui";
 import type { TerritoryRow, TerritoryPolygon } from "@service-projects/database";
-import { createTerritoryAction, renameTerritoryAction, deleteTerritoryAction } from "./actions";
+import { createTerritoryAction, renameTerritoryAction, deleteTerritoryAction, previewTerritoryFillAction } from "./actions";
 import { TerritoryDrawer } from "./TerritoryDrawer";
 
 export function TerritoriesClient({ initialRows, apiKey }: { initialRows: TerritoryRow[]; apiKey: string | undefined }) {
@@ -12,6 +12,7 @@ export function TerritoriesClient({ initialRows, apiKey }: { initialRows: Territ
   const [message, setMessage] = useState<string | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
+  const [fillingId, setFillingId] = useState<string | null>(null);
 
   return (
     <div style={{ display: "grid", gap: "var(--space-6)" }}>
@@ -81,13 +82,31 @@ export function TerritoriesClient({ initialRows, apiKey }: { initialRows: Territ
                       <strong>{t.name}</strong>
                       <p style={{ margin: "2px 0 0", fontSize: "var(--text-sm)", color: "var(--text-secondary)" }}>
                         {t.addressPointCount !== null
-                          ? `${t.addressPointCount} addresses (filled)`
-                          : "Not filled yet — needs a UGRC developer key."}
+                          ? `${t.addressPointCount.toLocaleString()} addresses (checked ${t.lastFilledAt ? new Date(t.lastFilledAt).toLocaleDateString() : ""})`
+                          : "Not checked yet — import address points below, then check fill count."}
                       </p>
                     </div>
                   )}
                   {renamingId !== t.id && (
                     <div style={{ display: "flex", gap: "var(--space-2)" }}>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        disabled={fillingId === t.id}
+                        onClick={async () => {
+                          setFillingId(t.id);
+                          const result = await previewTerritoryFillAction(t.id);
+                          setMessage(
+                            result.ok
+                              ? `${t.name}: ${result.count?.toLocaleString()} address points inside.`
+                              : (result.error ?? "Could not check fill count.")
+                          );
+                          setFillingId(null);
+                          router.refresh();
+                        }}
+                      >
+                        {fillingId === t.id ? "Checking…" : "Check fill count"}
+                      </Button>
                       <Button
                         type="button"
                         variant="secondary"

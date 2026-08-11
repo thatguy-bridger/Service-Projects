@@ -48,6 +48,7 @@ export async function AppTopbar({ section }: { section?: string }) {
               { label: "Events", href: "/admin/events" },
               { label: "Categories", href: "/admin/categories" },
               { label: "Territories", href: "/admin/territories" },
+              { label: "Address points", href: "/admin/address-points" },
               { label: "Copy", href: "/admin/copy" },
               { label: "Keys", href: "/admin/keys" },
               { label: "Library", href: "/admin/library" },

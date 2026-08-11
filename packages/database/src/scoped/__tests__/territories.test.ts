@@ -10,7 +10,9 @@ vi.mock("../../client", async () => {
 const { prisma } = await import("../../client");
 const prismaMock = prisma as unknown as PrismaMock;
 
-const { territoriesForOrg, createTerritory, renameTerritory, deleteTerritory } = await import("../territories");
+const { territoriesForOrg, createTerritory, renameTerritory, deleteTerritory, previewTerritoryFill } = await import(
+  "../territories"
+);
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -97,6 +99,30 @@ describe("renameTerritory", () => {
     prismaMock.territory.updateMany.mockResolvedValueOnce({ count: 0 });
     const result = await renameTerritory(ADMIN, "org-1", "terr-missing", "New name");
     expect(result).toEqual({ ok: false, error: "Territory not found." });
+  });
+});
+
+describe("previewTerritoryFill", () => {
+  it("rejects a non-staff caller", async () => {
+    const result = await previewTerritoryFill(VOLUNTEER, "org-1", "terr-1");
+    expect(result.ok).toBe(false);
+    expect(prismaMock.$queryRaw).not.toHaveBeenCalled();
+  });
+
+  it("reports not-found when the territory doesn't exist in this org", async () => {
+    const result = await previewTerritoryFill(ADMIN, "org-1", "terr-missing");
+    expect(result).toEqual({ ok: false, error: "Territory not found." });
+  });
+
+  it("counts address points inside the polygon and caches the result on the territory", async () => {
+    prismaMock.territory.findFirst.mockResolvedValueOnce({ id: "terr-1", orgId: "org-1", polygon: SQUARE });
+    prismaMock.$queryRaw.mockResolvedValueOnce([{ count: 1847n }]);
+    const result = await previewTerritoryFill(ADMIN, "org-1", "terr-1");
+    expect(result).toEqual({ ok: true, count: 1847 });
+    expect(prismaMock.territory.update).toHaveBeenCalledWith({
+      where: { id: "terr-1" },
+      data: { addressPointCount: 1847, lastFilledAt: expect.any(Date) },
+    });
   });
 });
 

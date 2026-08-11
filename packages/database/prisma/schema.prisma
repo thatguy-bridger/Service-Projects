@@ -188,6 +188,34 @@ model Territory {
   @@index([orgId])
 }
 
+// SPEC.md §9.2/§9.1's real intended architecture for territory fill:
+// "Import the county subset of address points into your own Postgres
+// once and refresh quarterly... a live API call per polygon fill is
+// slower, rate-limited, and no fresher." Not org-scoped -- this is
+// shared reference geodata (every Utah address point this deployment
+// has imported), not per-org data, so every org on a deployment shares
+// one pool. `source` is a free-form batch label an admin picks at
+// import time (e.g. "Salt Lake County 2027-Q1") -- re-importing the
+// same source label replaces that batch's rows entirely rather than
+// appending duplicates, so re-running an import is how a refresh
+// works. lat/lng as plain floats, not a geography column, matching
+// every other coordinate pair in this schema (Household, Stop) --
+// spatial queries against this table cast to geography in raw SQL,
+// same as findNearbyHouseholds.
+model AddressPoint {
+  id          String   @id @default(cuid())
+  lat         Float
+  lng         Float
+  fullAddress String
+  city        String?
+  zip         String?
+  source      String
+  importedAt  DateTime @default(now())
+
+  @@index([source])
+  @@index([lat, lng])
+}
+
 // SPEC.md §11.1's "org override" layer of the copy resolution chain
 // (default in code -> org override -> event override -> locale ->
 // rendered). Storage + admin editor only for now -- the `en.ts`

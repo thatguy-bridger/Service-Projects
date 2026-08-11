@@ -7,6 +7,7 @@ const TABS = [
   { href: "/admin/events", label: t("admin.tabs.events") },
   { href: "/admin/categories", label: "Categories" },
   { href: "/admin/territories", label: "Territories" },
+  { href: "/admin/address-points", label: "Address points" },
   { href: "/admin/copy", label: "Copy" },
   { href: "/admin/review", label: t("admin.tabs.review") },
   { href: "/admin/library", label: t("admin.tabs.library") },

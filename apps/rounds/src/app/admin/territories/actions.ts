@@ -8,7 +8,9 @@ import {
   createTerritory,
   renameTerritory,
   deleteTerritory,
+  previewTerritoryFill,
   type TerritoryActionResult,
+  type TerritoryFillResult,
   type TerritoryPolygon,
 } from "@service-projects/database";
 
@@ -35,6 +37,15 @@ export async function deleteTerritoryAction(id: string): Promise<TerritoryAction
   const org = await defaultOrganization();
   if (!org) return { ok: false, error: "No organization." };
   const result = await deleteTerritory(session, org.id, id);
+  revalidatePath("/admin/territories");
+  return result;
+}
+
+export async function previewTerritoryFillAction(id: string): Promise<TerritoryFillResult> {
+  const session = await getServerSession(authOptions);
+  const org = await defaultOrganization();
+  if (!org) return { ok: false, error: "No organization." };
+  const result = await previewTerritoryFill(session, org.id, id);
   revalidatePath("/admin/territories");
   return result;
 }

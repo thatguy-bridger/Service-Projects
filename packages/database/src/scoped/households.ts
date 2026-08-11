@@ -2,6 +2,7 @@ import { randomBytes, createHash } from "node:crypto";
 import { Prisma, type SubStatus } from "@prisma/client";
 import { prisma } from "../client";
 import { isStaff, resolveMembership, type SessionLike } from "./membership";
+import { parseCsvRows } from "../csv";
 
 const SELF_SERVICE_TOKEN_DAYS = 400; // SPEC.md §4.4
 
@@ -406,65 +407,6 @@ export async function householdsForEvent(
       accessNotes: se.subscription.household.accessNotes,
     },
   }));
-}
-
-// Minimal RFC-4180-ish CSV parser (quoted fields, escaped "" quotes,
-// \r\n or \n line endings) — hand-written rather than a dependency,
-// consistent with the rest of this app's low-dependency approach. Not a
-// general-purpose CSV library: good enough for the fixed column set
-// this app's own export produces.
-function parseCsvTable(text: string): string[][] {
-  const rows: string[][] = [];
-  let row: string[] = [];
-  let field = "";
-  let inQuotes = false;
-
-  for (let i = 0; i < text.length; i++) {
-    const c = text[i];
-    if (inQuotes) {
-      if (c === '"') {
-        if (text[i + 1] === '"') {
-          field += '"';
-          i++;
-        } else {
-          inQuotes = false;
-        }
-      } else {
-        field += c;
-      }
-    } else if (c === '"') {
-      inQuotes = true;
-    } else if (c === ",") {
-      row.push(field);
-      field = "";
-    } else if (c === "\n" || c === "\r") {
-      if (c === "\r" && text[i + 1] === "\n") i++;
-      row.push(field);
-      field = "";
-      if (row.some((cell) => cell !== "")) rows.push(row);
-      row = [];
-    } else {
-      field += c;
-    }
-  }
-  if (field !== "" || row.length > 0) {
-    row.push(field);
-    if (row.some((cell) => cell !== "")) rows.push(row);
-  }
-  return rows;
-}
-
-function parseCsvRows(text: string): Record<string, string>[] {
-  const table = parseCsvTable(text);
-  if (table.length === 0) return [];
-  const header = table[0];
-  return table.slice(1).map((cells) => {
-    const obj: Record<string, string> = {};
-    header.forEach((name, idx) => {
-      obj[name] = cells[idx] ?? "";
-    });
-    return obj;
-  });
 }
 
 const VALID_SUB_STATUSES: SubStatus[] = ["DRAFT", "PENDING_PAYMENT", "ACTIVE", "LAPSED", "CANCELLED"];

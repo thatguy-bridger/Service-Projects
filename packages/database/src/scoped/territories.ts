@@ -100,3 +100,49 @@ export async function deleteTerritory(
   if (result.count === 0) return { ok: false, error: "Territory not found." };
   return { ok: true };
 }
+
+export interface TerritoryFillResult {
+  ok: boolean;
+  error?: string;
+  count?: number;
+}
+
+/**
+ * SPEC.md §9.2's fill step, against a local import instead of a live
+ * UGRC call ("ST_Contains against a local import... a live API call per
+ * polygon fill is slower, rate-limited, and no fresher"). Counts
+ * AddressPoint rows inside the territory's saved polygon and caches the
+ * result on the Territory itself (addressPointCount/lastFilledAt) so the
+ * list view doesn't need to re-run this query just to display a number.
+ * Every AddressPoint from every imported source is considered -- there's
+ * no per-territory source filter, since a territory could legitimately
+ * span address points imported from more than one county/batch.
+ */
+export async function previewTerritoryFill(
+  session: SessionLike | null | undefined,
+  orgId: string,
+  territoryId: string
+): Promise<TerritoryFillResult> {
+  const membership = await resolveMembership(session);
+  if (!membership || !isStaff(membership.role)) return { ok: false, error: "Forbidden" };
+
+  const territory = await prisma.territory.findFirst({ where: { id: territoryId, orgId, deletedAt: null } });
+  if (!territory) return { ok: false, error: "Territory not found." };
+
+  const polygonJson = JSON.stringify(territory.polygon);
+  const rows = await prisma.$queryRaw<{ count: bigint }[]>`
+    SELECT COUNT(*)::bigint AS count FROM "AddressPoint"
+    WHERE ST_Contains(
+      ST_SetSRID(ST_GeomFromGeoJSON(${polygonJson}), 4326),
+      ST_SetSRID(ST_MakePoint(lng, lat), 4326)
+    )
+  `;
+  const count = Number(rows[0]?.count ?? 0);
+
+  await prisma.territory.update({
+    where: { id: territoryId },
+    data: { addressPointCount: count, lastFilledAt: new Date() },
+  });
+
+  return { ok: true, count };
+}
