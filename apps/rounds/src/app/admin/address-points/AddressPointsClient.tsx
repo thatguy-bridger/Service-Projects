@@ -35,10 +35,11 @@ export function AddressPointsClient({ initialSources }: { initialSources: Addres
           Import a CSV
         </h2>
         <p style={{ color: "var(--text-secondary)", fontSize: "var(--text-sm)", marginTop: 0 }}>
-          Paste an address-point CSV (OpenAddresses.io&apos;s LON/LAT/NUMBER/STREET/CITY/POSTCODE columns, or any
-          file with LAT/LON and either an ADDRESS column or NUMBER+STREET). Give it a source label — re-importing
-          the same label later replaces that batch, which is how a refresh works. Different labels (e.g. different
-          counties) coexist.
+          Paste address-point data in either format OpenAddresses.io publishes: newline-delimited GeoJSON (one{" "}
+          <code>{`{"type":"Feature",...}`}</code> object per line — their real default export) or CSV
+          (LON/LAT/NUMBER/STREET/CITY/POSTCODE columns, or any file with LAT/LON and either an ADDRESS column or
+          NUMBER+STREET). Detected automatically. Give it a source label — re-importing the same label later
+          replaces that batch, which is how a refresh works. Different labels (e.g. different counties) coexist.
         </p>
         <div style={{ display: "grid", gap: "var(--space-3)" }}>
           <label className="signup-field" style={{ marginBottom: 0 }}>
