@@ -11,13 +11,18 @@ const EXISTING_COLOR = "#8a8a8a";
 const SELECTED_POINT_COLOR = "#c0392b";
 const PIN_COLOR = "#2f8f4e";
 
-// A real pin shape (Material Design's "place" glyph, 24x24 viewBox) --
-// plain circles read as generic dots at any zoom, and the whole point
-// here is that these should read as individual addresses, not a
-// texture. anchor sits at the tip so the pin actually points at its
-// coordinate instead of floating above it.
+// A real pin shape (24x24-ish viewBox), built from only M/C/c/z --
+// Google Maps' custom Symbol path parser does NOT support SVG arc
+// commands (A/a); the more common Material "place" glyph path uses two
+// of them for its outer teardrop and inner hole, which the parser
+// silently fails to render at all (no error, just an invisible icon --
+// this is what "the count is right but no pins show" actually was).
+// This is the same pin shape with both circles approximated as cubic
+// beziers instead. anchor sits at the tip so the pin actually points at
+// its coordinate instead of floating above it.
 const PIN_SVG_PATH =
-  "M12 0C7.03 0 3 4.03 3 9c0 6.75 9 15 9 15s9-8.25 9-15c0-4.97-4.03-9-9-9zm0 12a3 3 0 110-6 3 3 0 010 6z";
+  "M12 2 C8.13 2 5 5.13 5 9 c0 5.25 7 13 7 13 0 0 7-7.75 7-13 0-3.87-3.13-7-7-7 z " +
+  "M12 11.5 C10.62 11.5 9.5 10.38 9.5 9 9.5 7.62 10.62 6.5 12 6.5 c1.38 0 2.5 1.12 2.5 2.5 0 1.38-1.12 2.5-2.5 2.5 z";
 
 // Below this zoom level a real viewport can span an entire city, which
 // is exactly the "map turns into a smear of dots" case this is meant to
@@ -108,7 +113,7 @@ function AddressPointPins({ onStatusChange }: { onStatusChange: (status: Address
           icon={{
             path: PIN_SVG_PATH,
             scale: 0.9,
-            anchor: new google.maps.Point(12, 24),
+            anchor: new google.maps.Point(12, 22),
             fillColor: PIN_COLOR,
             fillOpacity: 0.9,
             strokeColor: "#fff",
