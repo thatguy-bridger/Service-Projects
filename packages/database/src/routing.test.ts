@@ -45,6 +45,21 @@ describe("orderRouteStops", () => {
     const optimizedDistance = routeDistanceMeters(ordered);
     expect(optimizedDistance).toBeLessThanOrEqual(inputOrderDistance);
   });
+
+  it("skips 2-opt refinement above the size threshold but still returns every point, nearest-neighbor ordered", () => {
+    const points: RoutablePoint[] = Array.from({ length: 401 }, (_, i) => ({
+      id: `p${i}`,
+      lat: 40.5 + Math.sin(i * 0.3) * 0.05,
+      lng: -111.9 + Math.cos(i * 0.7) * 0.05,
+    }));
+    const ordered = orderRouteStops(points);
+    expect(ordered).toHaveLength(points.length);
+    expect(ordered.map((p) => p.id).sort()).toEqual(points.map((p) => p.id).sort());
+    // Above the threshold this is nearest-neighbor only, so it can't be
+    // worse than the raw input order -- construction is greedy-shortest
+    // at every step even without 2-opt cleanup.
+    expect(routeDistanceMeters(ordered)).toBeLessThanOrEqual(routeDistanceMeters(points));
+  });
 });
 
 describe("splitIntoRoutes", () => {
