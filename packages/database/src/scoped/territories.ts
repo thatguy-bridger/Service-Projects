@@ -129,6 +129,51 @@ export async function deleteTerritory(
   return { ok: true };
 }
 
+export interface AddressPointPin {
+  lat: number;
+  lng: number;
+  fullAddress: string;
+}
+
+export interface AddressPointBoundsResult {
+  points: AddressPointPin[];
+  truncated: boolean;
+}
+
+// How many pins to hand back for one viewport -- rendering every
+// imported address as a Marker gets slow well before a city's worth of
+// points would fit on screen anyway, and the caller (TerritoryDrawer)
+// only calls this once the map is zoomed in enough that a real
+// viewport rarely holds more than this many addresses to begin with.
+const BOUNDS_PIN_LIMIT = 500;
+
+/**
+ * Addresses inside a lat/lng box, for showing imported address points as
+ * pins on the territory map once the admin is zoomed in enough that
+ * plotting every point wouldn't just turn the map into a smear of dots.
+ * Not org-scoped, same as the rest of AddressPoint -- it's shared
+ * reference geodata, not per-org data.
+ */
+export async function addressPointsInBounds(
+  session: SessionLike | null | undefined,
+  bounds: { minLat: number; maxLat: number; minLng: number; maxLng: number }
+): Promise<AddressPointBoundsResult> {
+  const membership = await resolveMembership(session);
+  if (!membership || !isStaff(membership.role)) return { points: [], truncated: false };
+
+  const rows = await prisma.addressPoint.findMany({
+    where: {
+      lat: { gte: bounds.minLat, lte: bounds.maxLat },
+      lng: { gte: bounds.minLng, lte: bounds.maxLng },
+    },
+    select: { lat: true, lng: true, fullAddress: true },
+    take: BOUNDS_PIN_LIMIT + 1,
+  });
+
+  const truncated = rows.length > BOUNDS_PIN_LIMIT;
+  return { points: rows.slice(0, BOUNDS_PIN_LIMIT), truncated };
+}
+
 export interface TerritoryFillResult {
   ok: boolean;
   error?: string;

@@ -18,6 +18,7 @@ const {
   deleteTerritory,
   previewTerritoryFill,
   previewPolygonFill,
+  addressPointsInBounds,
 } = await import("../territories");
 
 beforeEach(() => {
@@ -201,5 +202,39 @@ describe("deleteTerritory", () => {
       where: { id: "terr-1", orgId: "org-1", deletedAt: null },
       data: { deletedAt: expect.any(Date) },
     });
+  });
+});
+
+describe("addressPointsInBounds", () => {
+  const BOUNDS = { minLat: 40.5, maxLat: 40.6, minLng: -111.9, maxLng: -111.8 };
+
+  it("returns nothing for a non-staff caller", async () => {
+    const result = await addressPointsInBounds(VOLUNTEER, BOUNDS);
+    expect(result).toEqual({ points: [], truncated: false });
+    expect(prismaMock.addressPoint.findMany).not.toHaveBeenCalled();
+  });
+
+  it("queries the lat/lng box and reports no truncation under the limit", async () => {
+    prismaMock.addressPoint.findMany.mockResolvedValueOnce([
+      { lat: 40.55, lng: -111.85, fullAddress: "123 Main St" },
+    ]);
+    const result = await addressPointsInBounds(ADMIN, BOUNDS);
+    expect(result).toEqual({ points: [{ lat: 40.55, lng: -111.85, fullAddress: "123 Main St" }], truncated: false });
+    expect(prismaMock.addressPoint.findMany).toHaveBeenCalledWith({
+      where: {
+        lat: { gte: 40.5, lte: 40.6 },
+        lng: { gte: -111.9, lte: -111.8 },
+      },
+      select: { lat: true, lng: true, fullAddress: true },
+      take: 501,
+    });
+  });
+
+  it("caps the returned points and reports truncation when the viewport holds more than the limit", async () => {
+    const rows = Array.from({ length: 501 }, (_, i) => ({ lat: 40.5 + i * 0.0001, lng: -111.85, fullAddress: `${i} Main St` }));
+    prismaMock.addressPoint.findMany.mockResolvedValueOnce(rows);
+    const result = await addressPointsInBounds(ADMIN, BOUNDS);
+    expect(result.points).toHaveLength(500);
+    expect(result.truncated).toBe(true);
   });
 });

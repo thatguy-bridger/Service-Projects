@@ -96,6 +96,7 @@ export function createPrismaMock() {
       deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
       createMany: vi.fn().mockResolvedValue({ count: 0 }),
       groupBy: vi.fn().mockResolvedValue([]),
+      findMany: vi.fn().mockResolvedValue([]),
     },
     routeAssignment: {
       findMany: vi.fn().mockResolvedValue([]),

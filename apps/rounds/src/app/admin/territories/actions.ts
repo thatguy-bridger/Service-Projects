@@ -11,9 +11,11 @@ import {
   deleteTerritory,
   previewTerritoryFill,
   previewPolygonFill,
+  addressPointsInBounds,
   type TerritoryActionResult,
   type TerritoryFillResult,
   type TerritoryPolygon,
+  type AddressPointBoundsResult,
 } from "@service-projects/database";
 
 export async function createTerritoryAction(name: string, polygon: TerritoryPolygon): Promise<TerritoryActionResult> {
@@ -82,4 +84,16 @@ export async function previewTerritoryFillAction(id: string): Promise<TerritoryF
 export async function previewPolygonFillAction(polygon: TerritoryPolygon): Promise<TerritoryFillResult> {
   const session = await getServerSession(authOptions);
   return previewPolygonFill(session, polygon);
+}
+
+// Read-only, called from the map as the admin pans/zooms once they're
+// close enough in to plot individual addresses -- no org needed.
+export async function addressPointsInBoundsAction(bounds: {
+  minLat: number;
+  maxLat: number;
+  minLng: number;
+  maxLng: number;
+}): Promise<AddressPointBoundsResult> {
+  const session = await getServerSession(authOptions);
+  return addressPointsInBounds(session, bounds);
 }
