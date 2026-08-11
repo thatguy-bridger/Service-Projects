@@ -7,6 +7,7 @@ import {
   defaultOrganization,
   createTerritory,
   renameTerritory,
+  updateTerritoryShape,
   deleteTerritory,
   previewTerritoryFill,
   previewPolygonFill,
@@ -29,6 +30,31 @@ export async function renameTerritoryAction(id: string, name: string): Promise<T
   const org = await defaultOrganization();
   if (!org) return { ok: false, error: "No organization." };
   const result = await renameTerritory(session, org.id, id, name);
+  revalidatePath("/admin/territories");
+  return result;
+}
+
+// Saves an edit to an existing territory's name + shape together (the
+// editor always has both in hand at save time). Name and shape go
+// through separate scoped helpers (renameTerritory / updateTerritoryShape
+// already existed independently), run one after the other rather than
+// merged into one DB call -- if the rename fails validation (blank name)
+// the shape change is skipped too, so a partial save can't happen.
+export async function updateTerritoryAction(
+  id: string,
+  name: string,
+  polygon: TerritoryPolygon
+): Promise<TerritoryActionResult> {
+  const session = await getServerSession(authOptions);
+  const org = await defaultOrganization();
+  if (!org) return { ok: false, error: "No organization." };
+
+  const renamed = await renameTerritory(session, org.id, id, name);
+  if (!renamed.ok) {
+    revalidatePath("/admin/territories");
+    return renamed;
+  }
+  const result = await updateTerritoryShape(session, org.id, id, polygon);
   revalidatePath("/admin/territories");
   return result;
 }

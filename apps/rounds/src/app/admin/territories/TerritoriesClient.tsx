@@ -4,7 +4,13 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button, Card } from "@service-projects/ui";
 import type { TerritoryRow, TerritoryPolygon } from "@service-projects/database";
-import { createTerritoryAction, renameTerritoryAction, deleteTerritoryAction, previewTerritoryFillAction } from "./actions";
+import {
+  createTerritoryAction,
+  renameTerritoryAction,
+  updateTerritoryAction,
+  deleteTerritoryAction,
+  previewTerritoryFillAction,
+} from "./actions";
 import { TerritoryDrawer } from "./TerritoryDrawer";
 
 export function TerritoriesClient({ initialRows, apiKey }: { initialRows: TerritoryRow[]; apiKey: string | undefined }) {
@@ -13,6 +19,7 @@ export function TerritoriesClient({ initialRows, apiKey }: { initialRows: Territ
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const [fillingId, setFillingId] = useState<string | null>(null);
+  const [editTarget, setEditTarget] = useState<TerritoryRow | null>(null);
 
   return (
     <div style={{ display: "grid", gap: "var(--space-6)" }}>
@@ -24,9 +31,17 @@ export function TerritoriesClient({ initialRows, apiKey }: { initialRows: Territ
           <TerritoryDrawer
             apiKey={apiKey}
             existingTerritories={initialRows}
+            editTarget={editTarget}
             onSave={async (name, polygon: TerritoryPolygon) => {
               const result = await createTerritoryAction(name, polygon);
               setMessage(result.error ?? `Saved "${name}".`);
+              setEditTarget(null);
+              router.refresh();
+            }}
+            onUpdate={async (id, name, polygon: TerritoryPolygon) => {
+              const result = await updateTerritoryAction(id, name, polygon);
+              setMessage(result.error ?? `Saved changes to "${name}".`);
+              setEditTarget(null);
               router.refresh();
             }}
           />
@@ -90,6 +105,9 @@ export function TerritoriesClient({ initialRows, apiKey }: { initialRows: Territ
                   )}
                   {renamingId !== t.id && (
                     <div style={{ display: "flex", gap: "var(--space-2)" }}>
+                      <Button type="button" variant="secondary" onClick={() => setEditTarget(t)}>
+                        Edit shape
+                      </Button>
                       <Button
                         type="button"
                         variant="secondary"
