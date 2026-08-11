@@ -10,8 +10,15 @@ vi.mock("../../client", async () => {
 const { prisma } = await import("../../client");
 const prismaMock = prisma as unknown as PrismaMock;
 
-const { territoriesForOrg, createTerritory, renameTerritory, deleteTerritory, previewTerritoryFill, previewPolygonFill } =
-  await import("../territories");
+const {
+  territoriesForOrg,
+  createTerritory,
+  renameTerritory,
+  updateTerritoryShape,
+  deleteTerritory,
+  previewTerritoryFill,
+  previewPolygonFill,
+} = await import("../territories");
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -97,6 +104,37 @@ describe("renameTerritory", () => {
   it("reports not-found when nothing in this org matches", async () => {
     prismaMock.territory.updateMany.mockResolvedValueOnce({ count: 0 });
     const result = await renameTerritory(ADMIN, "org-1", "terr-missing", "New name");
+    expect(result).toEqual({ ok: false, error: "Territory not found." });
+  });
+});
+
+describe("updateTerritoryShape", () => {
+  it("rejects a non-staff caller", async () => {
+    const result = await updateTerritoryShape(VOLUNTEER, "org-1", "terr-1", SQUARE);
+    expect(result.ok).toBe(false);
+    expect(prismaMock.territory.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("rejects a shape with fewer than 3 points", async () => {
+    const result = await updateTerritoryShape(ADMIN, "org-1", "terr-1", {
+      type: "Polygon",
+      coordinates: [[[-111.9, 40.7], [-111.8, 40.7]]],
+    });
+    expect(result.ok).toBe(false);
+    expect(prismaMock.territory.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("replaces the polygon and resets the cached fill count, scoped to the caller's org", async () => {
+    await updateTerritoryShape(ADMIN, "org-1", "terr-1", SQUARE);
+    expect(prismaMock.territory.updateMany).toHaveBeenCalledWith({
+      where: { id: "terr-1", orgId: "org-1", deletedAt: null },
+      data: { polygon: SQUARE, addressPointCount: null, lastFilledAt: null },
+    });
+  });
+
+  it("reports not-found when nothing in this org matches", async () => {
+    prismaMock.territory.updateMany.mockResolvedValueOnce({ count: 0 });
+    const result = await updateTerritoryShape(ADMIN, "org-1", "terr-missing", SQUARE);
     expect(result).toEqual({ ok: false, error: "Territory not found." });
   });
 });

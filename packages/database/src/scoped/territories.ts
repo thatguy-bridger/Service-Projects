@@ -85,6 +85,34 @@ export async function renameTerritory(
   return { ok: true };
 }
 
+/**
+ * Replaces a territory's saved shape (the map editor's "drag/add/delete
+ * points, then save" flow). Clears addressPointCount/lastFilledAt back
+ * to null rather than leaving the old count in place -- a cached count
+ * is only meaningful for the shape it was computed against, and once
+ * the shape moves it's actively misleading until re-checked, not just
+ * stale.
+ */
+export async function updateTerritoryShape(
+  session: SessionLike | null | undefined,
+  orgId: string,
+  territoryId: string,
+  polygon: TerritoryPolygon
+): Promise<TerritoryActionResult> {
+  const membership = await resolveMembership(session);
+  if (!membership || !isStaff(membership.role)) return { ok: false, error: "Forbidden" };
+  if (!polygon?.coordinates?.[0] || polygon.coordinates[0].length < 3) {
+    return { ok: false, error: "A territory needs at least 3 points." };
+  }
+
+  const result = await prisma.territory.updateMany({
+    where: { id: territoryId, orgId, deletedAt: null },
+    data: { polygon: polygon as object, addressPointCount: null, lastFilledAt: null },
+  });
+  if (result.count === 0) return { ok: false, error: "Territory not found." };
+  return { ok: true };
+}
+
 export async function deleteTerritory(
   session: SessionLike | null | undefined,
   orgId: string,
