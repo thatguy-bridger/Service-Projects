@@ -90,11 +90,13 @@
 }
 
 .card {
-  background: var(--surface-raised);
-  border: 1px solid var(--border-default);
+  background: var(--glass-bg-strong);
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
   padding: var(--space-6);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
   transition: box-shadow var(--duration-base) var(--ease-standard),
     border-color var(--duration-base) var(--ease-standard),
     transform var(--duration-base) var(--ease-standard);
@@ -127,6 +129,8 @@
   position: fixed;
   inset: 0;
   background: color-mix(in srgb, var(--color-gray-900) 55%, transparent);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -134,15 +138,17 @@
   z-index: 100;
 }
 .dialog {
-  background: var(--surface-raised);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-lg);
+  background: var(--glass-bg-strong);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xl);
   box-shadow: var(--shadow-lg);
   padding: var(--space-6);
   max-width: 480px;
   width: 100%;
   max-height: 90vh;
   overflow-y: auto;
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
 }
 .dialog-title {
   margin: 0 0 var(--space-2);
