@@ -33,6 +33,11 @@ function StatTile({
   return (
     <a
       href={href}
+      // Links are natively draggable by default -- explicitly off so a
+      // wrapping element's own drag handling (HomeDashboard.tsx's
+      // rearrange mode) is what actually fires, not the browser's
+      // built-in "drag this link" ghost.
+      draggable={false}
       className="card card--interactive"
       style={{
         display: "flex",
@@ -73,7 +78,9 @@ function StatTile({
   );
 }
 
-function renderBlock(blockId: string, data: AdminDashboardBlockData): ReactNode {
+/** Exported so HomeDashboard.tsx can render individual blocks itself
+ * while wrapping each one in its own drag handlers. */
+export function renderAdminDashboardBlock(blockId: string, data: AdminDashboardBlockData): ReactNode {
   switch (blockId) {
     case "needs_review_count":
       return <StatTile label="Needs review" count={data.needsReviewCount} href="/admin/review" tone="attention" />;
@@ -107,6 +114,7 @@ function renderBlock(blockId: string, data: AdminDashboardBlockData): ReactNode 
                 <a
                   key={r.id}
                   href={`/admin/events/${r.eventId}`}
+                  draggable={false}
                   style={{ display: "flex", justifyContent: "space-between", fontSize: "var(--text-sm)", color: "inherit" }}
                 >
                   <span>
@@ -129,6 +137,7 @@ function renderBlock(blockId: string, data: AdminDashboardBlockData): ReactNode 
               <a
                 key={r.id}
                 href={`/admin/events/${r.eventId}/board`}
+                draggable={false}
                 style={{ fontSize: "var(--text-sm)", color: "var(--color-accent-600)" }}
               >
                 {r.name} ({r.eventName}) — live board →
@@ -175,7 +184,7 @@ export function AdminDashboardSlotBlocks({
     <>
       {blocks.map((b) => (
         <span key={b.blockId} style={{ display: "contents" }}>
-          {renderBlock(b.blockId, data)}
+          {renderAdminDashboardBlock(b.blockId, data)}
         </span>
       ))}
     </>

@@ -6,7 +6,7 @@ import { defaultOrganization, adminDashboardLayoutForOrg, adminDashboardData } f
 import { t } from "@/copy";
 import { AppTopbar } from "./AppTopbar";
 import { getEffectiveRole } from "@/lib/previewRole";
-import { AdminDashboardSlotBlocks } from "@/blocks/DashboardBlocks";
+import { HomeDashboard } from "./HomeDashboard";
 
 // Always fresh: reads the request's session.
 export const dynamic = "force-dynamic";
@@ -160,34 +160,9 @@ export default async function HomePage({
       )}
 
       {isOwnerOrAdmin && dashboardLayout && dashboardData && (
-        <>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
-              gap: "var(--space-4)",
-              marginBottom: "var(--space-6)",
-            }}
-          >
-            <AdminDashboardSlotBlocks layout={dashboardLayout} slot="top" data={dashboardData} />
-          </div>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "2fr 1fr",
-              gap: "var(--space-4)",
-              marginBottom: "var(--space-6)",
-              alignItems: "start",
-            }}
-          >
-            <div style={{ display: "grid", gap: "var(--space-4)" }}>
-              <AdminDashboardSlotBlocks layout={dashboardLayout} slot="main" data={dashboardData} />
-            </div>
-            <div style={{ display: "grid", gap: "var(--space-4)" }}>
-              <AdminDashboardSlotBlocks layout={dashboardLayout} slot="side" data={dashboardData} />
-            </div>
-          </div>
-        </>
+        <div style={{ marginBottom: "var(--space-6)" }}>
+          <HomeDashboard initialLayout={dashboardLayout} data={dashboardData} />
+        </div>
       )}
 
       {!isOwnerOrAdmin && (
