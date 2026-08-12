@@ -161,7 +161,14 @@ export default async function HomePage({
 
       {isOwnerOrAdmin && dashboardLayout && dashboardData && (
         <>
-          <div style={{ display: "flex", gap: "var(--space-4)", flexWrap: "wrap", marginBottom: "var(--space-6)" }}>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+              gap: "var(--space-4)",
+              marginBottom: "var(--space-6)",
+            }}
+          >
             <AdminDashboardSlotBlocks layout={dashboardLayout} slot="top" data={dashboardData} />
           </div>
           <div

@@ -176,12 +176,23 @@ h1, h2, h3, h4 {
   background: var(--color-accent-500);
 }
 
+/* Mirrors .signup-stepperTrack's layout exactly (same flex:1 segments,
+   same gap) instead of a separate space-between row -- space-between
+   only aligns the first/last labels to the track's edges and leaves
+   the middle one(s) merely evenly spaced, not actually centered under
+   their own segment. Each label spans its segment's full width and
+   centers its text within it. */
 .signup-stepperLabels {
   display: flex;
-  justify-content: space-between;
+  gap: var(--space-2);
   font-weight: var(--weight-medium);
   font-size: 11px;
   color: var(--text-muted);
+}
+
+.signup-stepperLabels > span {
+  flex: 1;
+  text-align: center;
 }
 
 .signup-stepperLabel--active {
