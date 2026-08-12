@@ -36,26 +36,46 @@ h1, h2, h3, h4 {
  * on every page. Rendered as a sibling *before* each page's shell (see
  * AppTopbar.tsx's call sites), not nested inside it, so this padding is
  * the only padding it ever gets — never doubled up with a shell's. */
+/* Floating glass pill: inset from the viewport edges and fully rounded
+   rather than a flush edge-to-edge bar. Still `position: sticky` (not
+   fixed) so it keeps reserving its own box in normal flow -- every
+   page's content shell below it needs no clearance/padding changes to
+   avoid overlap, unlike a `fixed` pill would require. */
 .rounds-topbar {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: var(--space-3);
-  width: 100%;
+  /* Insets from the viewport edge by --space-4 at every width, capping
+     at 1200px on wide screens -- min()/max-width alone would only
+     start insetting once the viewport exceeds 1200px. */
+  width: min(1200px, calc(100% - 2 * var(--space-4)));
   box-sizing: border-box;
-  padding: var(--space-4) var(--space-6);
-  border-bottom: 1px solid var(--border-default);
-  background: color-mix(in srgb, var(--surface-raised) 88%, transparent);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  margin: var(--space-4) auto;
+  padding: var(--space-3) var(--space-6);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-full);
+  background: var(--glass-bg-strong);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  box-shadow: var(--shadow-md);
   position: sticky;
-  top: 0;
+  top: var(--space-4);
   z-index: 30;
+  transition: box-shadow var(--duration-base) var(--ease-standard),
+    transform var(--duration-base) var(--ease-standard);
+}
+
+.rounds-topbar:hover {
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-1px);
 }
 
 @media (max-width: 640px) {
   .rounds-topbar {
-    padding: var(--space-3) var(--space-4);
+    margin: var(--space-2) auto;
+    padding: var(--space-2) var(--space-4);
+    border-radius: var(--radius-xl);
   }
 }
 
@@ -122,9 +142,12 @@ h1, h2, h3, h4 {
 
 @media (min-width: 640px) {
   .signup-shell {
-    border-radius: var(--radius-lg);
-    border: 1px solid var(--border-default);
+    background: var(--glass-bg-strong);
+    border-radius: var(--radius-xl);
+    border: 1px solid var(--glass-border);
     box-shadow: var(--shadow-md);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
     overflow: hidden;
   }
 }
